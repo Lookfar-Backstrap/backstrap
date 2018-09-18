@@ -1,0 +1,89 @@
+{
+    "roles": [
+        {
+            "name": "super-user",
+            "title": "Super User",
+            "created_by": "backstrap",
+            "created_date": "8/16/2016",
+            "pattern_matches": [
+                "Area: common"
+            ],
+            "description": "This is a super user. They can do everything!",
+            "areas": [
+                {
+                    "name": "common",
+                    "permission": "all"
+                }
+            ]
+        },
+        {
+            "name": "admin-user",
+            "title": "Admin User",
+            "created_by": "backstrap",
+            "created_date": "9/10/2016",
+            "pattern_matches": [
+                "Area: common | Controller: accounts",
+                "Area: common | Controller: analytics",
+                "Area: common | Controller: cms"
+            ],
+            "description": "This is an admin user. They can do some stuff!",
+            "areas": [
+                {
+                    "name": "common",
+                    "permission": "some",
+                    "validRoutes": [
+                        {
+                            "controller": "accounts",
+                            "permission": "all",
+                            "version": "1.0.0"
+                        },
+                        {
+                            "controller": "analytics",
+                            "permission": "all",
+                            "version": "1.0.0"
+                        },
+                        {
+                            "name": "cms",
+                            "permission": "all",
+                            "version": "1.0.0"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "default-user",
+            "title": "Default User",
+            "created_by": "backstrap",
+            "created_date": "8/14/2016",
+            "pattern_matches": [
+                "Area: common | Controller: accounts",
+                "Area: common | Controller: analytics",
+                "Area: common | Controller: cms"
+            ],
+            "description": "This is a default user. They can do some stuff!",
+            "areas": [
+                {
+                    "name": "common",
+                    "permission": "some",
+                    "validRoutes": [
+                        {
+                            "controller": "accounts",
+                            "version": "1.0.0",
+                            "permission": "all"
+                        },
+                        {
+                            "controller": "analytics",
+                            "version": "1.0.0",
+                            "permission": "all"
+                        },
+                        {
+                            "name": "cms",
+                            "permission": "all"
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}

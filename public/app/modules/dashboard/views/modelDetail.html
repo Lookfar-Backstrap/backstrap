@@ -1,0 +1,129 @@
+<section class="content-header">
+    <h1>
+       Model Details
+    </h1>
+    <ol class="breadcrumb">
+        <li><a><i class="fa fa-dashboard"></i> Dashboard</a></li>
+        <li class="active">Model Details</li>
+    </ol>
+</section>
+<!-- Main content -->
+<section class="content">
+    <div class="row">
+        <div class="col-md-2">           
+            <div class="box box-primary">
+                <div class="box-body box-profile">
+                    <img style="border:none" class="profile-user-img img-responsive" src="../../../../images/icons/modelDetail.png" alt="{{vm.model.obj_type}} K">
+                    <div style="position:relative; top:-86px;" class="box-body box-profile">
+                        <h3 style="color:#fff; position:relative; font-size:30pt;" class="profile-username text-center">{{vm.model.obj_type | limitTo:1 | uppercase}} </h3>
+                        <h3 style="margin-top:30px" class="profile-username text-center">{{vm.model.obj_type}} </h3>
+                        <p style="color:#262626" class="text-muted text-center"><strong>Date Created: </strong>{{vm.model.date_created}}</p>
+                        <p  style="color:#262626" class="text-muted text-center"><strong>Last Update: </strong>{{vm.model.date_updated}}</p>       
+                        <a class="btn btn-info btn-block" ui-sref="app.modelData">View Data</a>  
+                        <br /> 
+                        <a class="btn btn-success btn-block" ui-sref="app.entityInsert">Add Data</a>                
+                    </div>
+              
+                    <div class="box-body" style="position:relative; top:-100px;">
+                        <hr>
+                        <strong><i class="fa fa-text-height margin-r-5"></i> Description</strong>
+                        <p ng-show="!editDesc" class="text-muted">{{vm.model.description}}</p>
+                        <textarea ng-Show="editDesc" style="width:100%; padding:4px; min-height:200px" ng-model="vm.model.description" name="description"></textarea>
+                        <br /><br />
+                        <button ng-show="!editDesc" type="button" ng-click="editDesc = true" class="btn btn-primary" data-dismiss="modal">Edit</button>
+                          <button ng-show="editDesc" type="button" ng-click="saveDesc()" class="btn btn-primary">Save</button>
+                         &nbsp;&nbsp;<button ng-show="editDesc"  type="button" ng-click="editDesc = false" class="btn btn-warn" data-dismiss="modal">Cancel</button>
+                        <hr>
+                        <strong><i class="fa fa-key margin-r-5"></i>  Relationships</strong>
+                        <p class="text-muted">Count: {{vm.model.relationships.length}}</p>
+                        
+                        <hr>
+                         <strong><i class="fa fa-leaf margin-r-5"></i>  Properties</strong>
+                        <p class="text-muted">Count: {{vm.model.properties.length}}</p>
+                       
+                    </div>
+
+                    <!--<a class="btn btn-primary btn-block" ui-sref="app.contact"><b>Contact Me</b></a>-->
+                </div><!-- /.box-body -->
+            </div><!-- /.box -->
+        </div><!-- /.col -->
+   
+        <div class="col-md-5">
+            <div class="box box-warning">
+                <div class="box-header with-border">
+                    <h3 class="box-title">Properties</h3>
+                    <button style="float:right" type="button" ng-click="createProperty()" class="btn btn-primary btn-success">+ Create Property</button>
+                     <span style="margin:10px;"><br /><a ng-click="showNameHint()">Why is there a name field?</a </span>
+                </div><!-- /.box-header -->               
+                <div class="box-body" style="font-size:18px;">
+	                <table class="table-fill" style="font-size:80%">
+                    <thead >
+                    <tr >
+                    <th class="text-center media-priority-1">&nbsp;</th>
+                    <th class="text-center media-priority-1">Name</th>
+                    <th class="text-center media-priority-3">Data Type</th>    
+                    <th class="text-center media-priority-2">Required</th>                
+                    </tr>
+                    </thead>
+                    <tbody class="table-hover">         
+                            <tr data-ng-repeat="property in vm.model.properties" >    
+                                <td ng-show="property.name !== 'id' && property.name !== 'name'" data-ng-click="vm.propertyDetail(property);" class="text-center media-priority-1"><i class="fa fa-edit margin-r-5"></i> Edit </td>
+                                <td ng-show="property.name === 'id' || property.name === 'name'" class="text-center media-priority-1"><i class="fa fa-lock margin-r-5"></i> Sys </td>                                              
+                                <td class="text-center media-priority-1"><i class="margin-r-5"></i>{{property.name}}</td> 
+                                <td class="text-center media-priority-3"><i class="margin-r-5"></i>{{property.data_type}}</td> 
+                                <td class="text-center media-priority-2"><i class="margin-r-5"></i><i class="fa fa-square-o margin-r-5" ng-show="{{!property.required}}"></i><i class="fa fa-check-square-o margin-r-5" ng-show="{{property.required}}"></i></td> 
+                             </tr>
+                        </tbody>
+                    </table><br /><br />
+                    
+                    
+            </div><!-- /.box -->
+        </div>
+    </div>
+
+     <div class="col-md-5">
+        <div class="box box-success">
+            <div class="box-header with-border">
+                <h3 class="box-title">Relationships</h3>&nbsp;&nbsp;&nbsp;
+                 <select ng-model="relFilter" ng-change="updateRelationships()">
+                        <option ng-repeat="opt in relFilterOptions">{{opt}}</option>
+                 </select>                  
+                <button style="float:right" type="button" ng-click="createRelationship()" class="btn btn-primary btn-success">+ Create Relationship</button>
+            </div><!-- /.box-header -->
+            <div class="box-body">    
+               <table class="table-fill" style="font-size:80%">
+                    <thead >
+                    <tr >
+                    <th class="text-center media-priority-1">&nbsp;</th>
+                    <th class="text-center media-priority-1">Active</th>
+                    <th class="text-center media-priority-3">Relates To</th>
+                    <th class="text-center media-priority-1">Linking Table</th>   
+                       
+                    </tr>
+                    </thead>
+                    <tbody class="table-hover">         
+                            <tr data-ng-repeat="relationship in relFilterGrid">    
+                                <td data-ng-click="vm.relationshipDetail(relationship);" class="text-center media-priority-1"><i class="fa fa-edit margin-r-5"></i> Edit </td>   
+                                <td class="text-center"><i class="margin-r-5 media-priority-1"></i><i class="fa fa-square-o margin-r-5" ng-show="{{!relationship.is_active}}"></i><i class="fa fa-check-square-o margin-r-5" ng-show="{{relationship.is_active}}"></i></td>                     
+                                <td class="text-center media-priority-3"><i class="margin-r-5"></i>{{relationship.relates_to}}</td> 
+                                <td class="text-center media-priority-1"><i class="margin-r-5"></i>{{relationship.linking_table}}</td> 
+                             </tr>
+                        </tbody>
+                    </table><br /><br />
+                    <div ng-show="childRelationships.length > 0">
+                    **This model is the child in a relationship with the following models:
+                    <ul>
+                        <li ng-repeat="cr in childRelationships">
+                                <a ng-click="goToModel(cr)">{{cr}}</a>
+                            </li>
+                        </ul>
+                    </div>
+                    <br />
+            </div><!-- /.box-body -->
+        </div><!-- /.box -->
+    </div>
+
+        </div><!-- /.row -->
+</section><!-- /.content -->
+
+

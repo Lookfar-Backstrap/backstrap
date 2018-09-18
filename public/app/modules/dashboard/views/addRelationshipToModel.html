@@ -1,0 +1,54 @@
+
+<div class="modal fade">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" ng-click="close()" data-dismiss="modal" aria-hidden="true">&times;</button>
+        <h4 class="modal-title">Entity Relationship</h4>
+      </div>
+      <div class="modal-body" style="overflow:auto">     
+
+		<form id="form" class="form-horizontal" role="form">
+		 <p>
+             You are one click away from setting up a relationship. Optionally, you can add a "Rel Type" to this relationship. 
+             Enter the Rel Type value, or simply click the "Add Relationship" button. 
+             <br /><br />
+             <b>What is a Rel Type? </b><br />Great question!! While the name property can be used as a value to search on, 
+             the Rel Type is used as a key to JOIN records together. If you are creating an address relationship for a peron's work, 
+             you would enter work. If you generate a query that joins on the rel_type Work, you would get ALL work addresses.
+             This is not a requried field, but allows you to get the most out of Backstrap.
+             <br /><br />
+		 </p>
+		  <div class="form-group">
+		    <label for="name" class="col-sm-2 control-label">Rel Type</label>
+		    <div class="col-sm-10">           
+		      <input  type="text" class="form-control" id="lookup_rel_type" placeholder="Rel Type" ng-model="lookupKey">
+		    </div>
+		  </div>
+    
+            <br />
+           <h3>{{objRel.rel.object_type}}</h3>
+        <table class="table-fill add-rel-table ">
+        <thead >
+        <tr >
+        <th ng-repeat="header in table.headers" class="text-center">{{header}}</th>                                    
+        </tr>
+        </thead>
+        <tbody class="table-hover">         
+              <tr ng-repeat="row in table.rows" >    
+                  <td ng-repeat="ri in row.row_items" class="text-center">{{ri.item}}</td>
+              </tr>
+            </tbody>
+        </table>
+      
+		</form>
+    
+      </div>
+    <br /><br />
+      <div class="modal-footer">       
+        <button type="button" ng-click="addRelationship()" class="btn btn-primary">Add Relationship</button>      
+        <button type="button" ng-click="cancel()" class="btn" data-dismiss="modal">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>

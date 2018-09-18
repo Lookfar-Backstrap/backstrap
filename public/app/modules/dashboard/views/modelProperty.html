@@ -1,0 +1,59 @@
+
+
+<div class="modal fade">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" ng-click="close()" data-dismiss="modal" aria-hidden="true">&times;</button>
+        <h4 class="modal-title">{{property.name}}</h4>
+      </div>
+      <div class="modal-body">
+        <p style="padding:10px">
+					<label ng-show="!showName"> Edit your model's properties.</label>
+					<label ng-show="showName">This process create's a new property for the current object_type: {{modelName}}.</label>
+					<br />
+					<label ng-show="showName" style="color:red;">{{message}}</label>
+        </p>
+
+		<form class="form-horizontal" role="form">
+
+		   <div ng-show="showName" class="form-group">
+					<label for="name" class="col-sm-2 control-label">Name</label>
+					<div class="col-sm-10">
+						<input  type="text" autocomplete="off"  class="form-control" id="name" placeholder="Name" ng-model="property.name" ng-keyup="validateName()">
+					</div>
+		  </div>
+		 
+      <div class="form-group">
+					<label for="name" class="col-sm-2 control-label">Data Type</label>
+					<div class="col-sm-10">
+							<select data-ng-options="type.value as type.label for type in data_types" data-ng-model="property.data_type"></select>
+					</div>
+		  </div>
+
+       <div class="form-group">
+					<label for="name" class="col-sm-2 control-label">Required</label>
+					<div class="col-sm-10">
+					<select data-ng-options="o for o in req_options" data-ng-model="property.required"></select>
+					</div>
+		  </div> 
+			<br />
+		 <span class="col-sm-2">&nbsp;</span>
+		 <label for="name" class="col-10 control-label" style="margin-left:10px;">Hint <i>(This is used as a tip that a see when entering and viewing data)</i></label>
+		 <br />
+			<div class="form-group">				
+					<span class="col-sm-2">&nbsp;</span>
+					<div class="col-sm-10">
+								<input  type="text" autocomplete="off"  class="form-control" id="Hint" placeholder="Hint" ng-model="property.hint">
+					</div>
+		  </div>         
+		</form>
+
+      </div>
+      <div class="modal-footer">       
+        <button type="button" ng-click="doSave()" class="btn btn-primary">Save Changes</button>
+        <button type="button" ng-click="cancel()" class="btn">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>

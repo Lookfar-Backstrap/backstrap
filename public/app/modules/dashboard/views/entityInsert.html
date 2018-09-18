@@ -1,0 +1,98 @@
+
+<!--<script>
+    var timer = setInterval(function(){
+        $('.md-tab').css('padding','10px 22px');
+    }, 5000);
+</script>-->
+<section class="content-header">
+    <h1>
+       Insert Data  &nbsp;&nbsp;&nbsp;   <a class="btn btn-info" ui-sref="app.modelDetail">Back To Model Details</a>  
+    </h1>
+    <ol class="breadcrumb">
+        <li><a><i class="fa fa-dashboard"></i> Dashboard</a></li>
+        <li class="active">Insert Data</li>
+    </ol>
+</section>
+<!-- Main content -->
+<section class="content">
+    <div class="row">
+        <div class="col-md-3">           
+            <div class="box box-primary">
+               <div class="box-header with-border" style="min-height:500px">
+                        <h3 class="box-title">Add Relationships</h3><br />
+                    <br />
+                    <div layout="column" layout-wrap layout-gt-sm="row" >
+                        <div ng-repeat="rel in vm.model.relationships" ng flex-xs flex="100" ng-show="rel.is_active">
+                             <md-radio-group ng-model="data.relGroup">
+                                <md-radio-button value="{{rel.relates_to}}" class="md-primary">{{rel.relates_to}}<span ng-show="rel.look_up_key != null"> ({{rel.look_up_key}}) </span></md-radio-button>                      
+                            </md-radio-group>
+                        </div>                        
+                           <div ng-show="data.relGroup != ''" class="col-sm-10" style="z-index:900; position:relative"> 
+                            <a class="btn btn-info btn-danger" ng-click="data.relGroup = ''"><b>Cancel</b></a> 
+                              <br /><br />                
+                            <input  type="text" style="width:230px" class="form-control" id="relates_to" placeholder="Search {{data.relGroup}}" ng-model="rel.relates_to" ng-keyup="querySearch()">                         
+                            <div style="width:100%" class="suggest">
+                                <ul class="suggest">
+                                    <li ng-repeat="r in relSearchResults" data-ng-click="addRelationshipModal(r)">
+                                        <a>{{r.display_text}}</a>
+                                    </li>
+                                </ul>
+                            </div>                           
+                        </div>
+                         
+                    </div>
+                    </div><!-- /.box-body --     </div><!-- /.box -->
+            </div><!-- /.box -->
+        </div><!-- /.col -->
+        <div class="col-md-9">
+        <div ng-cloak class="sample" layout="column" >       
+                <md-content class="md-padding">             
+                <div class="col-md-4">   
+                    <h3 class="query-main">Relationships</h3><br />
+                    <br />                
+                    <div style="width:100%;">
+                        <ul class="selectedSuggestion">
+                            <li ng-repeat="r in selectedRelationshipProperties">
+                              <a ng-click="removeRel(r)"><i style="color:red" class="fa fa-remove margin-r-5"></i></a><span style="margin-top:8px">{{r.rel.object_type}} - {{r.display_text}}</span>
+                              <span ng-show="r.lookup_rel_type.length > 0">&nbsp;&nbsp<i>(RelType: {{r.lookup_rel_type}})</i></span>                              
+                            </li>
+                        </ul>
+                        <span ng-show="selectedRelationshipProperties.length == 0"><i>No relationships have been selected</i></span>
+                    </div>
+                </div>
+                <div class="col-md-6">                   
+                    <div class="box-header with-border" style="margin-top:5px;">
+                    <span class="query-main">Create a new {{vm.model.obj_type}} record</span>
+                        <br /> <br />                  
+                        <div class="query-box" style="clear:left; max-height:600px; overflow:auto">                      
+                            <div ng-show="p.property != 'id'" class="query-box" ng-repeat="p in vm.query.props" class="form-group">
+                               <label  class="col-sm-3 control-label"><span ng-show="p.required && p.value == ''" style="float:left; color:red; margin-top:3px">**&nbsp; </span>{{p.property}}
+                                <a ng-show="p.property==='name' || p.hint.length > 0" ng-click="showHint(p.property)">(?)</a>
+                               </label>
+                                <div class="col-sm-5">               
+                                    <input type="text" class="form-control query-tb" ng-model="p.value" />
+                                </div>
+                            </div>                      
+                        </div>
+                        <br />
+                     
+                    <a ng-click="entityInsert()" style="clear:left; float:left; margin-top:45px" class="btn btn-success">
+                    {{btnExecuteText}}<md-progress-circular  md-mode='indeterminate' style="margin-left:30px"  ng-show="dataLoading" class="md-hue-2" md-diameter="20px"></md-progress-circular></a>   
+                  
+                </div><!-- /.box -->             
+            </div>
+        </md-content>         
+
+</div>
+
+</div>
+      
+
+       
+
+   
+
+        </div><!-- /.row -->
+</section><!-- /.content -->
+
+

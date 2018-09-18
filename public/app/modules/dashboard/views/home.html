@@ -1,0 +1,68 @@
+﻿
+
+    <!-- Content Header (Page header) -->
+    <section class="content-header">
+        <h1>
+          Dashboard
+        </h1>
+        <ol class="breadcrumb">
+            <li><a><i class="fa fa-dashboard"></i> Dashboard</a></li>
+            <li class="active">Home</li>
+        </ol>
+    </section>
+    <!-- Main content -->
+    <section class="content">
+        <!-- Info boxes -->
+        <div class="row">
+            <div class="col-md-3 col-sm-6 col-xs-12" data-ng-repeat="data in vm.home.mainData">
+                <div class="info-box" ng-click="redirectTo(data.link)">
+                    <span class="info-box-icon bg-{{data.theme}}"><i class="fa fa-{{data.icon}}"></i></span>
+                    <div class="info-box-content">
+                        <span class="info-box-text">{{data.title}}</span>
+                        <span class="info-box-number">{{data.value}}</span>
+                    </div><!-- /.info-box-content -->
+                </div><!-- /.info-box -->
+            </div><!-- /.col -->
+        </div><!-- /.row -->
+        <div class="row">
+            <div class="col-md-12">
+                <div class="box">
+                    <div class="box-header with-border">
+                        <h3 class="box-title">Usage</h3>
+                        <div class="box-tools pull-right">
+                            <button class="btn btn-box-tool bg-aqua-gradient" data-ng-click="vm.showDetails=!vm.showDetails"><i class="fa fa-chevron-circle-up" data-ng-if="vm.showDetails"></i><i class="fa fa-chevron-circle-down" data-ng-if="!vm.showDetails"></i></button>
+                        </div>
+                    </div><!-- /.box-header -->
+
+                    <div class="box-body" data-ng-show="vm.showDetails">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <!--<div id="owl-single" class="owl-carousel owl-theme">
+                                    <!--<div class="item"> <img src="../../../../images/home/photo1.jpg" /></div>
+                                    <div class="item"> <img src="../../../../images/home/photo2.jpg" /></div>
+                                    <div class="item"> <img src="../../../../images/home/photo3.jpg" /></div>
+                                    <div class="item"> <img src="../../../../images/home/photo4.jpg" /></div>
+                                    <div class="item"> <img src="../../../../images/home/photo5.jpg" /></div>-->
+                                </div>
+                            </div><!-- /.col -->
+                            <div class="col-md-8" style="border-left:1px solid #eee;">
+                                <p class="text-center">
+                                    <strong>Basic Plan Account Details</strong>
+                                </p>
+                                <div class="progress-group" data-ng-repeat="skill in vm.home.skills">
+                                    <span class="progress-text">{{skill.title}}</span>
+                                    <span class="progress-number"><b>{{skill.percentage}}</b>/100</span>
+                                    <div class="progress sm border-radius-5">
+                                        <div class="progress-bar progress-bar-{{skill.theme}}" style="width: {{skill.percentage}}%"></div>
+                                    </div>
+                                </div><!-- /.progress-group -->
+                            </div><!-- /.col -->
+                        </div><!-- /.row -->
+                    </div><!-- ./box-body -->
+                  
+
+                    </div><!-- /.box-footer -->
+                </div><!-- /.box -->
+            </div><!-- /.col -->
+        </div><!-- /.row -->
+    </section><!-- /.content -->

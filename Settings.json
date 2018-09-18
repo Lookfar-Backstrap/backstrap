@@ -1,0 +1,42 @@
+{
+	"token_header": "bs_api_token",
+	"timeout_check": 15,
+	"timeout": 120,
+	"server_port": 3000,
+	"servers": [],
+	"mail_options": {
+		"account": "YOUR EMAIL",
+		"service": "sendgrid",
+		"user": "YOUR USER",
+		"pass": "YOUR PASSWORD",
+		"template_directory": "./templates/"
+	},
+	"oauth": {
+		"facebook": {
+			"client_id": "",
+			"client_secret": "",
+			"get_token_url": "https://graph.facebook.com/v2.8/oauth/access_token?client_id=",
+			"token_info_url": "https://graph.facebook.com/v2.8/me?access_token",
+			"endpoint": "https://graph.facebook.com/v2.8/oauth/access_token"
+		},
+		"twitter": {
+			"consumer_key": "",
+			"consumer_secret": "",
+			"get_token_url": "https://api.twitter.com/oauth/request_token",
+			"callback_url": "",
+			"verify_credentials_json_url":"https://api.twitter.com/1.1/account/verify_credentials.json",
+			"access_token_url": "https://api.twitter.com/oauth/access_token"
+		},
+		"google": {
+			"client_id": "",
+			"client_secret": "",
+			"get_token_url": "https://www.googleapis.com/oauth2/v4/token",
+			"token_info_url": "https://www.googleapis.com/oauth2/v3/tokeninfo"
+		},
+		"linkedin": {
+
+		}
+	},
+	"reload_user": "YOUR RELOAD USER",
+	"reload_pass": "YOUR RELOAD PASSWORD"
+}

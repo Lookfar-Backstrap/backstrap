@@ -1,0 +1,74 @@
+
+<section class="content-header">
+    <h1>
+       Users
+    </h1>
+    <ol class="breadcrumb">
+        <li><a><i class="fa fa-dashboard"></i> Dashboard</a></li>
+        <li class="active">Users</li>
+    </ol>
+</section>
+<!-- Main content -->
+<section class="content">
+    <div class="row">
+      
+   
+        <div class="col-md-12">
+            <div class="box box-warning">   
+                   <div ng-show="showLoading" style="width:100%; padding:75px; text-align:center">
+                       <div style="margin:auto">
+                        <div >Loading Data...<br /><br />
+                            <div class="loading"></div>
+                        </div>
+                    </div>
+                </div>            
+                <div class="box-body" style="font-size:18px;" ng-show="!showLoading">
+                    <div style="margin:5px; float:left">
+                            <input class="text-box-filter" type="text" ng-model="searchString" name="searchString" placeholder="Filter by area, controller, verb or method" ng-keyup="searchList()" >
+                        </div>
+                         <div style="margin:10px 20px; float:left">
+                             OR
+                         </div>
+                         <div style="margin:5px 0; float:left">
+                                <button style="float:left" type="button" ng-click="createUser()" class="btn btn-primary btn-success">+ New User</button>
+                         </div>
+                     <div ng-show="showPagination" class="paginationContainer">
+                        <span ng-show="!showPrevious" class="noShowPrev">&nbsp;</span><a ng-show="showPrevious" ng-click="previous()"><span><i class="fa fa-arrow-left margin-r-5"></i>Previous</span></a>
+                        <span style="margin-left:20px; margin-right:20px;">{{pageOfText}}</span>
+                        <a ng-show="showNext" ng-click="next()"><span>Next&nbsp;&nbsp;<i class="fa fa-arrow-right margin-l-5"></i></span></a>                         
+                    </div>               
+	                 <table class="table-fill">
+                        <thead >
+                            <tr >
+                            <th class="text-center media-priority-1">&nbsp;</th>
+                            <th class="text-center media-priority-1">Username</th>
+                            <!--<th class="text-center">Id</th>    -->
+                            <th class="text-center media-priority-2">Email</th> 
+                            <th class="text-center media-priority-3">Roles</th>
+                            <th class="text-center media-priority-1">Is Active</th>
+                            <th class="text-center media-priority-3">Created At</th>
+                            <th class="text-center media-priority-3">Updated At</th>                   
+                            </tr>
+                       </thead>
+                    <tbody class="table-hover">         
+                            <tr data-ng-repeat="user in vm.paginatedList" >    
+                                <td data-ng-click="editUser(user);" class="text-center media-priority-1"><i class="fa fa-edit margin-r-5"></i>Edit </td>                       
+                                <td class="text-center media-priority-1"><i class="margin-r-5"></i>{{user.username}}</td> 
+                                <!--<td class="text-center"><i class="margin-r-5"></i>{{user.id}}</td> -->
+                                <td class="text-center media-priority-2"><i class="margin-r-5"></i>{{user.email}}</td> 
+                                <td class="text-center media-priority-3"><i class="margin-r-5"></i>{{user.roles}}</td> 
+                                <td class="text-center media-priority-1"><i class="margin-r-5"></i><i class="fa fa-check-square-o margin-r-5" ng-show="{{user.is_active}}"></i><i class="fa fa-square-o margin-r-5" ng-show="{{!user.is_active}}"></i></td>                     
+                                <td class="text-center media-priority-3"><i class="margin-r-5"></i>{{user.created_at}}</td>
+                                <td class="text-center media-priority-3"><i class="margin-r-5"></i>{{user.updated_at}}</td> 
+                             </tr>
+                        </tbody>
+                    </table><br /><br />
+            </div><!-- /.box -->
+        </div>
+    </div>
+
+
+        </div><!-- /.row -->
+</section><!-- /.content -->
+
+

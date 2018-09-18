@@ -1,0 +1,39 @@
+
+
+<div class="modal fade">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" ng-click="close()" data-dismiss="modal" aria-hidden="true">&times;</button>
+        <h4 class="modal-title">{{object_type}} - {{property}}</h4>
+      </div>
+      <div class="modal-body">
+      	<form class="form-horizontal" role="form"> 
+           <div ng-show="!isName" style="margin:20px;">
+            <br />
+            {{hint}}
+		  </div>          
+		  <div ng-show="isName" style="margin:20px;">
+		    The name property plays an important role for each model. The name is a quick glance into what the record is. For example,
+            if we have a model named Person which has a relationship to an address entity for the person's work, you would enter the employer for name property. 
+            In my case, I would enter LookFar. (The most bad-ass place to work in the entire world!) <br /><br />
+            While it is best to keep these values short in length (ie: < 10 characters), it doesn't have to be. here is a screen shot of this example
+            in action.
+            <br />
+            <img style="width:100%; padding:10px;"" src="../images/nameProp.png" alt="nameProperty" title="nameProperty" />
+          
+
+          <br />
+             Wait a second, What's a Rel Type? Great question!! While the name property can be used as a value to search on, 
+             the Rel Type is used as a key to JOIN records together. If you are creating an address relationship for a peron's work, 
+             you would enter work. If you generate a query that joins on the rel_type Work, you would get ALL work addresses.
+             This is not a requried field, but allows you to get the most out of Backstrap.
+           </div>     
+      	</form>
+      </div>
+      <div class="modal-footer">              
+        <button type="button" ng-click="close()" class="btn" data-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>

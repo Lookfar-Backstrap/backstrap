@@ -1,0 +1,125 @@
+<div class="modal fade">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" ng-click="close()" data-dismiss="modal" aria-hidden="true">&times;</button>
+                <h4 class="modal-title">{{titleText}} Endpoint</h4>
+            </div>
+            <div class="modal-body" style="padding:50px">
+                <form name="form" id="form" class="form-horizontal" role="form" novalidate>
+                    <div class="form-group" ng-class="{'has-error': form.endpoint_area.$invalid && !form.endpoint_area.$pristine}">
+                        <label class="col-sm-2 control-label">Area</label>
+                        <div class="col-sm-10">
+                            <input  autocomplete="off" type="text" class="form-control" id="endpoint_area" name="endpoint_area" placeholder="Area" ng-readonly="!canEdit.reqFields" ng-model="form.area" ng-keyup="validateName('area')" required>
+                        </div>
+                    </div>
+                    <div class="form-group" ng-class="{'has-error': form.endpoint_controller.$invalid && !form.endpoint_controller.$pristine}">
+                        <label class="col-sm-2 control-label">Controller</label>
+                        <div class="col-sm-10">
+                            <input type="text" class="form-control" id="endpoint_controller" name="endpoint_controller" placeholder="Controller" ng-readonly="!canEdit.reqFields" ng-model="form.controller" ng-keyup="validateName('controller')" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="col-sm-2 control-label">Verb</label>
+                        <div class="col-sm-10">
+                            <select class="form-control" id="endpoint_verb" ng-model="form.verb" ng-readonly="!canEdit.reqFields" ng-options="verb.value as verb.label for verb in verbs"></select>
+                        </div>
+                    </div>
+                    <div class="form-group" ng-class="{'has-error': form.endpoint_method.$invalid && !form.endpoint_method.$pristine}">
+                        <label class="col-sm-2 control-label">Method</label>
+                        <div class="col-sm-10">
+                            <input autocomplete="off" type="text" class="form-control" id="endpoint_method" name="endpoint_method" placeholder="Method" ng-readonly="!canEdit.reqFields" ng-model="form.method" required>
+                        </div>
+                    </div>
+                    <div class="form-group" ng-class="{'has-error': form.endpoint_version.$invalid && !form.endpoint_version.$pristine}">
+                        <label class="col-sm-2 control-label">Version</label>
+                        <div class="col-sm-10">
+                            <input type="text" class="form-control" id="endpoint_version" name="endpoint_version" placeholder="e.g. 1.2.3" ng-readonly="!canEdit.reqFields" ng-model="form.version" ng-pattern="versionPattern" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="col-sm-2 control-label">Description</label>
+                        <div class="col-sm-10">
+                            <input autocomplete="off" type="text" class="form-control" id="endpoint_desc" placeholder="Description" ng-readonly="!canEdit.reqFields" ng-model="form.desc">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <div class="col-sm-2"></div>
+                        <div class="col-sm-10">
+                         <md-checkbox ng-model="form.authReq" aria-label="Authorization Required" ng-disabled="!canEdit.reqFields" >
+                             Authorization Required
+                        </md-checkbox>
+
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <button class="btn pull-right" ng-model="showArguments" ng-click="flipShowArgumentSwitch()" ng-show="canEdit.arguments" >Add Arguments</button>
+                    </div>
+                </form>
+                <form class="form-horizontal" role="form" name="argumentForm" ng-submit="addArgument()" ng-show="showArguments" novalidate ng-show="canEdit.arguments" >
+                    <div class="col-sm-2"></div>
+                    <p class="col-sm-10" style="padding:10px; font-weight:bold; font-size:16px;">Arguments</p>
+                    <div class="form-group" ng-class="{'has-error': argumentForm.arg_name.$invalid && !argumentForm.arg_name.$pristine}">
+                        <label class="col-sm-2 control-label">Name</label>
+                        <div class="col-sm-10">
+                            <input type="text" name="arg_name" class="form-control" id="arg_name" placeholder="Name" ng-model="form.name" ng-minlength="1" ng-keyup="validateName('name')"required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="col-sm-2 control-label">Type</label>
+                        <div class="col-sm-10">
+                            <select class="form-control" id="arg_type" ng-model="form.type" ng-options="type.value as type.label for type in types"></select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="col-sm-2 control-label">Description</label>
+                        <div class="col-sm-10">
+                            <input autocomplete="off" type="text" class="form-control" id="arg_argDesc" placeholder="Description" ng-model="form.argDesc">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <div class="col-sm-2"></div>
+                        <div class="col-sm-10">
+                            <label style="font-weight:normal;">
+                                <md-checkbox  ng-model="form.required" aria-label="Required">
+                                    Required
+                                </md-checkbox>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <button type="submit" class="btn pull-right" ng-disabled="argumentForm.$invalid">Save Argument</button>
+                    </div>
+                </form>
+                <div ng-show="arguments.length > 0" style="margin-top:50px;">
+                    <h3>Arguments</h3>
+                 <table class="table-fill">
+                    <thead >
+                        <tr>
+                        <th class="text-center" ng-show="canEdit.arguments">&nbsp;</th>
+                        <th class="text-center">Name</th>
+                        <th class="text-center">Type</th>
+                        <th class="text-center">Description</th>
+                        <th class="text-center">Required</th>
+                        </tr>
+                    </thead>
+                    <tbody class="table-hover">
+                            <tr data-ng-repeat="argument in arguments" >
+                                <td ng-click="removeArgument(argument)" class="text-center" ng-show="canEdit.arguments"><i class="fa fa-remove margin-r-5"></i>Remove </td>
+                                <td class="text-center"><i class="margin-r-5"></i>{{argument.name}}</td>
+                                <td class="text-center"><i class="margin-r-5"></i>{{argument.type}}</td>
+                                <td class="text-center"><i class="margin-r-5"></i>{{argument.description}}</td>
+                                <td class="text-center"><i class="margin-r-5"></i><i class="fa fa-check-square-o margin-r-5" ng-show="{{argument.isRequired}}"></i></td>
+                             </tr>
+                        </tbody>
+                    </table>
+                </div>
+             </div>
+            <div class="modal-footer">
+                <label style="width:100%; padding:10px; color:#C62626" ng-show="showMessage">{{message}}.</label>
+                <button type="button" ng-click="save()" class="btn btn-primary" ng-disabled="form.$invalid && !showArgumentsforSave" ng-show="titleText != 'View'" >Save Endpoint</button>
+                 <button type="button" ng-show="canDelete" ng-click="delete()" class="btn btn-danger" ng-disabled="form.$invalid && !showArgumentsforSave" ng-show="titleText != 'View'" >Delete</button>
+                <button type="button" ng-click="cancel()" class="btn" data-dismiss="modal">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
