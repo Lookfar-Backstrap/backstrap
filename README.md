@@ -99,9 +99,23 @@ $ sudo apt-get install postgresql postgresql-contrib
 
 To get __Backstrap__ up and running locally first you must clone the repository to your machine.
 
-Make sure __Postgres__ is running, using `$ psql`, and in the Backstrap directory run `$ npm install`.
+Make sure __Postgres__ is running, using `$ psql`
+
+Include backstrap-server as a dependency in your package.json file
+
+In the root directory of your project run `$ npm install`.
+
+Navigate into [Project Root] > node_modules > backstrap-server > user_files.
+
+Copy all files from that folder and paste them into your project root.
+
+Fill in the information for you db in config/config.local.js
+
+Fill in the name of the header you want to use for session tokens (eg. bs_api_token) in Settings.json
 
 To start the project run `$ NODE_ENV=local npm start`.
+
+Your server should initialize and start running in the terminal.  You can view the web console at http://localhost:3000/
 
 ---
 
