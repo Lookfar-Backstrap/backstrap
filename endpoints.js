@@ -42,7 +42,7 @@ Endpoints.prototype.init = function(b, f, rs) {
 			}
 			catch(e) {
 				customEndpointData = require('./user_files/Endpoints_ext.json');
-				endpointExtLocation = './node_modules/backstrap/user_files/Endpoints_ext.json';
+				endpointExtLocation = './node_modules/backstrap-server/user_files/Endpoints_ext.json';
 			}
 			
 			var areas = Object.keys(customEndpointData);
@@ -503,7 +503,7 @@ Endpoints.prototype.save = function(doNetworkReload) {
 
 	if(utilities.isNullOrUndefined(remoteSettings) || remoteSettings === false) {
 		var fswrite = Q.denodeify(fs.writeFile);
-		Q.all([fswrite('./node_modules/backstrap/Endpoints.json', JSON.stringify(systemEndpoints, null, 4)), fswrite(endpointExtLocation, JSON.stringify(customEndpoints, null, 4))])
+		Q.all([fswrite('./node_modules/backstrap-server/Endpoints.json', JSON.stringify(systemEndpoints, null, 4)), fswrite(endpointExtLocation, JSON.stringify(customEndpoints, null, 4))])
 		.then(function(write_res) {
 			deferred.resolve(true);
 		})

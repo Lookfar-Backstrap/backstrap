@@ -30,7 +30,7 @@ Models.prototype.init = function(b, f, rs) {
 		catch(e) {
 			try {
 				md = require('./user_files/Models.json');
-				modelWriteLocation = './node_modules/backstrap/user_files/Models.json';
+				modelWriteLocation = './node_modules/backstrap-server/user_files/Models.json';
 			}
 			catch(ee) {
 				var errorObj = new ErrorObj(500,
