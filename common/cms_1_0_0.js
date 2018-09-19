@@ -13,8 +13,15 @@ var schemaController = require('../schema.js');
 
 //Settings File, contains DB params
 var nodeEnv = process.env.NODE_ENV || 'local';
-var settingsFile = '../config/config.' + nodeEnv + '.js';
-var config = require(settingsFile);
+var settingsFile = '../../../config/config.' + nodeEnv + '.js';
+var config;
+try {
+	config = require(settingsFile);
+}
+catch(e) {
+	settingsFile = '../user_files/config/config.'+nodeEnv+'.js';
+	config = require(settingsFile);
+}
 
 var rsString = process.env.BS_REMOTE || 'false';
 rsString = rsString.toLowerCase();

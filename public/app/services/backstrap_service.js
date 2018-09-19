@@ -100,20 +100,20 @@ app.service('backstrap_service', ['$rootScope', '$http', '$location', '$state', 
             }
             else {
                 getVersion()
-                    .then(function (v) {
-                        bs.objBackstrap.version = v;
-                        saveLocalStorage();
-                        deferred.resolve(v);
-                    });
+                .then(function (v) {
+                    bs.objBackstrap.version = v;
+                    saveLocalStorage();
+                    deferred.resolve(v);
+                });
             }
         }
         else {
             getVersion()
-                    .then(function (v) {
-                        bs.objBackstrap.version = v;
-                        saveLocalStorage();
-                        deferred.resolve(v);
-                    });
+            .then(function (v) {
+                bs.objBackstrap.version = v;
+                saveLocalStorage();
+                deferred.resolve(v);
+            });
         }
 
         

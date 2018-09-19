@@ -11,10 +11,11 @@ var s3 = null;
 var endpointData = null;
 var bucket = null;
 var file = null;
-var extensionFile = null;
 var remoteSettings = null;
 var settings;
 var utilities;
+
+var endpointExtLocation;
 
 var Endpoints = function(s, u) {
 	s3 = new AWS.S3();
@@ -27,19 +28,23 @@ Endpoints.prototype.init = function(b, f, rs) {
 
 	bucket = b;
 	file = f;
-	extensionFile = file.substring(0, file.indexOf('.json'))+'_ext.json';
 	remoteSettings = rs;
 
 	if(utilities.isNullOrUndefined(remoteSettings) || remoteSettings === false) {
 		try {
-			if(file.substring(0,2) !== './') file = './'+file;
-			if(extensionFile.substring(0,2) !== './') extensionFile = './'+extensionFile;
-			endpointData = require(file);
+			endpointData = require('./Endpoints.json');
 
 			// FOR EACH CUSTOM ENDPOINT SPECIFIED IN USER DEFINED ENDPOINTS FILE
 			// UPDATE OR ADD TO endpointData AS APPLICABLE
-			customEndpointData = require(extensionFile);
-
+			try {
+				customEndpointData = require('../../Endpoints_ext.json');
+				endpointExtLocation = './Endpoints_ext.json';
+			}
+			catch(e) {
+				customEndpointData = require('./user_files/Endpoints_ext.json');
+				endpointExtLocation = './node_modules/backstrap/user_files/Endpoints_ext.json';
+			}
+			
 			var areas = Object.keys(customEndpointData);
 			for(var aIdx = 0; aIdx < areas.length; aIdx++) {
 				var customArea = customEndpointData[areas[aIdx]]
@@ -97,12 +102,12 @@ Endpoints.prototype.init = function(b, f, rs) {
 	}
 	else {
 		Endpoints.prototype.data = {};
-		s3.getObject({Bucket: bucket, Key: file}, function(err, res) {
+		s3.getObject({Bucket: bucket, Key: 'Endpoints.json'}, function(err, res) {
 			if(!err) {
 				var obj = JSON.parse(res.Body.toString());
 				endpointData = obj;
 
-				s3.getObject({Bucket: bucket, Key: extensionFile}, function(c_err, c_res) {
+				s3.getObject({Bucket: bucket, Key: 'Endpoints_ext.json'}, function(c_err, c_res) {
 					if(!c_err) {
 						var customEndpointData = JSON.parse(c_res.Body.toString());
 						var areas = Object.keys(customEndpointData);
@@ -498,7 +503,7 @@ Endpoints.prototype.save = function(doNetworkReload) {
 
 	if(utilities.isNullOrUndefined(remoteSettings) || remoteSettings === false) {
 		var fswrite = Q.denodeify(fs.writeFile);
-		Q.all([fswrite(file, JSON.stringify(systemEndpoints, null, 4)), fswrite(extensionFile, JSON.stringify(customEndpoints, null, 4))])
+		Q.all([fswrite('./node_modules/backstrap/Endpoints.json', JSON.stringify(systemEndpoints, null, 4)), fswrite(endpointExtLocation, JSON.stringify(customEndpoints, null, 4))])
 		.then(function(write_res) {
 			deferred.resolve(true);
 		})
@@ -515,9 +520,9 @@ Endpoints.prototype.save = function(doNetworkReload) {
 		});
 	}
 	else {
-		s3.putObject({Bucket:bucket, Key:file, Body:JSON.stringify(systemEndpoints, null, 4)}, function(err, save_res) {
+		s3.putObject({Bucket:bucket, Key:'Endpoints.json', Body:JSON.stringify(systemEndpoints, null, 4)}, function(err, save_res) {
 			if(!err) {
-				s3.putObject({Bucket:bucket, Key:extensionFile, Body:JSON.stringify(customEndpoints, null, 4)}, function(c_err, c_save_res) {
+				s3.putObject({Bucket:bucket, Key:'Endpoints_ext.json', Body:JSON.stringify(customEndpoints, null, 4)}, function(c_err, c_save_res) {
 					if(!c_err) {
 						if(doNetworkReload === true) {
 							settings.reloadNetwork()

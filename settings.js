@@ -8,6 +8,7 @@ var bucket = null;
 var file = null;
 var remoteSettings = null;
 var port = null;
+var settingsWriteLocation;
 
 var Settings = function() {
 	s3 = new AWS.S3();
@@ -21,15 +22,23 @@ Settings.prototype.init = function(b, f, rs) {
 	remoteSettings = rs;
 
 	if(remoteSettings === undefined || remoteSettings === null || remoteSettings === false) {
+		var sd;
 		try {
-			if(file.substring(0,2) !== './') file = './'+file;
-			Settings.prototype.data = require(file);
-			port = process.env.PORT || s.data.server_port;
-			deferred.resolve(true);
+			sd = require('../../Settings.json');
+			settingsWriteLocation = './Settings.json';
 		}
 		catch(e) {
-			deferred.reject(e);
+			try {
+				sd = require('./user_files/Settings.json');
+				settingsWriteLocation = './node_modules/backstrap/user_files/Settings.json';
+			}
+			catch(ee) {
+				deferred.reject(ee);
+			}
 		}
+		Settings.prototype.data = sd;
+		port = process.env.PORT || s.data.server_port;
+		deferred.resolve(true);
 	}
 	else {
 		s3.getObject({Bucket: bucket, Key: file}, function(err, res) {
@@ -268,7 +277,7 @@ Settings.prototype.save = function(doNetworkReload) {
 	var deferred = Q.defer();
 	if(remoteSettings === undefined || remoteSettings === null || remoteSettings === false) {
 		var fswrite = Q.denodeify(fs.writeFile);
-		fswrite(file, JSON.stringify(this.constructor.prototype.data, null, 4))
+		fswrite(settingsWriteLocation, JSON.stringify(this.constructor.prototype.data, null, 4))
 		.then(function(write_res) {
 			deferred.resolve(true);
 		})

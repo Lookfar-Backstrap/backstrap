@@ -11,10 +11,18 @@ var smtpTransport = require('nodemailer-smtp-transport');
 var crypto = require('crypto');
 var mailTransport;
 var mkdirp = require('mkdirp');
-var UtilitiesExtension = require('./utilities_ext.js');
 var async = require('async');
+var UtilitiesExtension;
+try {
+	UtilitiesExtension = require('../../utilities_ext.js');
+}
+catch(e) {
+	UtilitiesExtension = require('./user_files/utilities_ext.js');
+}
 
-var Utilities = function (s) {
+
+
+var Utilities = function(s) {
 	settings = s;
 	this.extension = {};
 
@@ -55,10 +63,10 @@ Utilities.prototype.setDataAccess = function(da){
 	}
 };
 
-Utilities.prototype.validateUsername = function (newUsername, existingUsername) {
+Utilities.prototype.validateUsername = function(newUsername, existingUsername){
 	var deferred = Q.defer();
 
-	if (newUsername === existingUsername) {
+	if(newUsername === existingUsername){
 		deferred.resolve();
 	}
 	else {
@@ -80,10 +88,10 @@ Utilities.prototype.validateUsername = function (newUsername, existingUsername) 
 	return deferred.promise;
 }
 
-Utilities.prototype.validateEmail = function (newEmail, existingEmail) {
+Utilities.prototype.validateEmail = function(newEmail, existingEmail){
 	var deferred = Q.defer();
 
-	if (newEmail === existingEmail) {
+	if(newEmail === existingEmail){
 		deferred.resolve();
 	}
 	else {
@@ -122,7 +130,7 @@ Utilities.prototype.validateEmail = function (newEmail, existingEmail) {
 	return deferred.promise;
 }
 
-Utilities.prototype.getUserFromApiToken = function (apiTkn, callback) {
+Utilities.prototype.getUserFromApiToken = function(apiTkn, callback) {
 	var deferred = Q.defer();
 	dataAccess.findOne('session', { 'object_type': 'session', 'token': apiTkn })
 		.then(function (sessionObj) {
@@ -276,27 +284,27 @@ Utilities.prototype.saveLoggedEventObj = function (req, callback) {
 	return deferred.promise;
 };
 
-Utilities.prototype.FormatStackTraceMessage = function (verb, objType, versionExtension) {
-	return { 'class': objType + versionExtension, 'function': verb + ' ' + objType };
+Utilities.prototype.FormatStackTraceMessage = function(verb, objType, versionExtension){
+	return {'class': objType + versionExtension, 'function': verb + ' ' + objType };
 };
 
-Utilities.prototype.GetUrlForS3 = function (obj, callback) {
+Utilities.prototype.GetUrlForS3 = function(obj, callback) {
 	var deferred = Q.defer();
 
-	var params = { Bucket: obj.resources.s3.bucket, Key: obj.resources.s3.name };
-	obj.resources.s3.getSignedUrl('getObject', params, function (s3_err, s3_res) {
-		if (!s3_err) {
+	var params = {Bucket: obj.resources.s3.bucket, Key: obj.resources.s3.name};
+	obj.resources.s3.getSignedUrl('getObject', params, function(s3_err, s3_res) {
+		if(!s3_err) {
 			deferred.resolve(s3_res);
 		}
 		else {
-			var errorObj = new ErrorObj(500,
-				'u0001',
-				__filename,
-				'GetUrlForS3',
-				'error getting url from s3',
-				'S3 error',
-				s3_err
-			);
+			var errorObj = new ErrorObj(500, 
+										'u0001', 
+										__filename, 
+										'GetUrlForS3', 
+										'error getting url from s3',
+										'S3 error',
+										s3_err
+										);
 			deferred.reject(errorObj);
 		}
 	});
@@ -363,78 +371,78 @@ Utilities.prototype.ClassAndModelInfo = function(directoryName, fileName) {
 
 Utilities.prototype.copyFile = function(file_to_copy, destination_path){
 	var deferred = Q.defer();
-	try {
+	try{
 		fs.createReadStream(file_to_copy).pipe(fs.createWriteStream(destination_path));
-		deferred.resolve({ 'success': true });
+		deferred.resolve({'success': true});
 	}
-	catch (err) {
-		var errorObj = new ErrorObj(500,
-			'u0002',
-			__filename,
-			'copyFile',
-			'error with fs.createReadStream',
-			'External error',
-			err
-		);
+	catch(err){
+		var errorObj = new ErrorObj(500, 
+									'u0002', 
+									__filename, 
+									'copyFile', 
+									'error with fs.createReadStream',
+									'External error',
+									err
+									);
 		deferred.reject(errorObj);
 	}
 	return deferred.promise;
 };
 
-function getFileStream(file_to_copy) {
+function getFileStream(file_to_copy){
 	var deferred = Q.defer();
 	var getFs = fs.createReadStream(file_to_copy);
-	getFs.on("error", function (err) {
-		var errorObj = new ErrorObj(500,
-			'u0003',
-			__filename,
-			'getFileStream',
-			'error with fs.createReadStream',
-			'External error',
-			err
-		);
+	getFs.on("error", function(err) {
+		var errorObj = new ErrorObj(500, 
+									'u0003', 
+									__filename, 
+									'getFileStream', 
+									'error with fs.createReadStream',
+									'External error',
+									err
+									);
 		deferred.reject(errorObj);
 	});
-	getFs.on("open", function (err) {
+	getFs.on("open", function(err) {
 		deferred.resolve(getFs);
 	});
 	return deferred.promise;
 };
 
-function getWriteFileStream(destination_path) {
+function getWriteFileStream(destination_path){
 	var deferred = Q.defer();
 	var writeFs = fs.createWriteStream(destination_path);
-	writeFs.on("error", function (err) {
-		var errorObj = new ErrorObj(500,
-			'u0004',
-			__filename,
-			'getWriteFileStream',
-			'error with fs.createWriteStream',
-			'External error',
-			err
-		);
+	writeFs.on("error", function(err) {
+		var errorObj = new ErrorObj(500, 
+									'u0004', 
+									__filename, 
+									'getWriteFileStream', 
+									'error with fs.createWriteStream',
+									'External error',
+									err
+									);
 		deferred.reject(errorObj);
 	});
-	writeFs.on("open", function (ex) {
+	writeFs.on("open", function(ex) {
 		deferred.resolve(writeFs);
 	});
 	return deferred.promise;
 };
 
-Utilities.prototype.writeToFile = function (file_path, strData) {
+Utilities.prototype.writeToFile = function(file_path, strData){
 	var deferred = Q.defer();
 
 	fs.writeFile(file_path, strData,
-		function (write_err) {
-			if (write_err) {
-				var errorObj = new ErrorObj(500,
-					'u0005',
-					__filename,
-					'writeToFile',
-					'error with fs.writeToFile',
-					'External error',
-					write_err
-				);
+		function(write_err){
+			if (write_err){
+				var errorObj = new ErrorObj(500, 
+											'u0005', 
+											__filename, 
+											'writeToFile', 
+											'error with fs.writeToFile',
+											'External error',
+											write_err
+											);
 				deferred.reject(errorObj);
 			}
 			else {
@@ -446,22 +454,22 @@ Utilities.prototype.writeToFile = function (file_path, strData) {
 	return deferred.promise;
 };
 
-Utilities.prototype.writeBinaryToFile = function (file_path, strData) {
+Utilities.prototype.writeBinaryToFile = function(file_path, strData){
 	var deferred = Q.defer();
 
-	mkdirp(path.dirname(file_path), function (err) {
-		if (!err) {
+	mkdirp(path.dirname(file_path), function(err) {
+		if(!err) {
 			fs.writeFile(file_path, strData, 'binary',
-				function (write_err) {
-					if (write_err) {
-						var errorObj = new ErrorObj(500,
-							'u0006',
-							__filename,
-							'writeBinaryToFile',
-							'error with fs.writeToFile',
-							'External error',
-							write_err
-						);
+				function(write_err){
+					if (write_err){
+						var errorObj = new ErrorObj(500, 
+													'u0006', 
+													__filename, 
+													'writeBinaryToFile', 
+													'error with fs.writeToFile',
+													'External error',
+													write_err
+													);
 						deferred.reject(errorObj);
 					}
 					else {
@@ -471,14 +479,14 @@ Utilities.prototype.writeBinaryToFile = function (file_path, strData) {
 			);
 		}
 		else {
-			var errorObj = new ErrorObj(500,
-				'u0007',
-				__filename,
-				'writeToFile',
-				'error with mkdirp',
-				'External error',
-				err
-			);
+			var errorObj = new ErrorObj(500, 
+										'u0007', 
+										__filename, 
+										'writeToFile', 
+										'error with mkdirp',
+										'External error',
+										err
+										);
 			deferred.reject(errorObj);
 		}
 	});
@@ -486,28 +494,41 @@ Utilities.prototype.writeBinaryToFile = function (file_path, strData) {
 	return deferred.promise;
 };
 
-Utilities.prototype.writeErrorToLog = function (err) {
+Utilities.prototype.writeErrorToLog = function(err){
 	var deferred = Q.defer();
-	fs.appendFile('./backstrap_errors.txt', JSON.stringify(err, null, 4),
-		function (err) {
-			if (err) {
-				var errorObj = new ErrorObj(500,
-					'u0008',
-					__filename,
-					'writeToFile',
-					'error with fs.appendFile',
-					'External error',
-					err
-				);
-				deferred.reject(errorObj);
+	try {
+		fs.appendFile('./backstrap_errors.txt', JSON.stringify(err, null, 4),
+			function(err){
+				if (err){
+					var errorObj = new ErrorObj(500, 
+												'u0008', 
+												__filename, 
+												'writeToFile', 
+												'error with fs.appendFile',
+												'External error',
+												err
+												);
+					deferred.reject(errorObj);
+				}
+				deferred.resolve(true);
 			}
-			deferred.resolve(true);
-		}
-	);
+		);
+	}
+	catch(e) {
+		var errorObj = new ErrorObj(500, 
+									'u0010', 
+									__filename, 
+									'writeToFile', 
+									'error with fs.appendFile',
+									'External error',
+									e
+									);
+		deferred.reject(errorObj);
+	}
 	return deferred.promise;
 };
 
-Utilities.prototype.sendMail = function (send_to, sbj, bdy, html_bdy, callback) {
+Utilities.prototype.sendMail = function(send_to, sbj, bdy, html_bdy, callback) {
 	var deferred = Q.defer();
 
 	var mailOptions = {
@@ -517,19 +538,19 @@ Utilities.prototype.sendMail = function (send_to, sbj, bdy, html_bdy, callback) 
 		text: bdy,
 		html: html_bdy
 	};
-	mailTransport.sendMail(mailOptions, function (email_err, email_res) {
-		if (!email_err) {
+	mailTransport.sendMail(mailOptions, function(email_err, email_res) {
+		if(!email_err) {
 			deferred.resolve(email_res);
 		}
 		else {
-			var errorObj = new ErrorObj(500,
-				'u0009',
-				__filename,
-				'sendMail',
-				'error with mailTransport.sendMail',
-				'External error',
-				email_err
-			);
+			var errorObj = new ErrorObj(500, 
+										'u0009', 
+										__filename, 
+										'sendMail', 
+										'error with mailTransport.sendMail',
+										'External error',
+										email_err
+										);
 			deferred.reject(errorObj);
 		}
 	});
@@ -538,15 +559,15 @@ Utilities.prototype.sendMail = function (send_to, sbj, bdy, html_bdy, callback) 
 	return deferred.promise
 };
 
-Utilities.prototype.sendMailTemplate = function (send_to, sbj, template_name, args, callback) {
+Utilities.prototype.sendMailTemplate = function(send_to, sbj, template_name, args, callback) {
 	var deferred = Q.defer();
 
-	if (template_name === undefined || template_name === null) {
+	if(template_name === undefined || template_name === null) {
 		template_name = 'default';
 	}
 
-	if (args === undefined || args === null) {
-		args = {};
+	if(args === undefined || args === null) {
+		args = {}; 
 	}
 
 	var templatePath = settings.data.mail_options.template_directory + template_name;
@@ -558,26 +579,26 @@ Utilities.prototype.sendMailTemplate = function (send_to, sbj, template_name, ar
 	try {
 		fs.accessSync(txtPath);
 	}
-	catch (e) {
+	catch(e) {
 		foundTxt = false;
 	}
 
 	try {
 		fs.accessSync(htmlPath);
 	}
-	catch (e) {
+	catch(e) {
 		foundHtml = false;
 	}
 
 	var txtBody = '';
 	var htmlBody = '';
 
-	if (foundTxt && foundHtml) {
-		fs.readFile(txtPath, 'utf8', function (txt_err, txt_data) {
-			if (!txt_err) {
+	if(foundTxt && foundHtml) {
+		fs.readFile(txtPath, 'utf8', function(txt_err, txt_data) {
+			if(!txt_err) {
 				txtBody = replaceTemplateValues(txt_data, args)
-				fs.readFile(htmlPath, 'utf8', function (html_err, html_data) {
-					if (!html_err) {
+				fs.readFile(htmlPath, 'utf8', function(html_err, html_data) {
+					if(!html_err) {
 						htmlBody = replaceTemplateValues(html_data, args);
 
 						var mailOptions = {
@@ -587,54 +608,54 @@ Utilities.prototype.sendMailTemplate = function (send_to, sbj, template_name, ar
 							text: txtBody,
 							html: htmlBody
 						};
-						mailTransport.sendMail(mailOptions, function (email_err, email_res) {
-							if (!email_err) {
+						mailTransport.sendMail(mailOptions, function(email_err, email_res) {
+							if(!email_err) {
 								deferred.resolve(email_res);
 							}
 							else {
-								var errorObj = new ErrorObj(500,
-									'u0011',
-									__filename,
-									'sendMailTemplate',
-									'error with mailTransport.sendMail',
-									'External error',
-									email_err
-								);
+								var errorObj = new ErrorObj(500, 
+															'u0011', 
+															__filename, 
+															'sendMailTemplate', 
+															'error with mailTransport.sendMail',
+															'External error',
+															email_err
+															);
 								deferred.reject(errorObj);
 							}
 						});
 					}
 					else {
 						// SOMETHING WENT WRONG WHILE READING THE HTML TEMPLATE
-						var errorObj = new ErrorObj(500,
-							'u0012',
-							__filename,
-							'sendMailTemplate',
-							'error reading html template',
-							'There was a problem getting the html template for this email',
-							html_err
-						);
+						var errorObj = new ErrorObj(500, 
+													'u0012', 
+													__filename, 
+													'sendMailTemplate', 
+													'error reading html template',
+													'There was a problem getting the html template for this email',
+													html_err
+													);
 						deferred.reject(errorObj);
 					}
 				});
 			}
 			else {
 				// SOMETHING WENT WRONG WHILE READING THE TXT TEMPLATE
-				var errorObj = new ErrorObj(500,
-					'u0013',
-					__filename,
-					'sendMailTemplate',
-					'error reading text template',
-					'There was a problem getting the text template for this email',
-					txt_err
-				);
+				var errorObj = new ErrorObj(500, 
+											'u0013', 
+											__filename, 
+											'sendMailTemplate', 
+											'error reading text template',
+											'There was a problem getting the text template for this email',
+											txt_err
+											);
 				deferred.reject(errorObj);
 			}
 		});
 	}
-	else if (foundTxt) {
-		fs.readFile(txtPath, 'utf8', function (txt_err, txt_data) {
-			if (!txt_err) {
+	else if(foundTxt) {
+		fs.readFile(txtPath, 'utf8', function(txt_err, txt_data) {
+			if(!txt_err) {
 				txtBody = replaceTemplateValues(txt_data, args);
 				var mailOptions = {
 					from: settings.data.mail_options.account,
@@ -643,40 +664,40 @@ Utilities.prototype.sendMailTemplate = function (send_to, sbj, template_name, ar
 					text: txtBody,
 					html: null
 				};
-				mailTransport.sendMail(mailOptions, function (email_err, email_res) {
-					if (!email_err) {
+				mailTransport.sendMail(mailOptions, function(email_err, email_res) {
+					if(!email_err) {
 						deferred.resolve(email_res);
 					}
 					else {
-						var errorObj = new ErrorObj(500,
-							'u0014',
-							__filename,
-							'sendMailTemplate',
-							'error with mailTransport.sendMail',
-							'External error',
-							email_err
-						);
+						var errorObj = new ErrorObj(500, 
+													'u0014', 
+													__filename, 
+													'sendMailTemplate', 
+													'error with mailTransport.sendMail',
+													'External error',
+													email_err
+													);
 						deferred.reject(errorObj);
 					}
 				});
 			}
 			else {
 				// SOMETHING WENT WRONG WHILE READING THE TXT TEMPLATE
-				var errorObj = new ErrorObj(500,
-					'u0015',
-					__filename,
-					'sendMailTemplate',
-					'error reading text template',
-					'There was a problem getting the text template for this email',
-					txt_err
-				);
+				var errorObj = new ErrorObj(500, 
+											'u0015', 
+											__filename, 
+											'sendMailTemplate', 
+											'error reading text template',
+											'There was a problem getting the text template for this email',
+											txt_err
+											);
 				deferred.reject(errorObj);
 			}
 		});
 	}
-	else if (foundHtml) {
-		fs.readFile(htmlPath, 'utf8', function (html_err, html_data) {
-			if (!html_err) {
+	else if(foundHtml) {
+		fs.readFile(htmlPath, 'utf8', function(html_err, html_data) {
+			if(!html_err) {
 				htmlBody = replaceTemplateValues(html_data, args);
 				var mailOptions = {
 					from: settings.data.mail_options.account,
@@ -685,33 +706,33 @@ Utilities.prototype.sendMailTemplate = function (send_to, sbj, template_name, ar
 					text: null,
 					html: htmlBody
 				};
-				mailTransport.sendMail(mailOptions, function (email_err, email_res) {
-					if (!email_err) {
+				mailTransport.sendMail(mailOptions, function(email_err, email_res) {
+					if(!email_err) {
 						deferred.resolve(email_res);
 					}
 					else {
-						var errorObj = new ErrorObj(500,
-							'u0016',
-							__filename,
-							'sendMailTemplate',
-							'error with mailTransport.sendMail',
-							'External error',
-							email_err
-						);
+						var errorObj = new ErrorObj(500, 
+													'u0016', 
+													__filename, 
+													'sendMailTemplate', 
+													'error with mailTransport.sendMail',
+													'External error',
+													email_err
+													);
 						deferred.reject(errorObj);
 					}
 				});
 			}
 			else {
 				// SOMETHING WENT WRONG WHILE READING THE HTML TEMPLATE
-				var errorObj = new ErrorObj(500,
-					'u0017',
-					__filename,
-					'sendMailTemplate',
-					'error reading html template',
-					'There was a problem getting the html template for this email',
-					html_err
-				);
+				var errorObj = new ErrorObj(500, 
+											'u0017', 
+											__filename, 
+											'sendMailTemplate', 
+											'error reading html template',
+											'There was a problem getting the html template for this email',
+											html_err
+											);
 				deferred.reject(errorObj);
 			}
 		});
@@ -721,12 +742,12 @@ Utilities.prototype.sendMailTemplate = function (send_to, sbj, template_name, ar
 		templatePath = settings.data.mail_options.template_directory + 'default';
 		txtPath = templatePath + '.txt';
 		htmlPath = templatePath + '.html';
-		fs.readFile(txtPath, 'utf8', function (txt_err, txt_data) {
-			if (!txt_err) {
+		fs.readFile(txtPath, 'utf8', function(txt_err, txt_data) {
+			if(!txt_err) {
 				txtBody = replaceTemplateValues(txt_data, args);
 
-				fs.readFile(htmlPath, 'utf8', function (html_err, html_data) {
-					if (!html_err) {
+				fs.readFile(htmlPath, 'utf8', function(html_err, html_data) {
+					if(!html_err) {
 						// FOUND BOTH THE TXT AND HTML DEFAULT TEMPLATES
 						htmlBody = replaceTemplateValues(html_data, args);
 						var mailOptions = {
@@ -736,19 +757,19 @@ Utilities.prototype.sendMailTemplate = function (send_to, sbj, template_name, ar
 							text: txtBody,
 							html: htmlBody
 						};
-						mailTransport.sendMail(mailOptions, function (email_err, email_res) {
-							if (!email_err) {
+						mailTransport.sendMail(mailOptions, function(email_err, email_res) {
+							if(!email_err) {
 								deferred.resolve(email_res);
 							}
 							else {
-								var errorObj = new ErrorObj(500,
-									'u0018',
-									__filename,
-									'sendMailTemplate',
-									'error with mailTransport.sendMail',
-									'External error',
-									email_err
-								);
+								var errorObj = new ErrorObj(500, 
+															'u0018', 
+															__filename, 
+															'sendMailTemplate', 
+															'error with mailTransport.sendMail',
+															'External error',
+															email_err
+															);
 								deferred.reject(errorObj);
 							}
 						});
@@ -763,19 +784,19 @@ Utilities.prototype.sendMailTemplate = function (send_to, sbj, template_name, ar
 							text: txtBody,
 							html: null
 						};
-						mailTransport.sendMail(mailOptions, function (email_err, email_res) {
-							if (!email_err) {
+						mailTransport.sendMail(mailOptions, function(email_err, email_res) {
+							if(!email_err) {
 								deferred.resolve(email_res);
 							}
 							else {
-								var errorObj = new ErrorObj(500,
-									'u0019',
-									__filename,
-									'sendMailTemplate',
-									'error with mailTransport.sendMail',
-									'External error',
-									email_err
-								);
+								var errorObj = new ErrorObj(500, 
+															'u0019', 
+															__filename, 
+															'sendMailTemplate', 
+															'error with mailTransport.sendMail',
+															'External error',
+															email_err
+															);
 								deferred.reject(errorObj);
 							}
 						});
@@ -783,8 +804,8 @@ Utilities.prototype.sendMailTemplate = function (send_to, sbj, template_name, ar
 				});
 			}
 			else {
-				fs.readFile(htmlPath, 'utf8', function (html_err, html_data) {
-					if (!html_err) {
+				fs.readFile(htmlPath, 'utf8', function(html_err, html_data) {
+					if(!html_err) {
 						// FOUND THE HTML DEFAULT TEMPLATE, BUT NO TXT TEMPLATE
 						htmlBody = replaceTemplateValues(html_data, args);
 						var mailOptions = {
@@ -794,33 +815,33 @@ Utilities.prototype.sendMailTemplate = function (send_to, sbj, template_name, ar
 							text: null,
 							html: htmlBody
 						};
-						mailTransport.sendMail(mailOptions, function (email_err, email_res) {
-							if (!email_err) {
+						mailTransport.sendMail(mailOptions, function(email_err, email_res) {
+							if(!email_err) {
 								deferred.resolve(email_res);
 							}
 							else {
-								var errorObj = new ErrorObj(500,
-									'u0020',
-									__filename,
-									'sendMailTemplate',
-									'error with mailTransport.sendMail',
-									'External error',
-									email_err
-								);
+								var errorObj = new ErrorObj(500, 
+															'u0020', 
+															__filename, 
+															'sendMailTemplate', 
+															'error with mailTransport.sendMail',
+															'External error',
+															email_err
+															);
 								deferred.reject(errorObj);
 							}
 						});
 					}
 					else {
 						// FAILED TO FIND DEFAULT TEMPLATE.  SEND BACK AN ERROR
-						var errorObj = new ErrorObj(500,
-							'u0021',
-							__filename,
-							'sendMailTemplate',
-							'no template found',
-							'There is no email template by this name and no default template',
-							html_err
-						);
+						var errorObj = new ErrorObj(500, 
+													'u0021', 
+													__filename, 
+													'sendMailTemplate', 
+													'no template found',
+													'There is no email template by this name and no default template',
+													html_err
+													);
 						deferred.reject(errorObj);
 					}
 				});
@@ -838,7 +859,7 @@ function replaceTemplateValues(template, args) {
       updatedTemplate = updatedTemplate.replace('{{' + key + '}}', args[key]);
     }
 
-	return updatedTemplate;
+    return updatedTemplate;
 }
 
 Utilities.prototype.validateTokenAndContinue = function (tkn, callback) {
@@ -861,7 +882,7 @@ Utilities.prototype.validateTokenAndContinue = function (tkn, callback) {
 	return deferred.promise;
 };
 
-Utilities.prototype.getUID = function (callback) {
+Utilities.prototype.getUID = function(callback) {
 	var deferred = Q.defer();
 
 	var tKey = crypto.randomBytes(12).toString('hex');
@@ -1039,7 +1060,7 @@ Utilities.prototype.htmlify = function(obj, idx) {
 	for(var pIdx = 0; pIdx < pList.length; pIdx++) {
 		var propName = pList[pIdx];
 		if(typeof(obj[propName]) !== 'object') {
-				newHtmlString += indentString + propName + ': ' + obj[propName] + '<br />';
+			newHtmlString += indentString + propName + ': ' + obj[propName] + '<br />';
 		}
 		else if(obj[propName] !== undefined && obj[propName] !== null) {
 			newHtmlString += indentString + propName + ':<br />';

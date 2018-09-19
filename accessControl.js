@@ -14,9 +14,16 @@ var remoteSettings = null;
 var data = [];
 var settings;
 
-var AccessControlExtension = require('./accessControl_ext.js');
+var AccessControlExtension;
+try {
+	AccessControlExtension = require('../../accessControl_ext.js');
+}
+catch(e) {
+	AccessControlExtension = require('./user_files/accessControl_ext.js');
+}
+var securityWriteLocation;
 
-var AccessControl = function (util, s) {
+var AccessControl = function(util, s) {
 	utilties = util;
 	s3 = new AWS.S3();
 	settings = s;
@@ -24,7 +31,7 @@ var AccessControl = function (util, s) {
 	this.extension = new AccessControlExtension(this, util, s);
 };
 
-AccessControl.prototype.init = function (b, f, rs) {
+AccessControl.prototype.init = function(b, f, rs) {
 	var ac = this;
 	var deferred = Q.defer();
 
@@ -34,36 +41,36 @@ AccessControl.prototype.init = function (b, f, rs) {
 
 	if (utilties.isNullOrUndefined(remoteSettings) || remoteSettings === false) {
 		try {
-			if(file.substring(0,2) !== './') file = './'+file;
-			securityObj = require(file);
-			AccessControl.prototype.data = securityObj;
-			deferred.resolve(true);
+			securityObj = require('../../Security.json');
+			securityWriteLocation = './Security.json';
 		}
-		catch (e) {
+		catch(e) {
 			var errorObj = new ErrorObj(403,
-				'ac0001',
-				__filename,
-				'init',
-				'unauthorized',
-				'You are not authorized to access this endpoint',
-				null);
+										'ac0001',
+										__filename,
+										'init',
+										'unauthorized',
+										'You are not authorized to access this endpoint',
+										null);
 			deferred.reject(errorObj);
 		}
+		AccessControl.prototype.data = securityObj;
+		deferred.resolve(true);
 	}
 	else {
-		s3.getObject({ Bucket: bucket, Key: file }, function (err, res) {
-			if (!err) {
+		s3.getObject({Bucket: bucket, Key: file}, function(err, res) {
+			if(!err) {
 				securityObj = JSON.parse(res.Body.toString());
 				AccessControl.prototype.data = securityObj;
 				deferred.resolve(true);
 			}
 			else {
 				var errorObj = new ErrorObj(500,
-					'ac0002',
-					__filename,
-					'init',
-					'error getting file from S3'
-				);
+											'ac0002',
+											__filename,
+											'init',
+											'error getting file from S3'
+											);
 				deferred.reject(errorObj);
 			}
 		});
@@ -72,61 +79,61 @@ AccessControl.prototype.init = function (b, f, rs) {
 	return deferred.promise;
 }
 
-AccessControl.prototype.reload = function () {
+AccessControl.prototype.reload = function() {
 	var ac = this;
 	var deferred = Q.defer();
 	ac.init(bucket, file, remoteSettings)
-		.then(function (res) {
-			deferred.resolve(res);
-		})
-		.fail(function (err) {
-			var errorObj = new ErrorObj(500,
-				'ac0003',
-				__filename,
-				'reload',
-				'error while reloading access control'
-			);
-			deferred.reject(errorObj);
-		});
+	.then(function(res) {
+		deferred.resolve(res);
+	})
+	.fail(function(err) {
+		var errorObj = new ErrorObj(500,
+									'ac0003',
+									__filename,
+									'reload',
+									'error while reloading access control'
+									);
+		deferred.reject(errorObj);
+	});
 	return deferred.promise;
 }
 
-AccessControl.prototype.save = function (doNetworkReload) {
+AccessControl.prototype.save = function(doNetworkReload) {
 	var deferred = Q.defer();
-	if (utilties.isNullOrUndefined(remoteSettings) || remoteSettings === false) {
+	if(remoteSettings === undefined || remoteSettings === null || remoteSettings === false) {
 		var fswrite = Q.denodeify(fs.writeFile);
-		fswrite(file, JSON.stringify(this.data, null, 4))
-			.then(function (write_res) {
-				deferred.resolve(true);
-			})
-			.fail(function (err) {
-				var errorObj = new ErrorObj(500,
-					'ac0004',
-					__filename,
-					'save',
-					'error writing to Security config file'
-				);
-				deferred.reject(errorObj);
-			});
+		fswrite(securityWriteLocation, JSON.stringify(this.data, null, 4))
+		.then(function(write_res) {
+			deferred.resolve(true);
+		})
+		.fail(function(err) {
+			var errorObj = new ErrorObj(500,
+										'ac0004',
+										__filename,
+										'save',
+										'error writing to Security config file'
+										);
+			deferred.reject(errorObj);
+		});
 	}
 	else {
-		s3.putObject({ Bucket: bucket, Key: file, Body: JSON.stringify(this.data, null, 4) }, function (err, save_res) {
-			if (!err) {
-				if (doNetworkReload === true) {
+		s3.putObject({Bucket:bucket, Key:file, Body:JSON.stringify(this.data, null, 4)}, function(err, save_res) {
+			if(!err) {
+				if(doNetworkReload === true) {
 					settings.reloadNetwork()
-						.then(function (reload_res) {
-							deferred.resolve(true);
-						})
-						.fail(function (err) {
-							var errorObj = new ErrorObj(500,
-								'ac0005',
-								__filename,
-								'save',
-								'error reloading servers',
-								err
-							);
-							deferred.reject(errorObj);
-						});
+					.then(function(reload_res) {
+						deferred.resolve(true);
+					})
+					.fail(function(err) {
+						var errorObj = new ErrorObj(500,
+													'ac0005',
+													__filename,
+													'save',
+													'error reloading servers',
+													err
+													);
+						deferred.reject(errorObj);
+					});
 				}
 				else {
 					deferred.resolve(true);
@@ -134,13 +141,13 @@ AccessControl.prototype.save = function (doNetworkReload) {
 			}
 			else {
 				var errorObj = new ErrorObj(500,
-					'ac0006',
-					__filename,
-					'save',
-					'error writing Security config file to S3',
-					'External error',
-					err
-				);
+											'ac0006',
+											__filename,
+											'save',
+											'error writing Security config file to S3',
+											'External error',
+											err
+											);
 				deferred.reject(errorObj);
 			}
 		});
@@ -237,25 +244,25 @@ AccessControl.prototype.verifyAccess = function (req, serviceCall, callback) {
 	return deferred.promise;
 };
 
-AccessControl.prototype.roleExists = function (roleName, callback) {
+AccessControl.prototype.roleExists = function(roleName, callback) {
 	var deferred = Q.defer();
 
-	roleName = roleName.toLowerCase();
+	roleName =  roleName.toLowerCase();
 	var allRoles = [];
-	for (var rIdx = 0; rIdx < securityObj.roles.length; rIdx++) {
+	for(var rIdx = 0; rIdx < securityObj.roles.length; rIdx++) {
 		allRoles.push(securityObj.roles[rIdx].name.toLowerCase());
 	}
 
-	if (allRoles.indexOf(roleName) !== -1) {
+	if(allRoles.indexOf(roleName)!==-1) {
 		deferred.resolve(true);
 	}
 	else {
-		var errorObj = new ErrorObj(404,
-			'ac0008',
-			__filename,
-			'roleExists',
-			'role not found'
-		);
+		var errorObj = new ErrorObj(404, 
+									'ac0008', 
+									__filename, 
+									'roleExists', 
+									'role not found' 
+									);
 		deferred.reject(errorObj);
 	}
 

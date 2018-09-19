@@ -8,7 +8,7 @@ var models;
 var fs = require('fs');
 var Q = require('q');
 
-var Controller = function (da, utils, ac, sr, st, m) {
+var Controller = function(da, utils, ac, sr, st, m) {
 	dataAccess = da;
 	utilities = utils;
 	accessControl = ac;
@@ -17,7 +17,7 @@ var Controller = function (da, utils, ac, sr, st, m) {
 	models = m;
 };
 
-Controller.prototype.resolveServiceCall = function (serviceCallDescriptor, req, hasValidToken, callback) {
+Controller.prototype.resolveServiceCall = function(serviceCallDescriptor, req, hasValidToken, callback) {
 	var deferred = Q.defer();
 	// ===================================================================
 	// PULL THE APPROPRIATE VERSION OF WEB SERVICE WITH APPROPRIATE VERB
@@ -26,26 +26,26 @@ Controller.prototype.resolveServiceCall = function (serviceCallDescriptor, req, 
 	try {
 		versionObj = exports.makeVersionObject(serviceCallDescriptor.version);
 	}
-	catch (err) {
-		var errorObj = new ErrorObj(400,
-			'c0001',
-			__filename,
-			'resolveServiceCall',
-			'invalid version string',
-			'Invalid version string. Please follow version format x.y.x - major.minor.bug',
-			err
-		);
+	catch(err) {
+		var errorObj = new ErrorObj(400, 
+									'c0001', 
+									__filename, 
+									'resolveServiceCall',
+									'invalid version string',
+									'Invalid version string. Please follow version format x.y.x - major.minor.bug',
+									err 
+									);
 		deferred.reject(errorObj);
 	}
 	var versionOfWS;
 
-	if (serviceCallDescriptor.verb.toLowerCase() === 'get' ||
+	if(serviceCallDescriptor.verb.toLowerCase() === 'get' ||
 		serviceCallDescriptor.verb.toLowerCase() === 'post' ||
 		serviceCallDescriptor.verb.toLowerCase() === 'put' ||
 		serviceCallDescriptor.verb.toLowerCase() === 'patch' ||
 		serviceCallDescriptor.verb.toLowerCase() === 'delete') {
 		var wsNoVerb = exports.getVersionOfWebService(serviceCallDescriptor.area.toLowerCase(), serviceCallDescriptor.controller.toLowerCase(), versionObj);
-		if (wsNoVerb !== null) {
+		if(wsNoVerb !== null) {
 			versionOfWS = wsNoVerb[serviceCallDescriptor.verb.toLowerCase()];
 		}
 		else {
@@ -53,37 +53,37 @@ Controller.prototype.resolveServiceCall = function (serviceCallDescriptor, req, 
 		}
 	}
 	else {
-		var errorObj = new ErrorObj(400,
-			'c0002',
-			__filename,
-			'resolveServiceCall',
-			'unsupported http verb',
-			'That http verb is not supported.  Please use GET, POST, PUT, PATCH, or DELETE'
-		);
+		var errorObj = new ErrorObj(400, 
+									'c0002', 
+									__filename, 
+									'resolveServiceCall',
+									'unsupported http verb',
+									'That http verb is not supported.  Please use GET, POST, PUT, PATCH, or DELETE' 
+									);
 		deferred.reject(errorObj);
 	}
 
-	if (versionOfWS === null) {
+	if(versionOfWS === null) {
 		var errorObj = new ErrorObj(500,
-			'c0003',
-			__filename,
-			'resolveServiceCall',
-			'error locating correct controller file',
-			'Problem finding that endpoint',
-			serviceCallDescriptor
-		);
+									'c0003', 
+									__filename, 
+									'resolveServiceCall', 
+									'error locating correct controller file',
+									'Problem finding that endpoint',
+									serviceCallDescriptor
+									);
 		deferred.reject(errorObj);
 	}
 
 	var funcName = null;
 	var foundFuncName = false;
-	if (serviceCallDescriptor.area.toLowerCase() === 'common' && serviceCallDescriptor.controller.toLowerCase() === 'models') {
-		for (var mIdx = 0; mIdx < models.data.models.length; mIdx++) {
+	if(serviceCallDescriptor.area.toLowerCase() === 'common' && serviceCallDescriptor.controller.toLowerCase() === 'models') {
+		for(var mIdx = 0; mIdx < models.data.models.length; mIdx++) {
 			var currentModel = models.data.models[mIdx];
-			if (currentModel.obj_type.toLowerCase() === serviceCallDescriptor.call.toLowerCase()) {
+			if(currentModel.obj_type.toLowerCase() === serviceCallDescriptor.call.toLowerCase()) {
 				foundFuncName = true;
 				funcName = 'model';
-				if (serviceCallDescriptor.verb.toLowerCase() === 'get') {
+				if(serviceCallDescriptor.verb.toLowerCase() === 'get') {
 					req.query.model_type = currentModel.obj_type.toLowerCase();
 				}
 				else {
@@ -95,9 +95,9 @@ Controller.prototype.resolveServiceCall = function (serviceCallDescriptor, req, 
 		}
 	}
 	else {
-		var funcNames = Object.keys(versionOfWS);
-		for (var fIdx = 0; fIdx < funcNames.length; fIdx++) {
-			if (funcNames[fIdx].toLowerCase() === serviceCallDescriptor.call.toLowerCase()) {
+		var funcNames  = Object.keys(versionOfWS);
+		for(var fIdx = 0; fIdx < funcNames.length; fIdx++) {
+			if(funcNames[fIdx].toLowerCase() === serviceCallDescriptor.call.toLowerCase()) {
 				foundFuncName = true;
 				funcName = funcNames[fIdx];
 
@@ -106,8 +106,8 @@ Controller.prototype.resolveServiceCall = function (serviceCallDescriptor, req, 
 		}
 	}
 
-	if (foundFuncName) {
-		var mainCall = Q.denodeify(versionOfWS[funcName]);		
+	if(foundFuncName) {
+		var mainCall = Q.denodeify(versionOfWS[funcName]);
 		mainCall(req)
 		.then(function(results) {
 			deferred.resolve(results);
@@ -134,70 +134,66 @@ Controller.prototype.resolveServiceCall = function (serviceCallDescriptor, req, 
 			console.log(errorObj);
 			console.log('=============================================================\n');
 
-				console.log('\n========================== ERROR ==========================');
-				console.log(errorObj);
-				console.log('=============================================================\n');
-
-				deferred.reject(errorObj);
-			});			
+			deferred.reject(errorObj);
+		});
 	}
 	else {
-		var errorObj = new ErrorObj(400,
-			'c1005',
-			__filename,
-			'resolveServiceCall',
-			'error locating correct function in controller file',
-			'Problem finding that endpoint',
-			serviceCallDescriptor
-		);
+		var errorObj = new ErrorObj(400, 
+									'c1005', 
+									__filename, 
+									'resolveServiceCall', 
+									'error locating correct function in controller file',
+									'Problem finding that endpoint',
+									serviceCallDescriptor 
+									);
 		deferred.reject(errorObj);
 	}
 
 	deferred.promise.nodeify(callback);
-	return deferred.promise;
+    return deferred.promise;
 };
 
-Controller.prototype.validateToken = function (tkn, callback) {
+Controller.prototype.validateToken = function(tkn, callback) {
 	var deferred = Q.defer();
 
-	if (tkn === undefined || tkn === null) {
-		var errorObj = new ErrorObj(401,
-			'c0005',
-			__filename,
-			'validateToken',
-			'no token provided'
-		);
+	if(tkn === undefined || tkn === null) {
+		var errorObj = new ErrorObj(401, 
+									'c0005', 
+									__filename, 
+									'validateToken', 
+									'no token provided' 
+									);
 		deferred.reject(errorObj);
 
 		deferred.promise.nodeify(callback);
-		return deferred.promise;
+    	return deferred.promise;
 	}
 
-	dataAccess.findOne('session', { 'object_type': 'session', 'token': tkn })
-		.then(function (find_results) {
-			deferred.resolve(find_results);
-		})
-		.fail(function (err) {
-			if (err !== undefined && err !== null && typeof (err.AddToError) === 'function') {
-				err.setStatus(401);
-				err.setMessages('could not find session for this token', 'unauthorized');
-				deferred.reject(err.AddToError(__filename, 'validateToken', 'could not find session for this token'));
-			}
-			else {
-				var errorObj = new ErrorObj(401,
-					'c1004',
-					__filename,
-					'validateToken',
-					'could not find session for this token',
-					'unauthorized',
-					err
-				);
-				deferred.reject(errorObj);
-			}
-		});
+	dataAccess.findOne('session', {'object_type':'session', 'token':tkn})
+	.then(function(find_results) {
+		deferred.resolve(find_results);
+	})
+	.fail(function(err) {
+		if(err !== undefined && err !== null && typeof(err.AddToError) === 'function') {
+			err.setStatus(401);
+			err.setMessages('could not find session for this token', 'unauthorized');
+			deferred.reject(err.AddToError(__filename, 'validateToken', 'could not find session for this token'));
+		}
+		else {
+			var errorObj = new ErrorObj(401, 
+										'c1004', 
+										__filename, 
+										'validateToken', 
+										'could not find session for this token',
+										'unauthorized',
+										err 
+										);
+			deferred.reject(errorObj);
+		}
+	});
 
 	deferred.promise.nodeify(callback);
-	return deferred.promise;
+    return deferred.promise;
 };
 
 /**
@@ -223,31 +219,40 @@ exports.makeVersionObject = function makeVersionObject(versionString) {
 	var versionObject = {
 		'major': versionDetails[0],
 		'minor': versionDetails[1],
-		'bug': versionDetails[2]
+		'bug'  : versionDetails[2]
 	};
 
 	return versionObject;
 }
 
 exports.getVersionOfWebService = function getVersionOfWebService(areaName, controllerName, versionObj) {
-	var servicesDir = './' + areaName + '/';
-	var services = fs.readdirSync(servicesDir);
+	var servicesDir;
+	var rootServicesDir;
+	if(areaName === 'common') {
+		rootServicesDir = './node_modules/backstrap/common/';
+		servicesDir = './common/';
+	}
+	else {
+		rootServicesDir = './' + areaName + '/';
+		servicesDir = '../../'+ areaName +'/';
+	}
+	var services = fs.readdirSync(rootServicesDir);
 	var baseServiceName = null;
-	var inputVersionString = versionObj.major + '_' + versionObj.minor + '_' + versionObj.bug;
-	for (var sIdx = 0; sIdx < services.length; sIdx++) {
+	var inputVersionString = versionObj.major+'_'+versionObj.minor+'_'+versionObj.bug;
+	for(var sIdx = 0; sIdx < services.length; sIdx++) {
 		var serviceName = services[sIdx].substring(0, services[sIdx].indexOf('_'));
-		var versionString = services[sIdx].substring(services[sIdx].indexOf('_') + 1);
+		var versionString = services[sIdx].substring(services[sIdx].indexOf('_')+1);
 		versionString = versionString.substring(0, versionString.indexOf('.'));
 
-		if (serviceName.toLowerCase() === controllerName.toLowerCase() && versionString === inputVersionString) {
+		if(serviceName.toLowerCase() === controllerName.toLowerCase() && versionString === inputVersionString) {
 			baseServiceName = serviceName;
 			break;
 		}
 	}
-	if (baseServiceName === null) {
+	if(baseServiceName === null) {
 		return null;
 	}
-	var serviceCallsPath = servicesDir + baseServiceName + '_' + inputVersionString + '.js';
+	var serviceCallsPath = servicesDir+baseServiceName+'_'+inputVersionString+'.js';
 	var ServiceCalls = require(serviceCallsPath)[baseServiceName];
 	var versionOfWS = new ServiceCalls(dataAccess, utilities, accessControl, serviceRegistration, settings, models);
 	return versionOfWS;

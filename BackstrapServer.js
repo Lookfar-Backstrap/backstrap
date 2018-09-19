@@ -43,8 +43,15 @@ app.use(cors());
 
 //Settings File, contains DB params
 var nodeEnv = process.env.NODE_ENV || 'local';
-var configFile = './config/config.' + nodeEnv + '.js';
-var config = require(configFile);
+var configFile = '../../config/config.' + nodeEnv + '.js';
+var config;
+try {
+	config = require(configFile);
+}
+catch(e) {
+	configFile = './user_files/config/config.'+nodeEnv+'.js';
+	config = require(configFile);
+}
 
 var rsString = process.env.BS_REMOTE || 'false';
 rsString = rsString.toLowerCase();
