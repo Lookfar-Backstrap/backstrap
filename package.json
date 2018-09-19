@@ -1,8 +1,9 @@
 {
-  "name": "backstrap",
-  "version": "1.1.5",
-  "private": true,
+  "name": "backstrap-server",
+  "version": "1.1.6",
   "license": "SEE LICENSE IN LICENSE.txt",
+  "description": "Backstrap is a framework for rest and rest-like APIs",
+  "keywords": ["api", "rest", "server", "framework", "postgresql", "postgres", "cms", "admin portal", "backend", "express"],
   "repository": {
     "type" : "git",
     "url" : "https://github.com/Lookfar-Backstrap/backstrap.git"
