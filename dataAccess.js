@@ -3276,7 +3276,7 @@ DataAccess.prototype.runSql = function (sqlStatement, connection) {
 // RUN ARBITRARY SQL STATEMENTS ON THE DB CONNECTION PASSED IN AS ARGUMENT
 DataAccess.prototype.t_runSql = function (connection, sqlStatement) {
 	var deferred = Q.defer();
-	DataAccess.prototype.runsql(sqlStatement, connection)
+	DataAccess.prototype.runSql(sqlStatement, connection)
 	.then(function (res_obj) {
 		deferred.resolve(res_obj);
 	})
