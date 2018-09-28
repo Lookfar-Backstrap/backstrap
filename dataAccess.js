@@ -3289,7 +3289,7 @@ DataAccess.prototype.t_runSql = function (connection, sqlStatement) {
 			deferred.reject(rollback_err.AddToError(__filename, 't_runSql'));
 		});
 	});
-	deferred.promise.nodeify(callback);
+	
 	return deferred.promise;
 };
 
