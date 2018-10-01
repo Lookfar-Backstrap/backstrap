@@ -3258,11 +3258,10 @@ DataAccess.prototype.t_joinWhereAndResolve = function (connection, objectType, o
 // These functions handle various common tasks
 // -------------------------------------------------------------------
 // RUN ARBITRARY SQL STATEMENTS
-DataAccess.prototype.runSql = function (sqlStatement, connection) {
+DataAccess.prototype.runSql = function (sqlStatement, params, connection) {
 	var deferred = Q.defer();
-	var qry = sqlStatement;
-	var qry_params = [];
-	DataAccess.prototype.ExecutePostgresQuery(qry, qry_params, connection)
+	
+	DataAccess.prototype.ExecutePostgresQuery(sqlStatement, params, connection)
 	.then(function (connection) {
 		deferred.resolve(connection.results);
 	})
@@ -3274,9 +3273,9 @@ DataAccess.prototype.runSql = function (sqlStatement, connection) {
 }
 
 // RUN ARBITRARY SQL STATEMENTS ON THE DB CONNECTION PASSED IN AS ARGUMENT
-DataAccess.prototype.t_runSql = function (connection, sqlStatement) {
+DataAccess.prototype.t_runSql = function (connection, sqlStatement, params) {
 	var deferred = Q.defer();
-	DataAccess.prototype.runSql(sqlStatement, connection)
+	DataAccess.prototype.runSql(sqlStatement, params, connection)
 	.then(function (res_obj) {
 		deferred.resolve(res_obj);
 	})
