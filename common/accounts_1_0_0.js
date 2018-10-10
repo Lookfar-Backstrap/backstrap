@@ -25,6 +25,15 @@ var Accounts = function(db, utils, ac, sr, st, m) {
 };
 
 Accounts.prototype.get = {
+    checkToken: function(req, callback) {
+        // AUTH HAS ALREADY BEEN CHECKED, THIS TOKEN IS VALID
+        var deferred = Q.defer();
+        
+        deferred.resolve({'success': true});
+
+        deferred.promise.nodeify(callback);
+        return deferred.promise;
+    },
     profile: function(req, callback) {
         var deferred = Q.defer();
 

@@ -13,6 +13,14 @@
                     "isUserCreated": false
                 },
                 {
+                    "verb": "GET",
+                    "call": "checkToken",
+                    "desc": "Checks to see if an api token is valid",
+                    "authRequired": true,
+                    "args": [],
+                    "isUserCreated": false
+                },
+                {
                     "verb": "POST",
                     "call": "oauth_signIn",
                     "desc": "Sign in using oauth credentials",
