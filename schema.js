@@ -292,7 +292,7 @@ function makeTables(connection, models, name, user, pass, host, port) {
 				}
 				else {
 					// LINKING TABLE MUST BE NAMED USING THE TWO TABLE NAMES THAT IT JOINS
-					if (r.linking_table.substring(0, r.relates_to.length) == r.relates_to) {
+					if (r.linking_table.substring(0, r.relates_to.length) === r.relates_to) {
 						lDetails.left_table = r.relates_to;
 						lDetails.right_table = m.obj_type;
 					}

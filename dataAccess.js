@@ -1390,7 +1390,7 @@ DataAccess.prototype.findLike = function (tableName, searchObject, likeField, li
 	var deferred = Q.defer();
 
 	searchObject.is_active = true;
-	var qry = "SELECT * FROM " + tableName + " WHERE data @> '" + JSON.stringify(searchObject) + "' AND data->>'" + likeField + "' LIKE '%" + likeVal + "%' ORDER BY row_id";
+	var qry = "SELECT * FROM " + tableName + " WHERE data @> '" + JSON.stringify(searchObject) + "' AND LOWER(data->>'" + likeField + "') LIKE '%" + likeVal.toLowerCase() + "%' ORDER BY row_id";
 	var params = [];
 
 	DataAccess.prototype.ExecutePostgresQuery(qry, params, connection)
@@ -3258,11 +3258,10 @@ DataAccess.prototype.t_joinWhereAndResolve = function (connection, objectType, o
 // These functions handle various common tasks
 // -------------------------------------------------------------------
 // RUN ARBITRARY SQL STATEMENTS
-DataAccess.prototype.runSql = function (sqlStatement, connection) {
+DataAccess.prototype.runSql = function (sqlStatement, params, connection) {
 	var deferred = Q.defer();
-	var qry = sqlStatement;
-	var qry_params = [];
-	DataAccess.prototype.ExecutePostgresQuery(qry, qry_params, connection)
+	
+	DataAccess.prototype.ExecutePostgresQuery(sqlStatement, params, connection)
 	.then(function (connection) {
 		deferred.resolve(connection.results);
 	})
@@ -3274,9 +3273,9 @@ DataAccess.prototype.runSql = function (sqlStatement, connection) {
 }
 
 // RUN ARBITRARY SQL STATEMENTS ON THE DB CONNECTION PASSED IN AS ARGUMENT
-DataAccess.prototype.t_runSql = function (connection, sqlStatement) {
+DataAccess.prototype.t_runSql = function (connection, sqlStatement, params) {
 	var deferred = Q.defer();
-	DataAccess.prototype.runsql(sqlStatement, connection)
+	DataAccess.prototype.runSql(sqlStatement, params, connection)
 	.then(function (res_obj) {
 		deferred.resolve(res_obj);
 	})
@@ -3289,7 +3288,7 @@ DataAccess.prototype.t_runSql = function (connection, sqlStatement) {
 			deferred.reject(rollback_err.AddToError(__filename, 't_runSql'));
 		});
 	});
-	deferred.promise.nodeify(callback);
+	
 	return deferred.promise;
 };
 
@@ -3997,6 +3996,137 @@ DataAccess.prototype.findUser = function (email, username, connection, callback)
 		deferred.reject(err.AddToError(__filename, 'findUser'));;
 	});
 
+	deferred.promise.nodeify(callback);
+	return deferred.promise;
+};
+
+
+// UPDATE THE rel_props OF A RELATIONSHIP USING SIMILAR SYNTAX TO dataAccess.join
+DataAccess.prototype.updateRelProps = function (obj, relatedObj, relType, relProps, connection, callback) {
+	var deferred = Q.defer();
+
+	if (obj.id !== null && obj.object_type !== null) {
+		var origCollection = typeToCollectionMap[obj.object_type];
+		if (origCollection === null) {
+			releaseConnection(connection)
+			.then(function() {
+				var errorObj = new ErrorObj(500,
+					'da0209',
+					__filename,
+					'updateRelProps',
+					'could not find entity type'
+				);
+				deferred.reject(errorObj);
+			});
+
+			deferred.promise.nodeify(callback);
+			return deferred.promise;
+		}
+		var relatedCollection = typeToCollectionMap[relatedObj.object_type];
+		if (relatedCollection === null) {
+			releaseConnection(connection)
+			.then(function() {
+				var errorObj = new ErrorObj(500,
+					'da0210',
+					__filename,
+					'updateRelProps',
+					'could not find related entity type'
+				);
+				deferred.reject(errorObj);
+			});
+
+			deferred.promise.nodeify(callback);
+			return deferred.promise;
+		}
+
+		var linkingTable = null;
+		var typesAreReversed = false;
+		for (var mpIdx = 0; mpIdx < relationshipMap.length; mpIdx++) {
+			var relDescriptor = relationshipMap[mpIdx];
+			if (relDescriptor.type1 === obj.object_type && relDescriptor.type2 === relatedObj.object_type) {
+				linkingTable = relDescriptor.linkingTable;
+				break;
+			}
+			else if (relDescriptor.type1 === relatedObj.object_type && relDescriptor.type2 === obj.object_type) {
+				// THEY ARE IN THE WRONG ORDER, SWITCH THEM
+				typesAreReversed = true;
+				linkingTable = relDescriptor.linkingTable;
+				break;
+			}
+		}
+		if (linkingTable === null) {
+			releaseConnection(connection)
+			.then(function() {
+				var errorObj = new ErrorObj(500,
+					'da0211',
+					__filename,
+					'updateRelProps',
+					'could not resolve a relationship between these entity types'
+				);
+				deferred.reject(errorObj);
+			});
+
+			deferred.promise.nodeify(callback);
+			return deferred.promise;
+		}
+
+
+		var qry;
+		var qry_params = [];
+		if (!typesAreReversed) {
+			if (relType === null || relType === undefined) {
+				qry = "UPDATE "+linkingTable+" lTable SET rel_props = $1 FROM "+origCollection+" oTable, "+relatedCollection+" rTable WHERE oTable.row_id = lTable.left_id AND rTable.row_id = lTable.right_id AND oTable.data @> '{\"id\": \"" + obj.id + "\"}' AND rTable.data @> '{\"id\": \"" + relatedObj.id + "\", \"is_active\": true}'";
+				qry_params = [relProps];
+			}
+			else {
+				qry = "UPDATE "+linkingTable+" lTable SET rel_props = $1 FROM "+origCollection+" oTable, "+relatedCollection+" rTable WHERE oTable.row_id = lTable.left_id AND rTable.row_id = lTable.right_id AND oTable.data @> '{\"id\": \"" + obj.id + "\"}' AND rTable.data @> '{\"id\": \"" + relatedObj.id + "\", \"is_active\": true}' AND lTable.rel_type = $2";
+				qry_params = [relProps, relType];
+			}
+		}
+		else {
+			if (relType === null || relType === undefined) {
+				qry = "UPDATE "+linkingTable+" lTable SET rel_props = $1 FROM "+origCollection+" oTable, "+relatedCollection+" rTable WHERE oTable.row_id = lTable.right_id AND rTable.row_id = lTable.left_id AND oTable.data @> '{\"id\": \"" + obj.id + "\"}' AND rTable.data @> '{\"id\": \"" + relatedObj.id + "\", \"is_active\": true}'";
+				qry_params = [relProps];
+			}
+			else {
+				qry = "UPDATE "+linkingTable+" lTable SET rel_props = $1 FROM "+origCollection+" oTable, "+relatedCollection+" rTable WHERE oTable.row_id = lTable.right_id AND rTable.row_id = lTable.left_id AND oTable.data @> '{\"id\": \"" + obj.id + "\"}' AND rTable.data @> '{\"id\": \"" + relatedObj.id + "\", \"is_active\": true}' AND lTable.rel_type = $2";
+				qry_params = [relProps, relType];
+			}
+		}
+		DataAccess.prototype.ExecutePostgresQuery(qry, qry_params, connection)
+		.then(function (connection) {
+			var resolveObjs = [];
+			for(var rIdx = 0; rIdx < connection.results.length; rIdx++) {
+				var result = connection.results[rIdx].data;
+				if (typeof(connection.results[rIdx].rel_props) !== 'undefined'){
+					result.rel_props = connection.results[rIdx].rel_props;
+				}
+				else {
+					result.rel_props = null;
+				}
+				if(relType === undefined || relType === null) {
+					result.rel_type = connection.results[rIdx].rel_type;
+				}
+				else {
+					result.rel_type = relType;
+				}
+				resolveObjs.push(result);
+			}
+			deferred.resolve(resolveObjs);
+		})
+		.fail(function (err) {
+			deferred.reject(err.AddToError(__filename, 'updateRelProps'));
+		});
+	}
+	else {
+		var errorObj = new ErrorObj(500,
+			'da0213',
+			__filename,
+			'join',
+			'object inputs must have an id and object_type property'
+		);
+		deferred.reject(errorObj);
+	}
 	deferred.promise.nodeify(callback);
 	return deferred.promise;
 };
