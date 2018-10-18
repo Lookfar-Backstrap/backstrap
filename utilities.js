@@ -910,25 +910,19 @@ Utilities.prototype.InvalidateSessions = function(deadSessions, callback){
 				//THE ID PROP GETS TRUNC SO WELL ADD AS session_id TO THE ANALYITIC OBJ
 				deadSession['session_id'] = sess.id;
 				delete deadSession.id;
-				//CREATE ANALYTIC OBJ AND ADD DEAD SESSION
-				var analyObj = {};
-				//ITS NOT A SESSION OBJECT ANYMORE SO LETS UPDATE THAT
-				analyObj["object_type"] = 'analytics';
-				analyObj["dead_session"] = deadSession;
+				deadSession['object_type'] = 'analytics';
 				//SAVE THE DEAD SESS W/ LOGGED EVENTS AS ANALYTIC OBJ
 				dataAccess.CreateEntityReturnObjAndRowId('analytics', deadSession)
-					.then(function (dbAnalyticSess) {
-						defGetReqSession.resolve([logged_event_ids, deadSession, dbAnalyticSess]);
-					})
-					.fail(function (err) {
-						defGetReqSession.reject(null);
-						console.log({
-							'error': 'probem while invalidating sessions',
-							'message': 'Unable to create analytic record',
-							'deadSession': dbAnalyticSess.id
-						});
-						sCallback();
+				.then(function (dbAnalyticSess) {
+					defGetReqSession.resolve([logged_event_ids, deadSession, dbAnalyticSess]);
+				})
+				.fail(function (err) {
+					defGetReqSession.reject({
+						'error': 'probem while invalidating sessions',
+						'message': 'Unable to create analytic record',
+						'deadSession': dbAnalyticSess.data.id
 					});
+				});
 				return defGetReqSession.promise;
 			})
 			.spread(function (logged_event_ids, sess, dbAnalyticSess) {
@@ -937,14 +931,21 @@ Utilities.prototype.InvalidateSessions = function(deadSessions, callback){
 				//RETURNS THE USER ASSOCIATED
 				dataAccess.DeleteInvalidSessReturnUser(sess, null)
 				.then(function (userObjs) {
-					if (userObjs.rows.length === 1) {
-						var userObj = userObjs.rows[0];
+					if (userObjs.length === 1) {
+						var userObj = userObjs[0];
+
 						//ADD RELATIONSHIP TO THE NEWLY CREATE ANALYTIC OBJ
-						dataAccess.AddRelationshipUsingRowIds('account_analytics', userObj.row_id, dbAnalyticSess.row_id, '', null)
+						dataAccess.AddRelationshipUsingRowIds('bsuser_analytics', userObj.row_id, dbAnalyticSess.row_id, '', null)
 							.then(function (uRes) {
 								defJoinUser.resolve(logged_event_ids);
 							})
 							.fail(function (err) {
+								// PROBLEM CREATING THE RELATIONSHIP BETWEEN bsuser OBJ AND
+								// THE analytics OBJ.
+								// DELETE THE LOGGED EVENT IDS ANYWAY AS THEY HAVE BEEN FLATTENED
+								// INTO THE ANALYTICS OBJ, SO CONTINUE INSTEAD OF REJECTING THE
+								// PROMISE
+								console.log(err);
 								defJoinUser.resolve(logged_event_ids);
 							});
 					}
@@ -954,7 +955,7 @@ Utilities.prototype.InvalidateSessions = function(deadSessions, callback){
 					}
 				})
 				.fail(function (err) {
-					sCallback();
+					defJoinUser.reject(err);
 				});
 				return defJoinUser.promise;
 			})
@@ -964,16 +965,21 @@ Utilities.prototype.InvalidateSessions = function(deadSessions, callback){
 				}
 				else {
 					//GET RID OF THE OLD REQ SESSION OBJS NOW EMBEDDED IN THE ANALTIC OBJ
-					dataAccess.DeleteAllByRowId('logged_event', logged_event_ids)
-					.then(function () {
+					dataAccess.DeleteAllById('logged_event', logged_event_ids)
+					.finally(function () {
 						sCallback();
 					});
 				}
+			})
+			.fail(function(err) {
+				console.log(err);
+				sCallback();
 			});
 	}, function () {
 		//ALL DONE
 		deferred.resolve(true);
 	});
+
 	deferred.promise.nodeify(callback);
 	return deferred.promise;
 };
