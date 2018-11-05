@@ -49,7 +49,7 @@ try {
 	config = require(configFile);
 }
 catch(e) {
-	configFile = './user_files/config/config.'+nodeEnv+'.js';
+	configFile = './config/config.'+nodeEnv+'.js';
 	config = require(configFile);
 }
 
