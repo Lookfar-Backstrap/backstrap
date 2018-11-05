@@ -29,8 +29,8 @@ Settings.prototype.init = function(b, f, rs) {
 		}
 		catch(e) {
 			try {
-				sd = require('./user_files/Settings.json');
-				settingsWriteLocation = './node_modules/backstrap-server/user_files/Settings.json';
+				sd = require('./Settings.json');
+				settingsWriteLocation = './node_modules/backstrap-server/Settings.json';
 			}
 			catch(ee) {
 				deferred.reject(ee);

@@ -17,7 +17,7 @@ try {
 	UtilitiesExtension = require('../../utilities_ext.js');
 }
 catch(e) {
-	UtilitiesExtension = require('./user_files/utilities_ext.js');
+	UtilitiesExtension = require('./utilities_ext.js');
 }
 
 

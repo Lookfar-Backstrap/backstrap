@@ -41,8 +41,8 @@ Endpoints.prototype.init = function(b, f, rs) {
 				endpointExtLocation = './Endpoints_ext.json';
 			}
 			catch(e) {
-				customEndpointData = require('./user_files/Endpoints_ext.json');
-				endpointExtLocation = './node_modules/backstrap-server/user_files/Endpoints_ext.json';
+				customEndpointData = require('./Endpoints_ext.json');
+				endpointExtLocation = './node_modules/backstrap-server/Endpoints_ext.json';
 			}
 			
 			var areas = Object.keys(customEndpointData);

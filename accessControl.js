@@ -19,7 +19,7 @@ try {
 	AccessControlExtension = require('../../accessControl_ext.js');
 }
 catch(e) {
-	AccessControlExtension = require('./user_files/accessControl_ext.js');
+	AccessControlExtension = require('./accessControl_ext.js');
 }
 var securityWriteLocation;
 
@@ -45,14 +45,8 @@ AccessControl.prototype.init = function(b, f, rs) {
 			securityWriteLocation = './Security.json';
 		}
 		catch(e) {
-			var errorObj = new ErrorObj(403,
-										'ac0001',
-										__filename,
-										'init',
-										'unauthorized',
-										'You are not authorized to access this endpoint',
-										null);
-			deferred.reject(errorObj);
+      securityObj = require('./Security.json');
+      securityWriteLocation = './node_modules/backstrap-server/Security.json';
 		}
 		AccessControl.prototype.data = securityObj;
 		deferred.resolve(true);

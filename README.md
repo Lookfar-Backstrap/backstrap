@@ -130,10 +130,10 @@ Endpoint controllers may be found in the `/common` directory.
 __Configuration files__
 
 Backstrap has four main configuration files:
-  - `settings.json` - the fundamentals: server port, timeout, auth headers, email account options, etc.
-  - `security.json` - define user roles for the api and what areas, controllers, methods each role may access.
-  - `models.json` - describes all API endpoints and their parameters.
-  - `endpoints.json` - describe your models.
+  - `Settings.json` - the fundamentals: server port, timeout, auth headers, email account options, etc.
+  - `Security.json` - define user roles for the api and what areas, controllers, methods each role may access.
+  - `Models.json` - describes all API endpoints and their parameters.
+  - `Endpoints.json` - describe your models.
 
 ---
 

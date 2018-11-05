@@ -19,7 +19,7 @@ try {
 	config = require(settingsFile);
 }
 catch(e) {
-	settingsFile = '../user_files/config/config.'+nodeEnv+'.js';
+	settingsFile = '../config/config.'+nodeEnv+'.js';
 	config = require(settingsFile);
 }
 
