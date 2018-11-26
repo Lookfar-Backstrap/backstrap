@@ -435,7 +435,7 @@ Endpoints.prototype.save = function(doNetworkReload) {
 				var method = controller.methods[mIdx];
 
 				// USER CREATED METHOD
-				if(method.isUserCreated == undefined || method.isUserCreated == null || method.isUserCreated == true) {
+				if(method.isUserCreated == null || method.isUserCreated == true) {
 					// THE customEndpoints OBJECT DOES NOT HAVE AN ENTRY FOR THIS AREA
 					if(!customEndpoints.hasOwnProperty(areaNames[aIdx])) {
 						customEndpoints[areaNames[aIdx]] = [];

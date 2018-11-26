@@ -26,7 +26,7 @@ dashboard.controller("AddEndpointController", ['$scope', '$animate', '$element',
       $scope.form.authReq = existingEndpoint.authRequired;
       $scope.canDelete = existingEndpoint.isUserCreated;
       if ((existingEndpoint.args != null && !angular.isUndefined(existingEndpoint.args)) && existingEndpoint.args.length > 0) {
-        for (i = 0; i < existingEndpoint.args.length; i++) {
+        for (var i = 0; i < existingEndpoint.args.length; i++) {
           $scope.arguments[i] = existingEndpoint.args[i];
         }
       }

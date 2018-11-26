@@ -216,7 +216,7 @@ app.service('backstrap_service', ['$rootScope', '$http', '$location', '$state', 
     function saveLocalStorage(resetTimer) {
         localStorage.setItem('backstrap_master', JSON.stringify(bs.objBackstrap));
         //the timeout function sends a resetTimer = false, so we don't reset, otherwise true'
-        if ((resetTimer === undefined && resetTimer === null) || resetTimer) {
+        if (resetTimer == null || resetTimer) {
             bs.resetInvalidateTimer();
         }
     }

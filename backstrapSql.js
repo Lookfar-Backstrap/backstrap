@@ -53,7 +53,7 @@ function parseQueryParameters(objType, objParams, relType, ix) {
 			propVals.push(propVal);
 
 		}
-		if (propCondition !== undefined || propCondition !== null && validQueryOperators.indexOf(propCondition) !== -1) {
+		if (propCondition != null && validQueryOperators.indexOf(propCondition) !== -1) {
 			if (propCondition === 'partial' || propCondition === 'like') {
 				returnWhere += " " + operator + " (LOWER((" + objType + ".data #>> '{" + propName + "}')::text) ILIKE '%' || $" + ix + " || '%')";
 			}
@@ -113,7 +113,7 @@ function ConvertRelsToJoins(sql, rootModelType, iModels, relates_to_obj_type, re
 
 							sqlStr = " INNER JOIN " + rel.linking_table + " ON " + (rel.relates_from === rootModelType ? rootModelType : rel.relates_from) + '.row_id' + "=" + rel.linking_table + ".left_id" +
 								((relates_to_rel_type !== null && relates_to_rel_type !== '' && sql.indexOf(relates_to_obj_type) == -1) ? " AND " + rel.linking_table + ".rel_type='" + relates_to_rel_type + "'" : "");
-							if (sql.indexOf(sqlStr) === -1 && sqlStr !== undefined) {
+							if (sql.indexOf(sqlStr) === -1) {
 								sql.push(sqlStr);
 							}
 							if (rel.relates_from === rootModelType || rel.relates_to === rootModelType) {
@@ -295,7 +295,7 @@ BackstrapSql.prototype.BuildQuery = function (queryObject, models) {
 			if (queryObject.orderBy !== undefined && queryObject.orderBy !== null && queryObject.orderBy.length > 0) {
 				var ob = queryObject.orderBy.trim().split(" ");
 				var obProp = ob[0];
-				if (obProp !== undefined || obProp !== null || obProp !== "") {
+				if (obProp != null) {
 					var obDir = ob[1];
 					if (obDir === undefined || obDir === null || obDir.length === 0) {
 						obDir = "ASC";

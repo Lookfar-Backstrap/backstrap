@@ -173,7 +173,7 @@ settings.init(config.s3.bucket, 'Settings.json', useRemoteSettings)
 						err.http_status = 500;
 					}
 
-					if (err.message === undefined && err.message === null && err.message.length === 0) {
+					if (err.message == null || err.message.length === 0) {
 						err['message'] = 'Something went wrong and we are working to fix it. Please try again later.'
 					}
 
@@ -246,7 +246,7 @@ settings.init(config.s3.bucket, 'Settings.json', useRemoteSettings)
 						err.http_status = 500;
 					}
 
-					if (err.message === undefined && err.message === null && err.message.length === 0) {
+					if (err.message == null || err.message.length === 0) {
 						err['message'] = 'Something went wrong and we are working to fix it. Please try again later.'
 					}
 
@@ -318,7 +318,7 @@ settings.init(config.s3.bucket, 'Settings.json', useRemoteSettings)
 						err.http_status = 500;
 					}
 
-					if (err.message === undefined && err.message === null && err.message.length === 0) {
+					if (err.message == null || err.message.length === 0) {
 						err['message'] = 'Something went wrong and we are working to fix it. Please try again later.'
 					}
 
@@ -390,7 +390,7 @@ settings.init(config.s3.bucket, 'Settings.json', useRemoteSettings)
 						err.http_status = 500;
 					}
 
-					if (err.message === undefined && err.message === null && err.message.length === 0) {
+					if (err.message == null || err.message.length === 0) {
 						err['message'] = 'Something went wrong and we are working to fix it. Please try again later.'
 					}
 
@@ -473,7 +473,7 @@ settings.init(config.s3.bucket, 'Settings.json', useRemoteSettings)
 						err.http_status = 500;
 					}
 
-					if (err.message === undefined && err.message === null && err.message.length === 0) {
+					if (err.message == null || err.message.length === 0) {
 						err['message'] = 'Something went wrong and we are working to fix it. Please try again later.'
 					}
 

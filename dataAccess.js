@@ -2095,7 +2095,7 @@ function removeAllRelationships(obj, da, connection, callback) {
 					else if (relDescriptor.type2 === obj.object_type) {
 						var del_qry2 = "DELETE FROM \"" + relDescriptor.linkingTable + "\" WHERE right_id = $1";
 						var del2_params = [rowId];
-						DataAccess.prototype.ExecutePostgresQuery(del_qry, del_params, connection)
+						DataAccess.prototype.ExecutePostgresQuery(del_qry2, del2_params, connection)
 						.then(function (connection) {
 							callback();
 						})

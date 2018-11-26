@@ -29,9 +29,13 @@ Models.prototype.get = {
 		var args = req.query;
 		var params = [];
 		var relates = [];
-		var relsToResolve;
+    var relsToResolve;
+    var modelType;
+    var offset;
+    var range;
+
 		if(args){
-			var modelType = args.model_type;
+			modelType = args.model_type;
 			delete args.model_type;
 
 			if(args.resolve){
@@ -43,107 +47,118 @@ Models.prototype.get = {
 					delete args.resolve
 				}
 			}
-		}
+		//}
 
-		var offset;
-		if(args.hasOwnProperty('offset')) {
-			offset = args['offset'];
-			delete args.offset;
-		}
+      //var offset;
+      if(args.hasOwnProperty('offset')) {
+        offset = args['offset'];
+        delete args.offset;
+      }
 
-		var range;
-		if(args.hasOwnProperty('range')) {
-			range = args['range'];
-			delete args.range;
-		}
+      //var range;
+      if(args.hasOwnProperty('range')) {
+        range = args['range'];
+        delete args.range;
+      }
 
-		if(args.hasOwnProperty('relates_to')) {
-			if(typeof args['relates_to'] === 'string') {
-				var urlEncoded = args['relates_to'];
-				var jsonString = decodeURIComponent(urlEncoded);
-				try {
-					var relateObj = JSON.parse(jsonString);
-					var paramsLength = relateObj.parameters.length;
-					var newParams = [];
-					for(var rkIdx = 0; rkIdx < paramsLength; rkIdx++) {
-						var rop = relateObj.parameters[rkIdx];
-						var key = Object.keys(rop)[0];
-						var param = {
-							property: key,
-							value: rop[key]
-						};
-						newParams.push(param);
-					}
-					relateObj.parameters = newParams;
-					relates.push(relateObj);
-				}
-				catch(e) {
-					console.log(e);
-				}
-			}
-			else {
-				for(var rIdx = 0; rIdx < args['relates_to'].length; rIdx++) {
-					var urlEncoded = args['relates_to'][rIdx];
-					var jsonString = decodeURIComponent(urlEncoded);
-					var relateObj = JSON.parse(jsonString);
-					var paramsLength = relateObj.parameters.length;
-					var newParams = [];
-					for(var rkIdx = 0; rkIdx < paramsLength; rkIdx++) {
-						var rop = relateObj.parameters[rkIdx];
-						var key = Object.keys(rop)[0];
-						var param = {
-							property: key,
-							value: rop[key]
-						};
-						newParams.push(param);
-					}
-					relateObj.parameters = newParams;
-					relates.push(relateObj);
-				}
-			}
-			delete args['relates_to'];
-		}
-		if(args){
-			var params = [];
-			var keys = Object.keys(args);
-			var keyNumber = keys.length;
-			for(var i = 0; i < keyNumber; i++){
-				var tempKey = keys[i];
-				var tempValue = args[tempKey];
-				var tempObject = {property: tempKey, value: tempValue};
-				params.push(tempObject);
-			}
-		}
-
-		var queryObject = {
-	        "obj_type": modelType,
-	        "resolve": [],
-	        "parameters": params,
-	        "relates_to": relates,
-	        "offset": offset,
-	        "range": range
-		};
-		entityMethods.getActive(modelType, offset, range, queryObject, true, relsToResolve)
-		.then(function(objs) {
-			deferred.resolve(objs);
-		})
-		.fail(function(err) {
-			if(err !== undefined && err !== null && typeof(err.AddToError) === 'function') {
-                err.setMessages('error getting models', 'Problem getting models');
-				deferred.reject(err.AddToError(__filename, 'GET model'));
+      if(args.hasOwnProperty('relates_to')) {
+        if(typeof args['relates_to'] === 'string') {
+          var urlEncoded = args['relates_to'];
+          var jsonString = decodeURIComponent(urlEncoded);
+          try {
+            var relateObj = JSON.parse(jsonString);
+            var paramsLength = relateObj.parameters.length;
+            var newParams = [];
+            for(var rkIdx = 0; rkIdx < paramsLength; rkIdx++) {
+              var rop = relateObj.parameters[rkIdx];
+              var key = Object.keys(rop)[0];
+              var param = {
+                property: key,
+                value: rop[key]
+              };
+              newParams.push(param);
             }
-            else {
-                var errorObj = new ErrorObj(500,
-                                            'md0001',
-                                            __filename,
-                                            'model',
-                                            'error getting model',
-                                            'Error getting model',
-                                            err
-                                            );
-                deferred.reject(errorObj);
+            relateObj.parameters = newParams;
+            relates.push(relateObj);
+          }
+          catch(e) {
+            console.log(e);
+          }
+        }
+        else {
+          for(var rIdx = 0; rIdx < args['relates_to'].length; rIdx++) {
+            var urlEncoded = args['relates_to'][rIdx];
+            var jsonString = decodeURIComponent(urlEncoded);
+            var relateObj = JSON.parse(jsonString);
+            var paramsLength = relateObj.parameters.length;
+            var newParams = [];
+            for(var rkIdx = 0; rkIdx < paramsLength; rkIdx++) {
+              var rop = relateObj.parameters[rkIdx];
+              var key = Object.keys(rop)[0];
+              var param = {
+                property: key,
+                value: rop[key]
+              };
+              newParams.push(param);
             }
-		});
+            relateObj.parameters = newParams;
+            relates.push(relateObj);
+          }
+        }
+        delete args['relates_to'];
+      }
+      
+      //var params = [];
+      var keys = Object.keys(args);
+      var keyNumber = keys.length;
+      for(var i = 0; i < keyNumber; i++){
+        var tempKey = keys[i];
+        var tempValue = args[tempKey];
+        var tempObject = {property: tempKey, value: tempValue};
+        params.push(tempObject);
+      }
+		
+      var queryObject = {
+            "obj_type": modelType,
+            "resolve": [],
+            "parameters": params,
+            "relates_to": relates,
+            "offset": offset,
+            "range": range
+      };
+      entityMethods.getActive(modelType, offset, range, queryObject, true, relsToResolve)
+      .then(function(objs) {
+        deferred.resolve(objs);
+      })
+      .fail(function(err) {
+        if(err !== undefined && err !== null && typeof(err.AddToError) === 'function') {
+          err.setMessages('error getting models', 'Problem getting models');
+          deferred.reject(err.AddToError(__filename, 'GET model'));
+        }
+        else {
+            var errorObj = new ErrorObj(500,
+                                        'md0001',
+                                        __filename,
+                                        'model',
+                                        'error getting model',
+                                        'Error getting model',
+                                        err
+                                        );
+            deferred.reject(errorObj);
+        }
+      });
+    }
+    else {
+      var errorObj = new ErrorObj(500,
+                                  'md1001',
+                                  __filename,
+                                  'model',
+                                  'no args provided',
+                                  'Error getting model',
+                                  null
+                                  );
+      deferred.reject(errorObj);
+    }
 
 		deferred.promise.nodeify(callback);
 		return deferred.promise;
