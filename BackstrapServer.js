@@ -72,7 +72,7 @@ settings.init(config.s3.bucket, 'Settings.json', useRemoteSettings)
 		utilities = new Utilities(settings);
 		console.log('Utilities initialized');
 		models = new Models(settings, utilities);
-		return models.init(config.s3.bucket, 'models.json', useRemoteSettings);
+		return models.init(config.s3.bucket, 'Models.json', useRemoteSettings);
 	})
 	.then(function (endpoints_res) {
 		console.log('Models initialized');

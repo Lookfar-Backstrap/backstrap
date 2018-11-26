@@ -6,7 +6,7 @@
 // db and for retrieving and updating by row_id, the bulk of these functions
 // are built around the Backstrap model-entity system.  
 //
-// Backstrap pulls descriptors of models from the models.json file (through the 
+// Backstrap pulls descriptors of models from the Models.json file (through the 
 // models.js code). Instances of those models called entities are stored as a 
 // single JSONB field and can be connected via linking tables to other entities.  
 // They are accessed most often using an 'id' field.  At absolute minimum, an 
@@ -3090,7 +3090,7 @@ DataAccess.prototype.joinWhereAndResolve = function (objectType, objectWhere, re
 			return deferred.promise;
 		}
 
-		// HANDLE THE RELATIONSHIPS WHICH ARE NOT DESCRIBED IN models.json
+		// HANDLE THE RELATIONSHIPS WHICH ARE NOT DESCRIBED IN Models.json
 		// BECAUSE THEY ARE THE DEFAULT TABLES/RELATIONSHIPS
 		var propName = null;
 		if (objectType === 'bsuser') {
@@ -3141,7 +3141,7 @@ DataAccess.prototype.joinWhereAndResolve = function (objectType, objectWhere, re
 					'da0149',
 					__filename,
 					'joinWhereAndResolve',
-					'could not locate the relationship descriptor in models.json'
+					'could not locate the relationship descriptor in Models.json'
 				);
 				deferred.reject(errorObj);
 			});
