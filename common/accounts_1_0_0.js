@@ -50,13 +50,8 @@ Accounts.prototype.get = {
         delete userObj.is_active;
 
         // ADD EVENT TO SESSION
-        var resolveObj = userObj;
-        if (utilities.requestHasHeaders(req)) {
-            deferred.resolve(resolveObj);
-        }
-        else {
-            deferred.resolve(resolveObj);
-        }
+        deferred.resolve(userObj);
+        
         deferred.promise.nodeify(callback);
         return deferred.promise;
     },
@@ -227,6 +222,7 @@ Accounts.prototype.post = {
                                 .then(function(find_res) {
                                     // USER EXISTS IN OUR SYSTEM
                                     // TODO: UPDATE USER OBJ WITH INFO THAT COMES BACK FROM FB HERE
+                                    var userObj = find_res;
 
                                     // IF USER IS LOCKED, BAIL OUT
                                     if (find_res.is_locked) {
@@ -248,7 +244,6 @@ Accounts.prototype.post = {
                                     // ADD 100 SECOND FUDGE FACTOR
                                     if (find_res.token_info.granted_at + find_res.token_info.expires_in + 100 >= Math.floor(new Date().getTime() / 1000)) {
                                         // FB LONG-LIVED TOKEN IS EXPIRED, RENEW
-                                        var userObj = find_res;
                                         request({
                                             url: settings.data.oauth.facebook.endpoint + '?grant_type=fb_exchange_token&client_id=' +
                                             settings.data.oauth.facebook.client_id + '&client_secret=' + settings.data.oauth.facebook.client_secret +
@@ -596,7 +591,7 @@ Accounts.prototype.post = {
                                 })
                                 .fail(function(find_err) {
                                     // WE DON'T HAVE THIS USER, CREATE A NEW ONE
-                                    if (find_err.message === 'no results found') {
+                                    if (find_err != null && find_err.message === 'no results found') {
                                         createTwitterAuthHeader('GET', settings.data.oauth.twitter.verify_credentials_json_url, { 'include_email': true }, oauth_token, oauth_token_secret)
                                             .then(function(authHeader) {
                                                 request({
@@ -694,7 +689,7 @@ Accounts.prototype.post = {
                                             })
                                     }
                                     else {
-                                        if (find_err !== undefined && fine_err !== null && typeof (find_err.AddToError) == 'function') {
+                                        if (find_err != null && typeof(find_err.AddToError) == 'function') {
                                             deferred.reject(find_err.AddToError(__filename, 'oauth_signIn'));
                                         }
                                         else {
@@ -843,7 +838,7 @@ Accounts.prototype.post = {
                                     })
                                     .fail(function(find_err) {
                                         // NEW USER, CREATE
-                                        if (find_err.message === 'no results found') {
+                                        if (find_err != null && find_err.message === 'no results found') {
                                             var userObj = {
                                                 'object_type': 'bsuser',
                                                 'account_type': 'google',
@@ -891,7 +886,7 @@ Accounts.prototype.post = {
                                                 });
                                         }
                                         else {
-                                            if (find_err !== undefined && find_err !== null && typeof (find_err.AddToError) == 'function') {
+                                            if (find_err != null && typeof (find_err.AddToError) == 'function') {
                                                 deferred.reject(find_err.AddToError(__filename, 'oauth_signIn'));
                                             }
                                             else {
@@ -2073,7 +2068,7 @@ function createTwitterAuthHeader(verb, url, params, token, token_secret) {
 
 	// SORT THE KEYS LEXIGRAPHICALLY & ADD THEM TO THE PARAMSTRING
 	var paramKeys = Object.keys(params).sort();
-	for(pIdx = 0; pIdx < paramKeys.length; pIdx++) {
+	for(var pIdx = 0; pIdx < paramKeys.length; pIdx++) {
 		paramString += encodeURIComponent(paramKeys[pIdx])+'='+encodeURIComponent(params[paramKeys[pIdx]]);
 		if(pIdx < paramKeys.length-1) {
 			paramString += '&';

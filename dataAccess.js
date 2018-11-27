@@ -435,7 +435,7 @@ function releaseConnection(connection) {
 // ================================================================================
 //THIS FUNCTION GLOBALIZES ALL QUERIES (SELECT) AND NON QUERIES (INSERT UPDATE DELETE ETC)
 //CONDITIONALLY CREATES AND DESTROYS CONNECTIONS DEPENDING IF THEY ARE TRANSACTIONAL OR NOT
-DataAccess.prototype.ExecutePostgresQuery = function (query, params, connection, callback) {
+DataAccess.prototype.ExecutePostgresQuery = function (query, params, connection, includeRowId, callback) {
 	var deferred = Q.defer();
 	var pg_query = query;
 	//THE QUERY CONFIG OBJECT DOES NOT WORK IF THERE IS AN EMPTY ARRAY OF PARAMS
@@ -445,6 +445,11 @@ DataAccess.prototype.ExecutePostgresQuery = function (query, params, connection,
 			values: params,
 		}
 	}
+
+	if(includeRowId !== true) {
+		includeRowId = false;
+	}
+
 
 
 	resolveDbConnection(connection)
@@ -459,8 +464,8 @@ DataAccess.prototype.ExecutePostgresQuery = function (query, params, connection,
 			if (db_connection.results !== undefined && db_connection.results !== null && db_connection.results.length > 0) {
 				var result = db_connection.results[0];
 				var keys = Object.keys(result);
-				if ((keys.length === 1 && keys[0] === 'data')
-					|| (keys.length == 2 && keys[0] === 'row_id' && keys[1] === 'data')) {
+				if ((keys.length === 1 && keys[0] === 'data' && includeRowId !== true)
+					|| (keys.length == 2 && keys[0] === 'row_id' && keys[1] === 'data' && includeRowId !== true)) {
 					db_connection.results = db_connection.results.map(r => r.data);
 				}
 			}
@@ -2097,7 +2102,7 @@ function removeAllRelationships(obj, da, connection, callback) {
 					else if (relDescriptor.type2 === obj.object_type) {
 						var del_qry2 = "DELETE FROM \"" + relDescriptor.linkingTable + "\" WHERE right_id = $1";
 						var del2_params = [rowId];
-						DataAccess.prototype.ExecutePostgresQuery(del_qry, del_params, connection)
+						DataAccess.prototype.ExecutePostgresQuery(del_qry2, del2_params, connection)
 						.then(function (connection) {
 							callback();
 						})
@@ -3092,7 +3097,7 @@ DataAccess.prototype.joinWhereAndResolve = function (objectType, objectWhere, re
 			return deferred.promise;
 		}
 
-		// HANDLE THE RELATIONSHIPS WHICH ARE NOT DESCRIBED IN models.json
+		// HANDLE THE RELATIONSHIPS WHICH ARE NOT DESCRIBED IN Models.json
 		// BECAUSE THEY ARE THE DEFAULT TABLES/RELATIONSHIPS
 		var propName = null;
 		if (objectType === 'bsuser') {
@@ -3784,24 +3789,42 @@ DataAccess.prototype.DeleteInvalidSessReturnUser = function (sess, callback) {
 	var qry_params = [];
 	DataAccess.prototype.startTransaction()
 	.then(function (connection) {
-		qry = "SELECT row_id FROM session WHERE data->>'token' = '" + sess.token + "'";
+		qry = "WITH x AS ( \
+			DELETE FROM bsuser_session \
+			WHERE right_id =  \
+			(SELECT row_id FROM session AS ses \
+			WHERE ses.data->>'token' = '"+sess.token+"') \
+			RETURNING right_id) \
+			DELETE FROM session AS dses \
+			USING x WHERE \
+			dses.row_id = x.right_id \
+			RETURNING dses.data->>'username' AS uname";
+
 		return [connection, DataAccess.prototype.ExecutePostgresQuery(qry, qry_params, connection)];
 	})
-	.spread(function (connection, res) {
-		var sessRowId = res.results[0].row_id;
-		qry = "DELETE FROM bsuser_session WHERE right_id = " + sessRowId;
-		return [connection, sessRowId, DataAccess.prototype.ExecutePostgresQuery(qry, qry_params, connection)];
+	.spread(function (connection, client_res) {
+		var res = null;
+		if(client_res.results.length > 0 && client_res.results[0].hasOwnProperty('uname')) {
+			res = client_res.results[0]['uname'];
+		}
+		
+		return [res, DataAccess.prototype.commitTransaction(connection)];
 	})
-	.spread(function (connection, sessRowId, delete_right_res) {
-		qry = "DELETE FROM session WHERE row_id = " + sessRowId;
-		return [connection, DataAccess.prototype.ExecutePostgresQuery(qry, qry_params, connection)];
+	.spread(function (usrName, commit_res) {
+		if(usrName !== null) {
+			qry = "SELECT * FROM bsuser WHERE data@> '{ \"username\" : \"" + usrName + "\" }'";
+			return DataAccess.prototype.ExecutePostgresQuery(qry, qry_params, null, true);
+		}
+		else {
+			return null;
+		}
 	})
-	.spread(function (connection, delete_rowId_res) {
-		return DataAccess.prototype.commitTransaction(connection);
-	})
-	.then(function (commit_res) {
-		qry = "SELECT * FROM bsuser WHERE  data@> '{ \"username\" : \"" + sess.username + "\" }'";
-		deferred.resolve(DataAccess.prototype.ExecutePostgresQuery(qry, qry_params, null));
+	.then((client_res) => {
+		var outputVal = [];
+		if(client_res !== null) {
+			outputVal = client_res.results;
+		}
+		deferred.resolve(outputVal);
 	})
 	.fail(function (err) {
 		DataAccess.prototype.rollbackTransaction(connection)
@@ -3826,9 +3849,12 @@ DataAccess.prototype.CreateEntityReturnObjAndRowId = function (tableName, obj, c
 			obj.is_active = true;
 			var qry = "INSERT INTO \"" + tableName + "\"(\"data\") VALUES($1) RETURNING \"row_id\",\"data\"";
 			var qry_params = [obj];
-			DataAccess.prototype.ExecutePostgresQuery(qry, qry_params, null)
+			DataAccess.prototype.ExecutePostgresQuery(qry, qry_params, null, true)
 			.then(function (connection) {
-				deferred.resolve(connection.results);
+				if(connection.results.length > 0) {
+					deferred.resolve(connection.results[0]);
+				}
+				else deferred.resolve(null);
 			})
 			.fail(function (err) {
 				deferred.reject(err.AddToError(__filename, 'CreateEntityReturnObjAndRowId'));
@@ -3839,7 +3865,7 @@ DataAccess.prototype.CreateEntityReturnObjAndRowId = function (tableName, obj, c
 	return deferred.promise;
 };
 
-DataAccess.prototype.DeleteAllByRowId = function (table, row_ids, callback) {
+DataAccess.prototype.DeleteAllById = function (table, row_ids, callback) {
 	var deferred = Q.defer();
 	var strIn = '';
 	row_ids.forEach(function (id) {
@@ -3856,7 +3882,7 @@ DataAccess.prototype.DeleteAllByRowId = function (table, row_ids, callback) {
 		deferred.resolve(true);
 	})
 	.fail(function (err) {
-		deferred.reject(err.AddToError(__filename, 'DeleteAllByRowId'));
+		deferred.reject(err.AddToError(__filename, 'DeleteAllById'));
 	});
 
 	deferred.promise.nodeify(callback);

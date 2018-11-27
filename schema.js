@@ -267,13 +267,13 @@ function makeTables(connection, models, name, user, pass, host, port) {
 
 	// GET NAMES OF ALL TABLES USING obj_type and relationships.linking_table
 	// MAKE SURE WE DON'T ADD THEM TWICE
-	for (model in allModels) {
+	for (var model in allModels) {
 		var m = allModels[model];
 		if (tableList.indexOf(m.obj_type) == -1) {
 			tableList.push(m.obj_type);
 		}
 
-		for (rel in m.relationships) {
+		for (var rel in m.relationships) {
 			var r = m.relationships[rel];
 			if (linkingTableList.indexOf(r.linking_table) == -1) {
 				linkingTableList.push(r.linking_table);
@@ -292,7 +292,8 @@ function makeTables(connection, models, name, user, pass, host, port) {
 				}
 				else {
 					// LINKING TABLE MUST BE NAMED USING THE TWO TABLE NAMES THAT IT JOINS
-					if (r.linking_table.substring(0, r.relates_to.length) === r.relates_to) {
+					var computedLinkingTableName = r.relates_to + '_' + m.obj_type;
+					if (r.linking_table === computedLinkingTableName) {
 						lDetails.left_table = r.relates_to;
 						lDetails.right_table = m.obj_type;
 					}

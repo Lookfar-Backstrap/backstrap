@@ -115,9 +115,10 @@ ServiceRegistration.prototype.registerServiceCall = function(call, area, control
 			deferred.reject(errorObj);
 		})
 		.fail(function(err) {
-			if(err.message==='no matching controller found' ||
+			if(err != null &&
+        (err.message==='no matching controller found' ||
 				err.message==='no matching area found' ||
-				err.message==='no matching method found') {
+				err.message==='no matching method found')) {
 				var areas = Object.getOwnPropertyNames(endpoints.data);
 				// NO AREA IN ENDPOINTS FILE
 				if(areas.indexOf(area) === -1) {
@@ -201,7 +202,7 @@ ServiceRegistration.prototype.registerServiceCall = function(call, area, control
 				});
 			}
 			else {
-				if(err !== undefined && err !== null && typeof(err.AddToError) === 'function') {
+				if(err != null && typeof(err.AddToError) === 'function') {
 					deferred.reject(err.AddToError(__filename, 'registerServiceCall'));
 				}
 				else {
