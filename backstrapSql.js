@@ -10,7 +10,7 @@ BackstrapSql = function (m) {
 
 ///BEGIN BACKSTRAP QUERY V2 
 
-var validQueryOperators = ['exact', 'partial', 'between'];
+var validQueryOperators = ['exact', 'equals', 'partial', 'like', 'gt', 'gte', 'lt', 'lte', 'between'];
 function parseQueryParameters(objType, objParams, relType, ix) {
 	var noResObj = { "whereClause": "", "parameterVal": "", "ixAdd": 0 };
 	try {
@@ -52,7 +52,8 @@ function parseQueryParameters(objType, objParams, relType, ix) {
 			}
 			propVals.push(propVal);
 
-		}
+    }
+    
 		if (propCondition != null && validQueryOperators.indexOf(propCondition) !== -1) {
 			if (propCondition === 'partial' || propCondition === 'like') {
 				returnWhere += " " + operator + " (LOWER((" + objType + ".data #>> '{" + propName + "}')::text) ILIKE '%' || $" + ix + " || '%')";
@@ -79,7 +80,7 @@ function parseQueryParameters(objType, objParams, relType, ix) {
 				propVals.push(val2);
 				returnWhere += " " + operator + " ((" + objType + ".data #>> '{" + propName + "}')::int BETWEEN $" + ix + " AND $" + (ix + 1) + ")";
 			}
-			else { //exact == default
+      else { //exact == default
 				if (!isNumber) {
 					returnWhere += " " + operator + " (LOWER((" + objType + ".data #>> '{" + propName + "}')::text) = $" + ix + ")";
 				}
@@ -271,9 +272,11 @@ BackstrapSql.prototype.BuildQuery = function (queryObject, models) {
 
 			//add where clause for any parent obj properties in query. Reset ix props
 			queryObject.parameters.forEach(function (objParam) {
-				ixProps++;
+        ixProps++;
+        
 				var parse_model_param = parseQueryParameters(queryObject.obj_type, objParam, null, ixProps);
-				ixProps = ixProps + parse_model_param.ixAdd;
+
+        ixProps = ixProps + parse_model_param.ixAdd;
 				parse_model_param.parameterVals.forEach(function (pv) {
 					parameterizedQueryProps.push(pv);
 				})
@@ -360,7 +363,7 @@ BackstrapSql.prototype.BackstrapQueryObject = function (query, callback) {
 		var ixClause = 0;
 		whereClauseLoop:
 		for (var whereIdx = 0; whereIdx < whereArray.length; whereIdx++) {
-			var w = whereArray[whereIdx];
+      var w = whereArray[whereIdx];
 
 			if (w.trim().replace(" ", "") !== "") {
 				var operator = operators[ixClause];

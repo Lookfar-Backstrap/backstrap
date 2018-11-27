@@ -118,8 +118,8 @@ __Configuration files__
 Backstrap has four main configuration files:
   - `Settings.json` - the fundamentals: server port, timeout, auth headers, email account options, etc.
   - `Security.json` - define user roles for the api and what areas, controllers, methods each role may access.
-  - `Models.json` - describes all API endpoints and their parameters.
-  - `Endpoints.json` - describe your models.
+  - `Models.json` - describe your models.
+  - `Endpoints.json` - describes all API endpoints and their parameters.
 
 ---
 
