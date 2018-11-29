@@ -100,12 +100,12 @@ function ($rootScope, $scope, $state, $location, Flash, backstrap_service, appSe
                     deferred.resolve(true);
                 },
                 function(err){  
-                    Flash.create('error', 'Well crap!  ...Something has gone wrong.', 'large-text');
+                    Flash.create('error', 'Something has gone wrong.', 'large-text');
                     deferred.reject(err);
                 });
             }
             else {   
-                Flash.create('error', 'Well crap!  ...Something has gone wrong.', 'large-text');
+                Flash.create('error', 'Something has gone wrong.', 'large-text');
                 deferred.reject();
             }            
         },

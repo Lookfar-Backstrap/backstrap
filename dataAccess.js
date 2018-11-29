@@ -577,21 +577,15 @@ DataAccess.prototype.createEntity = function (tableName, obj, connection, callba
 	
 	utilities.getUID()
 	.then(function (uid_res) {
-		obj.id = uid_res;
-		obj.created_at = new Date();
-		obj.is_active = true;
-
-		var params = [obj];
-		var qry = "INSERT INTO \"" + tableName + "\"(\"data\") VALUES($1) RETURNING \"row_id\"";
-
+    obj.id = uid_res;
+    obj.created_at = new Date();
+    obj.is_active = true;
+    var qry = "INSERT INTO \"" + tableName + "\"(\"data\") VALUES($1)";
+    var params = [obj];
+    
 		DataAccess.prototype.ExecutePostgresQuery(qry, params, connection)
 		.then(function (db_connection) {
-			if (!utilties.isNullOrUndefined(connection)) {
-				deferred.resolve({ object_id: uid_res, row_id: db_connection.results[0].row_id });
-			}
-			else {
-				deferred.resolve(db_connection.results);
-			}
+			deferred.resolve(obj);
 		})
 		.fail(function (err) {
 			deferred.reject(err.AddToError(__filename, 'createEntity'));
