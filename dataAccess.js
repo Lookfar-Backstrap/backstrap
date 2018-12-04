@@ -604,7 +604,10 @@ DataAccess.prototype.t_createEntity = function (connection, tableName, obj, call
 		.fail(function (rollback_err) {
 			deferred.reject(rollback_err.AddToError(__filename, 't_createEntity'));
 		});
-	});
+  });
+  
+  deferred.promise.nodeify(callback);
+  return deferred.promise;
 };
 
 // tableName -- NAME OF THE TABLE

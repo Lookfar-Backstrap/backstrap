@@ -3,7 +3,7 @@ Backstrap Server was built on the premise that there should be a clear line betw
 
 The underlying technologies which power Backstrap Server are Nodejs, Express, and Postgresql.  The requests you will deal with in your controllers are raw Express requests, so their properties will be familiar.  Backstrap simply runs all the processing you would ordinarily have to handle yourself.  By the time a request hits your controller, you can be sure that it has the proper arguments and was sent by an authenticated user.
 
-To accomplish this task, Backstrap Server manages it's own tables in an Postgresql >= v9 database.  This includes user, session, and analytics data.  If you choose to make use of the onboard ORM, Backstrap will manage a table for each model in the same db.  As long as there are no naming conflicts, you can create tables and store data in that database manually as well.
+To accomplish this task, Backstrap Server manages its own tables in an Postgresql >= v9 database.  This includes user, session, and analytics data.  If you choose to make use of the onboard ORM, Backstrap will manage a table for each model in the same db.  As long as there are no naming conflicts, you can create tables and store data in that database manually as well.
 
 You will also find a number of common endpoints which are ready to go out-of-the-box.  These include the basic functions of any API such as sign in/out, sign up, forgot/reset password and a few dozen more.  Also there are a number of utility functions available to the methods of your controllers.
 
@@ -12,7 +12,7 @@ Finally, Backstrap Server includes an onboard web console which allows developer
 
 
 ## Project Structure:
-There are four types of files used in Backstrap projects.  
+There are four types of files used in Backstrap projects. 
 
 __Core files__ are those used by the framework and which require no modifications by the developer.  Some of these you will likely interact with such as utilities.js (which contains some useful common functions) and dataAccess.js (which has functions for reading and writing to the db), but others require no conscious interaction such as controller.js (which routes requests to the proper method in its corresponding controller file) and BackstrapServer.js (which starts up the server and initializes everything).  Here is a full list:
 ```
@@ -44,29 +44,29 @@ You may also notice an additional file with "_ext" in the name Endpoints_ext.jso
 There is more information on using Extension files in following sections.
 
 
-__Configuration files__ include 
-`Settings.json` - the fundamentals: server port, timeout, auth headers, email account options, etc.
-`Security.json` - define user roles for the api and what areas, controllers, methods each role may access.
-`Models.json` - describe your models.
-`Endpoints.json / Endpoints_ext.json` - describes all API endpoints and their parameters.
+__Configuration files__ include
+- `Settings.json` - the fundamentals: server port, timeout, auth headers, email account options, etc.
+- `Security.json` - define user roles for the api and what areas, controllers, methods each role may access.
+- `Models.json` - describe your models.
+- `Endpoints.json / Endpoints_ext.json` - describes all API endpoints and their parameters.
 
 All of these files are editable except `Endpoints.json`.  Instead use `Endpoints_ext.json`.  There is more specific information on Configuration files in following sections.
 
 
-Controller files are where the code for each endpoint is defined.  The name and location of these files is specified by the endpoints they define.  All endpoints in Backstrap Server are of the format {BASE_URL}/{AREA}/{CONTROLLER}/{METHOD}/{CONTROLLER VERSION} and the corresponding controller file would be found at the path [PROJECT ROOT]/[AREA]/[CONTROLLER]_[VERSION].  For example, the endpoint http://basedomain.com/myArea/myController/myMethod/1.0.0 would be defined in a file at the path [PROJECT ROOT]/myArea/myController_1_0_0.js.
+__Controller files__ are where the code for each endpoint is defined.  The name and location of these files is specified by the endpoints they define.  All endpoints in Backstrap Server are of the format {BASE_URL}/{AREA}/{CONTROLLER}/{METHOD}/{CONTROLLER VERSION} and the corresponding controller file would be found at the path [PROJECT ROOT]/[AREA]/[CONTROLLER]_[VERSION].  For example, the endpoint http://basedomain.com/myArea/myController/myMethod/1.0.0 would be defined in a file at the path [PROJECT ROOT]/myArea/myController_1_0_0.js.
 There is more specific information on creating and editing Controller files in later sections.
 
 ---
 
 ## Getting Started
-### Prerequisits
+### Prerequisites
 Backstrap requires both __Node.js__ and __npm__ to run, as well as, the object-relational database system __PostgreSQL__.
 
 ---
 
 #### Installing Node.js
 
-If you're using OS X or Windows, the best way tp install Node.jsis to use one of the installers from the [Node.js download page](https://nodejs.org/en/download/). If you're using Linux, you can use the installer, or you can check NodeSource's binary distributions to see whether or not there's a more recent version that works with your system.
+If you're using OS X or Windows, the best way to install Node.js is to use one of the installers from the [Node.js download page](https://nodejs.org/en/download/). If you're using Linux, you can use the installer, or you can check NodeSource's binary distributions to see whether or not there's a more recent version that works with your system.
 
 To test run: `node -v`. The version should be higher than v0.10.32.
 
@@ -92,10 +92,10 @@ Once the installation is successful run `brew doctor`.
 Install __PostgreSQL__ using the following command:
 ```
 $ brew install postgresql
- ```
+```
 Postgres can be trickier to start on mac as it does not automatically create the default postgres user.
 
-Run `$ psql`.  If you get an error like `psql: FATAL: database {yourusername} does not exist`, you need to creat the default database for you user.
+Run `$ psql`.  If you get an error like `psql: FATAL: database {yourusername} does not exist`, you need to create the default database for you user.
 
 To fix this, run `$ createdb`.
 
@@ -109,22 +109,22 @@ $ sudo apt-get updated
 $ sudo apt-get install postgresql postgresql-contrib
 ```
 ###### Windows:
-  1. Download and run the [Windows PostgreSQL one click installer].
-  2. Install PostgreSQL as a Windows Service
-  3. Keep track of the __PostgreSQL Windows Service__ account name and password. LabKey Server doesn't really care what this password is set to, but we need to ask for it so that we can pass it along to the PostgreSQL installer.
-  4. Keep track of the __database superuser__ name and password. You'll need these to configure LabKey Server. LabKey Server uses this password to authenticate itself to PostgreSQL.
-  5. Select the PL/pgsql procedural language for installation when prompted by the installer.
+ 1. Download and run the [Windows PostgreSQL one click installer].
+ 2. Install PostgreSQL as a Windows Service
+ 3. Keep track of the __PostgreSQL Windows Service__ account name and password. LabKey Server doesn't really care what this password is set to, but we need to ask for it so that we can pass it along to the PostgreSQL installer.
+ 4. Keep track of the __database superuser__ name and password. You'll need these to configure LabKey Server. LabKey Server uses this password to authenticate itself to PostgreSQL.
+ 5. Select the PL/pgsql procedural language for installation when prompted by the installer.
 ---
 
 
 ### Install and Run Backstrap Server:
 You can install Backstrap Server either by checking out/forking the git repository (https://github.com/Lookfar-Backstrap/backstrap) or by using npm (npm install -s backstrap-server), and depending which route you select, your project root will be organized differently.
 
-Using git:
+### Using git:
 Once you've checked out or forked the repository, you'll have a project root with many of the Core, Configuration, and Extension files all mixed together.  This method of installing is useful if you intend to work on/contribute code to the Backstrap Server open-source project, or if you expect to heavily modify the Core files and do not intend to update your version of Backstrap.  Here is what your project root will contain:
 ```
 /common — Core controllers with the logic for all out-of-the-box endpoints.
-/config — Configuration files with connection information for the Postgresql database and default S3 	bucket (if running the server in distributed mode—more on that later).
+/config — Configuration files with connection information for the Postgresql database and default S3  bucket (if running the server in distributed mode—more on that later).
 /node_modules — Npm controlled directory with dependencies
 /public — Source for the angularjs web console.
 /src — Static assets for the angularjs web console.
@@ -167,16 +167,16 @@ Before starting up the server, you'll need to add some connection info for the d
 They all have the same format, but depending on the environment variable NODE_ENV detected by the system, it will select the matching connection info.  This lets you change from your development server to your prod server by just restarting after changing your environment variables.  If NODE_ENV isn't found or doesn't match 'development', 'local', or 'production', the system will default to 'local' and use `config.local.js`.  Here is `config.local.js` as it comes out-of-the-box:
 ```
 module.exports = {
-  db: {
-    user: process.env.DB_USER || '[YOUR DB USER HERE]',
-    name: process.env.DB_NAME || '[YOUR DB NAME HERE]',
-    pass: process.env.DB_PASS || '[YOUR DB PASSWORD HERE]',
-    host: process.env.DB_HOST || 'localhost',
-    port: process.env.DB_PORT || '5432'
-  },
-  s3: {
-    bucket: '[YOUR BUCKET HERE]'
-  }
+ db: {
+   user: process.env.DB_USER || '[YOUR DB USER HERE]',
+   name: process.env.DB_NAME || '[YOUR DB NAME HERE]',
+   pass: process.env.DB_PASS || '[YOUR DB PASSWORD HERE]',
+   host: process.env.DB_HOST || 'localhost',
+   port: process.env.DB_PORT || '5432'
+ },
+ s3: {
+   bucket: '[YOUR BUCKET HERE]'
+ }
 };
 ```
 If you are running Backstrap Server locally, or on a single server instance (eg. one ec2 instance), you can leave s3.bucket alone.  Fill in the required information the database you plan to use.  Don't worry about setting up any tables, as Backstrap will spool up everything it needs automatically to get going (assuming your postgres user permissions permit this).  If you are running Backstrap Server on a horizontally scaled network of servers, s3.bucket must point to the s3 bucket where you plan to store the Configuration files to which all instances will need access (more on this later).
@@ -193,13 +193,13 @@ Copy all files from that directory and past them in your project root.
 Your project root should now look like this:
 ```
 /.ebextensions — This hold scripts that will be used when deploying to Amazon's Elastic Beanstalk
-/config — Configuration files with connection information for the Postgresql database and default S3 	bucket (if running the server in distributed mode—more on that later).
+/config — Configuration files with connection information for the Postgresql database and default S3  bucket (if running the server in distributed mode—more on that later).
 /node_modules — Npm controlled directory with dependencies
 
 accessControl_ext.js — Extension file for accessControl.js
-backstrap_errors.txt — 
+backstrap_errors.txt —
 dataAccess_ext.js — Extension file for dataAccess.js
-Endpoints_ext.json — Extension/Configuration file holding info on endpoints you have defined (non-system-generated endpoints) 
+Endpoints_ext.json — Extension/Configuration file holding info on endpoints you have defined (non-system-generated endpoints)
 index.js — Core main file.  Just kicks off the BackstrapServer.js code.
 Models.json — Configuration file with info on data models defined using the onboard ORM
 package.json — NPM configuration file
@@ -214,10 +214,10 @@ Check that the start script in package.json runs `node index.js`
 Run `npm start` to launch the server.
 
 
-### On First Launch:
+## On First Launch:
 If Backstrap detects no users in the database, it assumes this is the initial launch and will automatically create a single user account with username `bsroot`.  This user has the role of `super-user` and can be used to bootstrap other admin/super-user accounts for you and your support team.  If you use a browser to navigate to `http://[YOUR URL]:[YOUR PORT]` you will be presented with a form for assigning the `bsroot` user a password.  For example, if you are running Backstrap Server locally on the default port, the address you will hit is `http://localhost:3000`.  This is the only user that gets created in this way, all other users must either be entered inside the web console or by using the sign up endpoint.
 
-Getting Started — Create a New Endpoint/Controller
+## Create a New Endpoint/Controller
 As stated previously, the location and name of the controller file within the larger project is based on the endpoints it serves.  So let's make an endpoint for:
 ```
 [BASE_URL]/newArea/newController/newMethod/1.0.0
@@ -242,12 +242,12 @@ var models;
 var Q = require('q');
 
 var Controller = function(da, utils, ac, sr, st, m) {
-  dataAccess = da;
-  utilities = utils;
-  accessControl = ac;
-  serviceRegistration = sr;
-  settings = st;
-  models = m;
+  dataAccess = da;
+  utilities = utils;
+  accessControl = ac;
+  serviceRegistration = sr;
+  settings = st;
+  models = m;
 };
 
 Controller.prototype.get = {};
@@ -270,38 +270,38 @@ It does not matter what you name the class internally, but the exports statement
 Now our controller is defined and set up, it's time to register our new endpoint with the system.  This can be accomplished in two ways.  You can log into the web console, navigate to `Endpoints` on the left, and click `Create Endpoint` on the subsequent screen.  This will give you a form that lets you enter the area name, controller name, version, argument names/types, and some descriptions for metadata.  Or you can manually edit the `Endpoints_ext.json` file (which is what the web console does under the hood).  The web console approach should be fairly straightforward, but let's take a quick look at the `Endpoints_ext.json` Configuration file.  When you first get setup, this file should contain an empty object {}.  Within this object you will add key/value pair for each area where the key is the name of the area and the value is an array of objects describing the various controllers in that area.  To get started, here's what we would enter for our area and controller:
 ```
 {
-	"newArea": [
-		{
-			"name": "newController",
-			"version": "1.0.0",
-			"methods": []
-		}
-	]
+  "newArea": [
+    {
+      "name": "newController",
+      "version": "1.0.0",
+      "methods": []
+    }
+  ]
 }
 ```
 That defines our area and controller for the system, but we still need to add a definition for our new method that includes the http verb, method name, description, whether a user must be authenticated with an api token when making the request, and the argument names/types.  Let's say that our endpoint is a GET request with single, string argument called `id` which is required.  Our `Endpoints_ext.json` file will be updated to:
 ```
 {
-	"newArea": [
-		{
-			"name": "newController",
-			"version": "1.0.0",
-			"methods": [
-				{
-					"verb": "GET",
-					"call": "newMethod",
-					"desc": "get some data from the api",
-					"authRequired": false,
-					"args": [
-						"name": "id",
-						"type": "string",
-						"isRequired": true
-					],
-					"isUserCreated": true
-				}
-			]
-		}
-	]
+  "newArea": [
+    {
+      "name": "newController",
+      "version": "1.0.0",
+      "methods": [
+        {
+          "verb": "GET",
+          "call": "newMethod",
+          "desc": "get some data from the api",
+          "authRequired": false,
+          "args": [
+            "name": "id",
+            "type": "string",
+            "isRequired": true
+          ],
+          "isUserCreated": true
+        }
+      ]
+    }
+  ]
 }
 ```
 With that, we have defined the method including it's arguments.  The system will now recognize GET /newArea/newController/newMethod/1.0.0 as a valid endpoint and will check for the existence of the required argument `id` as well as it's type to make sure it matches the definition.
@@ -321,31 +321,31 @@ var models;
 var Q = require('q');
 
 var Controller = function(da, utils, ac, sr, st, m) {
-  dataAccess = da;
-  utilities = utils;
-  accessControl = ac;
-  serviceRegistration = sr;
-  settings = st;
-  models = m;
+  dataAccess = da;
+  utilities = utils;
+  accessControl = ac;
+  serviceRegistration = sr;
+  settings = st;
+  models = m;
 };
 
 Controller.prototype.get = {
-	newMethod: function(req, callback) {
-    		var deferred = Q.defer();
-		var idArg = req.query.id;
+  newMethod: function(req, callback) {
+        var deferred = Q.defer();
+    var idArg = req.query.id;
 
-		var successResponse = true;
-    		var jsonResponseObj = {id: idArg};
-		if(successResponse) {
-    			deferred.resolve(jsonResponseObj);
-		}
-		else {
-			deferred.reject(new ErrorObj(500, 'myErrorCode001', __filename, 'GET newMethod', 'internal error description', 'external error description', {}));
-		}
+    var successResponse = true;
+       var jsonResponseObj = {id: idArg};
+    if(successResponse) {
+          deferred.resolve(jsonResponseObj);
+    }
+    else {
+      deferred.reject(new ErrorObj(500, 'myErrorCode001', __filename, 'GET newMethod', 'internal error description', 'external error description', {}));
+    }
 
-    		deferred.promise.nodeify(callback);
-    		return deferred.promise;
-  	}
+        deferred.promise.nodeify(callback);
+        return deferred.promise;
+    }
 };
 
 Controller.prototype.post = {};
@@ -380,44 +380,44 @@ Upon resolve or reject of the promise in the method, Express will fire off the r
 In the previous example, we created the endpoint /newArea/newController/newMethod/1.0.0.  But let's say that has been deployed and we have a version of a mobile app using that endpoint.  We want our next version of the mobile app to use an updated version of our endpoint, but we need to keep the original version running as part of legacy support.  Backstrap Server supports versioning of controller files, so all we would need to do is create a new Controller file named `/newArea/newControler_1_0_1.js` and register a new controller and method in `Endpoints_ext.json`.  `Endpoints_ext.json` would now look like:
 ```
 {
-	"newArea": [
-		{
-			"name": "newController",
-			"version": "1.0.0",
-			"methods": [
-				{
-					"verb": "GET",
-					"call": "newMethod",
-					"desc": "get some data from the api",
-					"authRequired": false,
-					"args": [
-						"name": "id",
-						"type": "string",
-						"isRequired": true
-					],
-					"isUserCreated": true
-				}
-			]
-		}
-		{
-			"name": "newController",
-			"version": "1.0.1",
-			"methods": [
-				{
-					"verb": "GET",
-					"call": "newMethod",
-					"desc": "get some data from the api v1.0.1",
-					"authRequired": false,
-					"args": [
-						"name": "id",
-						"type": "string",
-						"isRequired": true
-					],
-					"isUserCreated": true
-				}
-			]
-		}
-	]
+  "newArea": [
+    {
+      "name": "newController",
+      "version": "1.0.0",
+      "methods": [
+        {
+          "verb": "GET",
+          "call": "newMethod",
+          "desc": "get some data from the api",
+          "authRequired": false,
+          "args": [
+            "name": "id",
+            "type": "string",
+            "isRequired": true
+          ],
+          "isUserCreated": true
+        }
+      ]
+    }
+    {
+      "name": "newController",
+      "version": "1.0.1",
+      "methods": [
+        {
+          "verb": "GET",
+          "call": "newMethod",
+          "desc": "get some data from the api v1.0.1",
+          "authRequired": false,
+          "args": [
+            "name": "id",
+            "type": "string",
+            "isRequired": true
+          ],
+          "isUserCreated": true
+        }
+      ]
+    }
+  ]
 }
 ```
 
@@ -432,17 +432,17 @@ __NOTE__: You can leave out the version entirely from the URL when making a requ
 In Settings.json, you will find three fields related to authenticated requests.  They are `token_header`, `timeout_check`, and `timeout`.  By default, their values are:
 ```
 {
-	"token_header": "bs_api_token",
-	"timeout_check": 15,
-	"timeout": 120
+  "token_header": "bs_api_token",
+  "timeout_check": 15,
+  "timeout": 120
 }
 ```
 This tells the framework that API tokens for authenticated requests can be found in a header called `bs_api_token`, that it should check for user sessions which have timed out every 15 minutes, and that a session which is idle for 120 minutes should be considered dead.  Of course, all three of the parameters are editable by you.  It is best practice to immediately rename your token_header to something specific to your project.  For example, we could change to:
 ```
 {
-	"token_header": "myProj_api_token",
-	"timeout_check": 15,
-	"timeout": 120
+  "token_header": "myProj_api_token",
+  "timeout_check": 15,
+  "timeout": 120
 }
 ```
 And now the framework will expect that API tokens will be found in a header called `myProj_api_token`.
@@ -453,141 +453,141 @@ You obtain that token by using the out-of-the-box endpoint /common/accounts/sign
 That explains how to make an authenticated requests, but you may not want all authenticated users to have access to the same endpoints.  For example, you may have an endpoint designed for admins which retrieves information on any user in the system based on name.  You certainly do not want your standard users to have the ability to get private information about each other.  The framework handles this by using endpoint level permissions based on user role.  You can define a new user role (super-user, admin-user, and default-user are set up out-of-the-box), and then assign either whole areas, whole controllers, or specific methods from specific controllers in specific areas as valid endpoints for that role.  This is accomplished in the Security.json file.  Initially, the file looks like this:
 ```
 {
-    "roles": [
-        {
-            "name": "super-user",
-            "title": "Super User",
-            "created_by": "backstrap",
-            "created_date": "8/16/2016",
-            "pattern_matches": [
-                "Area: common"
-            ],
-            "description": "This is a super user. They can do everything!",
-            "areas": [
-                {
-                    "name": "common",
-                    "permission": "all"
-                }
-            ]
-        },
-        {
-            "name": "admin-user",
-            "title": "Admin User",
-            "created_by": "backstrap",
-            "created_date": "9/10/2016",
-            "pattern_matches": [
-                "Area: common | Controller: accounts",
-                "Area: common | Controller: analytics",
-                "Area: common | Controller: cms"
-            ],
-            "description": "This is an admin user. They can do some stuff!",
-            "areas": [
-                {
-                    "name": "common",
-                    "permission": "some",
-                    "validRoutes": [
-                        {
-                            "controller": "accounts",
-                            "permission": "all",
-                            "version": "1.0.0"
-                        },
-                        {
-                            "controller": "analytics",
-                            "permission": "all",
-                            "version": "1.0.0"
-                        },
-                        {
-                            "name": "cms",
-                            "permission": "all",
-                            "version": "1.0.0"
-                        }
-                    ]
-                }            
-	]
-        },
-        {
-            "name": "default-user",
-            "title": "Default User",
-            "created_by": "backstrap",
-            "created_date": "8/14/2016",
-            "pattern_matches": [
-                "Area: common | Controller: accounts",
-                "Area: common | Controller: analytics",
-                "Area: common | Controller: cms"
-            ],
-            "description": "This is a default user. They can do some stuff!",
-            "areas": [
-                {
-                    "name": "common",
-                    "permission": "some",
-                    "validRoutes": [
-                        {
-                            "controller": "accounts",
-                            "version": "1.0.0",
-                            "permission": "all"
-                        },
-                        {
-                            "controller": "analytics",
-                            "version": "1.0.0",
-                            "permission": "all"
-                        },
-                        {
-                            "name": "cms",
-                            "permission": "all"
-                        }
-                    ]
-                }
-            ]
-        }
-    ]
+   "roles": [
+       {
+           "name": "super-user",
+           "title": "Super User",
+           "created_by": "backstrap",
+           "created_date": "8/16/2016",
+           "pattern_matches": [
+               "Area: common"
+           ],
+           "description": "This is a super user. They can do everything!",
+           "areas": [
+               {
+                   "name": "common",
+                   "permission": "all"
+               }
+           ]
+       },
+       {
+           "name": "admin-user",
+           "title": "Admin User",
+           "created_by": "backstrap",
+           "created_date": "9/10/2016",
+           "pattern_matches": [
+               "Area: common | Controller: accounts",
+               "Area: common | Controller: analytics",
+               "Area: common | Controller: cms"
+           ],
+           "description": "This is an admin user. They can do some stuff!",
+           "areas": [
+               {
+                   "name": "common",
+                   "permission": "some",
+                   "validRoutes": [
+                       {
+                           "controller": "accounts",
+                           "permission": "all",
+                           "version": "1.0.0"
+                       },
+                       {
+                           "controller": "analytics",
+                           "permission": "all",
+                           "version": "1.0.0"
+                       },
+                       {
+                           "name": "cms",
+                           "permission": "all",
+                           "version": "1.0.0"
+                       }
+                   ]
+               }           
+  ]
+       },
+       {
+           "name": "default-user",
+           "title": "Default User",
+           "created_by": "backstrap",
+           "created_date": "8/14/2016",
+           "pattern_matches": [
+               "Area: common | Controller: accounts",
+               "Area: common | Controller: analytics",
+               "Area: common | Controller: cms"
+           ],
+           "description": "This is a default user. They can do some stuff!",
+           "areas": [
+               {
+                   "name": "common",
+                   "permission": "some",
+                   "validRoutes": [
+                       {
+                           "controller": "accounts",
+                           "version": "1.0.0",
+                           "permission": "all"
+                       },
+                       {
+                           "controller": "analytics",
+                           "version": "1.0.0",
+                           "permission": "all"
+                       },
+                       {
+                           "name": "cms",
+                           "permission": "all"
+                       }
+                   ]
+               }
+           ]
+       }
+   ]
 }
 ```
 As you can see, there is an object for each user role with a name, title, and description.  You can ignore the pattern_matches field as it is used by the web console to do some fuzzy matching.  The actual specification of permissions takes place in the "areas" array.  Each area to which a user role has some permissions should appear as an object with properties `name` and `permission`.  If you are granting permission to an entire area, you can just fill out the object like this:
 ```
 {
-	"name": "newArea",
-	"permissions": "all"
-} 
+  "name": "newArea",
+  "permissions": "all"
+}
 ```
 If you are granting permissions to specific controllers in that area, it will look like this:
 ```
 {
-	"name": "newArea",
-	"permissions": "some",
-	"validRoutes": [
-		{
-			"controller": "newController",
-			"permissions": "all",
-			"version": "1.0.0"
-		}
-	]
-} 
+  "name": "newArea",
+  "permissions": "some",
+  "validRoutes": [
+    {
+      "controller": "newController",
+      "permissions": "all",
+      "version": "1.0.0"
+    }
+  ]
+}
 ```
 If you are granting permissions to a specific method within a specific controller within a specific area, it will look like this:
 ```
 {
-	"name": "newArea",
-	"permissions": "some",
-	"validRoutes": [
-		{
-			"controller": "newController",
-			"permissions": "some",
-			"version": "1.0.0",
-			"methods": [
-				{
-					"verb": "GET",
-					"call": "newMethod"
-				}
-			]
-		}
-	]
+  "name": "newArea",
+  "permissions": "some",
+  "validRoutes": [
+    {
+      "controller": "newController",
+      "permissions": "some",
+      "version": "1.0.0",
+      "methods": [
+        {
+          "verb": "GET",
+          "call": "newMethod"
+        }
+      ]
+    }
+  ]
 }
 ```
 
 ---
 
 ## Using Extension files
-As you saw in the explanation of Controller files, a number of dependencies are injected into controllers.  Probably the two most common of these are dataAccess and utilities.  These two classes contain the framework's functions for reading/writing in the db and those which we have found to be useful in all controllers.  But what if you want to add some functionality to one of these injected files for use in all of your controllers.  For example, if you choose not to use the ORM, you will want to add all of your functions for accessing your database in `dataAccess_ext.js`.  Let's say we have a function which executes some SQL statements on your data and returns the results (we'll call it myCustomSqlMethod()).  When a project is started, `dataAccess_ext.js` will look like this:
+As you saw in the explanation of Controller files, a number of dependencies are injected into controllers.  Probably the two most common of these are dataAccess and utilities.  These two classes contain the framework's functions for reading/writing in the db and those which we have found to be useful in all controllers.  But what if you want to add some functionality to one of these injected files for use in all of your controllers?  For example, if you choose not to use the ORM, you will want to add all of your functions for accessing your database in `dataAccess_ext.js`.  Let's say we have a function which executes some SQL statements on your data and returns the results (we'll call it myCustomSqlMethod()).  When a project is started, `dataAccess_ext.js` will look like this:
 ```
 var Q = require('q');
 const { Pool } = require('pg')
@@ -595,9 +595,9 @@ var pool;
 var dataAccess;
 var models;
 
-var DataAccessExtension = function(da, dbConfig, mdls) {  
-  models = mdls;
-  dataAccess = da;  
+var DataAccessExtension = function(da, dbConfig, mdls) {  
+  models = mdls;
+  dataAccess = da;  
 }
 
 
@@ -613,33 +613,33 @@ var pool;
 var dataAccess;
 var models;
 
-var DataAccessExtension = function(da, dbConfig, mdls) {  
-  models = mdls;
-  dataAccess = da;  
+var DataAccessExtension = function(da, dbConfig, mdls) {  
+  models = mdls;
+  dataAccess = da;  
 }
 
 DataAccessExtension.prototype.myCustomSqlMethod = (make, model, color) => {
-  var deferred = Q.defer();
+ var deferred = Q.defer();
 
-  var qry = "INSERT INTO car(make, model, color) VALUES($1, $2, $3)";
-  var params = [make, model, color];
+ var qry = "INSERT INTO car(make, model, color) VALUES($1, $2, $3)";
+ var params = [make, model, color];
 
-  dataAccess.runSql(qry, params)
-  .then((res) => {
-      deferred.resolve(res);
-    })
-    .fail((err) => {
-      var errorObj = new ErrorObj(500,
-                                  'dae0001',
-                                  __filename,
-                                  'myCustomSqlMethod',
-                                  'there was a problem executing this insert',
-                                  'There was a problem creating this car object in the database',
-                                  err
-                                );
-      deferred.reject(errorObj);
-    });
-    return deferred.promise;
+ dataAccess.runSql(qry, params)
+ .then((res) => {
+     deferred.resolve(res);
+   })
+   .fail((err) => {
+     var errorObj = new ErrorObj(500,
+                                 'dae0001',
+                                 __filename,
+                                 'myCustomSqlMethod',
+                                 'there was a problem executing this insert',
+                                 'There was a problem creating this car object in the database',
+                                 err
+                               );
+     deferred.reject(errorObj);
+   });
+   return deferred.promise;
 }
 
 module.exports = DataAccessExtension;
@@ -680,118 +680,118 @@ Taking it a step further, you may want to name these relationships.  For example
 `Models.json` file format:
 ```
 {
-    "models": [
-        {
-            "obj_type": "car",
-            "description": "A car",
-            "date_created": "2018-10-15T00:00:00.000Z",
-            "date_updated": "2018-11-21T00:00:00.000Z",
-            "relationships": [
-                {
-                    "relates_to": "address",
-                    "plural_name": "addresses",
-                    "relates_from": "car",
-                    "plural_rev": "cars",
-                    "linking_table": "car_address",
-                    "is_active": true
-                }
-            ],
-            "properties": [
-                {
-                    "name": "id",
-                    "data_type": "string",
-                    "required": true,
-                    "hint": "This is a system generated field. It is a unique identifier for a record."
-                },
-                {
-                    "name": "name",
-                    "data_type": "string",
-                    "required": true,
-                    "hint": "a name for this car"
-                },
-                {
-                    "name": "make",
-                    "required": true,
-                    "hint": "",
-                    "data_type": "string"
-                },
-                {
-                    "name": "model",
-                    "required": true,
-                    "hint": "",
-                    "data_type": "string"
-                },
-                {
-                    "name": "color",
-                    "required": false,
-                    "hint": "primary paint color",
-                    "data_type": "string"
-                }
-            ],
-            "roles": [
-                "super-user"
-            ],
-            "updated_date": "2018-11-21"
-        },
-        {
-            "obj_type": "address",
-            "description": "an address",
-            "date_created": "2018-10-15T00:00:00.000Z",
-            "date_updated": "2018-11-06T00:00:00.000Z",
-            "relationships": [
-                {
-                    "relates_to": "car",
-                    "plural_name": "cars",
-                    "relates_from": "address",
-                    "plural_rev": "addresses",
-                    "linking_table": "car_address",
-                    "is_active": true
-                }
-            ],
-            "properties": [
-                {
-                    "name": "id",
-                    "data_type": "string",
-                    "required": true,
-                    "hint": "This is a system generated field. It is a unique identifier for a record."
-                },
-                {
-                    "name": "name",
-                    "data_type": "string",
-                    "required": true,
-                    "hint": ""
-                },
-                {
-                    "name": "street_address",
-                    "required": true,
-                    "hint": "",
-                    "data_type": "string"
-                },
-                {
-                    "name": "city",
-                    "required": true,
-                    "hint": "",
-                    "data_type": "string"
-                },
-                {
-                    "name": "state",
-                    "required": true,
-                    "hint": "",
-                    "data_type": "string"
-                },
-                {
-                    "name": "county",
-                    "required": false,
-                    "hint": "",
-                    "data_type": "string"
-                }
-            ],
-            "roles": [
-                "super-user"
-            ],
-            "updated_date": "2018-11-06"
-        }
-    ]
+   "models": [
+       {
+           "obj_type": "car",
+           "description": "A car",
+           "date_created": "2018-10-15T00:00:00.000Z",
+           "date_updated": "2018-11-21T00:00:00.000Z",
+           "relationships": [
+               {
+                   "relates_to": "address",
+                   "plural_name": "addresses",
+                   "relates_from": "car",
+                   "plural_rev": "cars",
+                   "linking_table": "car_address",
+                   "is_active": true
+               }
+           ],
+           "properties": [
+               {
+                   "name": "id",
+                   "data_type": "string",
+                   "required": true,
+                   "hint": "This is a system generated field. It is a unique identifier for a record."
+               },
+               {
+                   "name": "name",
+                   "data_type": "string",
+                   "required": true,
+                   "hint": "a name for this car"
+               },
+               {
+                   "name": "make",
+                   "required": true,
+                   "hint": "",
+                   "data_type": "string"
+               },
+               {
+                   "name": "model",
+                   "required": true,
+                   "hint": "",
+                   "data_type": "string"
+               },
+               {
+                   "name": "color",
+                   "required": false,
+                   "hint": "primary paint color",
+                   "data_type": "string"
+               }
+           ],
+           "roles": [
+               "super-user"
+           ],
+           "updated_date": "2018-11-21"
+       },
+       {
+           "obj_type": "address",
+           "description": "an address",
+           "date_created": "2018-10-15T00:00:00.000Z",
+           "date_updated": "2018-11-06T00:00:00.000Z",
+           "relationships": [
+               {
+                   "relates_to": "car",
+                   "plural_name": "cars",
+                   "relates_from": "address",
+                   "plural_rev": "addresses",
+                   "linking_table": "car_address",
+                   "is_active": true
+               }
+           ],
+           "properties": [
+               {
+                   "name": "id",
+                   "data_type": "string",
+                   "required": true,
+                   "hint": "This is a system generated field. It is a unique identifier for a record."
+               },
+               {
+                   "name": "name",
+                   "data_type": "string",
+                   "required": true,
+                   "hint": ""
+               },
+               {
+                   "name": "street_address",
+                   "required": true,
+                   "hint": "",
+                   "data_type": "string"
+               },
+               {
+                   "name": "city",
+                   "required": true,
+                   "hint": "",
+                   "data_type": "string"
+               },
+               {
+                   "name": "state",
+                   "required": true,
+                   "hint": "",
+                   "data_type": "string"
+               },
+               {
+                   "name": "county",
+                   "required": false,
+                   "hint": "",
+                   "data_type": "string"
+               }
+           ],
+           "roles": [
+               "super-user"
+           ],
+           "updated_date": "2018-11-06"
+       }
+   ]
 }
 ```
 This describes simple car and address models with a relationship between them.
