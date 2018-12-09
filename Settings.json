@@ -1,9 +1,12 @@
 {
 	"token_header": "bs_api_token",
-	"timeout_check": 15,
-	"timeout": 120,
+	"timeout_check": 0.5,
+	"timeout": 0.5,
 	"server_port": 3000,
-	"servers": [],
+  "servers": [],
+  "access_logging": true,
+  "session_logging": true,
+  "log_rotation_period": 90,
 	"mail_options": {
 		"account": "YOUR EMAIL",
 		"service": "sendgrid",

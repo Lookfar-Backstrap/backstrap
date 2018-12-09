@@ -3759,7 +3759,7 @@ DataAccess.prototype.t_BackstrapQuery = function (connection, queryObject, model
 DataAccess.prototype.GetDeadSessions = function (timeOut, callback) {
 	var deferred = Q.defer();
 	var minutes = "'" + timeOut + " minutes'";
-	var qry = "select * from session where (data->>'last_touch')::timestamp with time zone < (NOW() - INTERVAL " + minutes + ")";
+	var qry = "select row_id as rid, data from session where (data->>'last_touch')::timestamp with time zone < (NOW() - INTERVAL " + minutes + ")";
 	var qry_params = [];
 	DataAccess.prototype.ExecutePostgresQuery(qry, qry_params, null)
 	.then(function (connection) {
@@ -3773,61 +3773,39 @@ DataAccess.prototype.GetDeadSessions = function (timeOut, callback) {
 	return deferred.promise;
 };
 
-DataAccess.prototype.DeleteInvalidSessReturnUser = function (sess, callback) {
-	var deferred = Q.defer();
-	var qry = "";
-	var qry_params = [];
-	DataAccess.prototype.startTransaction()
-	.then(function (connection) {
-		qry = "WITH x AS ( \
-			DELETE FROM bsuser_session \
-			WHERE right_id =  \
-			(SELECT row_id FROM session AS ses \
-			WHERE ses.data->>'token' = '"+sess.token+"') \
-			RETURNING right_id) \
-			DELETE FROM session AS dses \
-			USING x WHERE \
-			dses.row_id = x.right_id \
-			RETURNING dses.data->>'username' AS uname";
+DataAccess.prototype.DeleteSessions = function(dsIds, callback) {
+  var deferred = Q.defer();
 
-		return [connection, DataAccess.prototype.ExecutePostgresQuery(qry, qry_params, connection)];
-	})
-	.spread(function (connection, client_res) {
-		var res = null;
-		if(client_res.results.length > 0 && client_res.results[0].hasOwnProperty('uname')) {
-			res = client_res.results[0]['uname'];
-		}
-		
-		return [res, DataAccess.prototype.commitTransaction(connection)];
-	})
-	.spread(function (usrName, commit_res) {
-		if(usrName !== null) {
-			qry = "SELECT * FROM bsuser WHERE data@> '{ \"username\" : \"" + usrName + "\" }'";
-			return DataAccess.prototype.ExecutePostgresQuery(qry, qry_params, null, true);
-		}
-		else {
-			return null;
-		}
-	})
-	.then((client_res) => {
-		var outputVal = [];
-		if(client_res !== null) {
-			outputVal = client_res.results;
-		}
-		deferred.resolve(outputVal);
-	})
-	.fail(function (err) {
-		DataAccess.prototype.rollbackTransaction(connection)
-		.then(function (rollback_res) {
-			deferred.reject(err.AddToError(__filename, 'DeleteInvalidSessReturnUser', 'transaction rolled back'));
-		})
-		.fail(function (rollback_err) {
-			deferred.reject(rollback_err.AddToError(__filename, 'DeleteInvalidSessReturnUser'));
-		});
-	})
-	deferred.promise.nodeify(callback);
-	return deferred.promise;
+  var idString = dsIds.join(',');
+  var db_connection;
+
+  DataAccess.prototype.startTransaction()
+  .then((db_handle) => {
+    db_connection = db_handle;
+    var qry_linking = "DELETE FROM bsuser_session WHERE right_id IN ("+idString+")";
+    return [db_handle, DataAccess.prototype.ExecutePostgresQuery(qry_linking, [], db_handle)];
+  })
+  .spread((db_handle, qry_res) => {
+    var qry = "DELETE FROM session WHERE row_id IN ("+idString+")";
+    return [db_handle, DataAccess.prototype.ExecutePostgresQuery(qry, [], db_handle)];
+  })
+  .spread((db_handle, qry_res) => {
+    return DataAccess.prototype.commitTransaction(db_handle);
+  })
+  .then(() => {
+    deferred.resolve();
+  })
+  .fail((err) => {
+    DataAccess.prototype.rollbackTransaction(db_connection)
+    .finally(() => {
+      deferred.reject(err);
+    })
+  });
+
+  deferred.promise.nodeify(callback);
+  return deferred.promise;
 };
+
 
 DataAccess.prototype.CreateEntityReturnObjAndRowId = function (tableName, obj, callback) {
 	var deferred = Q.defer();

@@ -1066,13 +1066,10 @@ Accounts.prototype.post = {
     },
     signIn: function(req, callback) {
         var deferred = Q.defer();
-        
-        //deferred.resolve('done');
-        
         var body = req.body;
 
         try {
-            var username = (typeof (req.body.username) == 'undefined' || req.body.username === null) ? req.body.email.toLowerCase() : req.body.username.toLowerCase();
+            var username = (req.body.username)== null ? req.body.email.toLowerCase() : req.body.username.toLowerCase();
         }
         catch (err) {
             var errorObj = new ErrorObj(400,
@@ -1116,6 +1113,8 @@ Accounts.prototype.post = {
                     'error retrieving salt for this user'
                 );
                 deferred.reject(errorObj);
+                deferred.promise.nodeify(callback);
+                return deferred.promise;
             }
             var stored_password = userObj.password;
             if (stored_password === null) {
@@ -1126,6 +1125,8 @@ Accounts.prototype.post = {
                     'error retrieving password for this user'
                 );
                 deferred.reject(errorObj);
+                deferred.promise.nodeify(callback);
+                return deferred.promise;
             }
 
             // SALT AND HASH PASSWORD
@@ -1152,6 +1153,7 @@ Accounts.prototype.post = {
                 'object_type': 'session',
                 'token': tkn,
                 'username': username,
+                'user_id': userObj.id,
                 'started_at': rightNow,
                 'client_info': clientInfo,
                 'last_touch': rightNow,
@@ -1946,8 +1948,9 @@ function createSession(userObj, clientInfo) {
 		var sessionObj = {
 			'object_type': 'session',
 			'is_anonymous': false,
-			'token': tkn,
-			'username': userObj.username,
+      'token': tkn,
+      'username': userObj.username,
+			'user_id': userObj.id,
 			'started_at': rightNow,
 			'client_info': clientInfo,
 			'last_touch': rightNow,
