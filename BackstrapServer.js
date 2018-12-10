@@ -350,7 +350,7 @@ function requestPipeline(req, res, verb) {
 // -----------------------------------
 function changeErrorLogs() {
   let today = new Date();
-  let todayString = today.getDate()+'-'+today.getMonth()+'-'+today.getFullYear();
+  let todayString = today.getMonth()+'-'+today.getDate()+'-'+today.getFullYear();
   let errorLogPath = './logs/error-'+todayString;
   let accessLogPath = './logs/access-'+todayString;
   let sessionLogPath = './logs/session-'+todayString;
@@ -376,6 +376,38 @@ function changeErrorLogs() {
 
   if(eventLog != null) eventLog.end();
   eventLog = fs.createWriteStream(eventLogPath, {flags:'a'});
+
+  // DELETE LOGS OLDER THAN today - log_rotation_period
+  var evictionDate = new Date();
+  evictionDate.setDate(evictionDate.getDate()-settings.data.log_rotation_period);
+  evictionDate.setHours(0,0,0,0);
+  fs.readdir('./logs/', (err, files) => {
+    if(!err) {
+      for(var fIdx = 0; fIdx < files.length; fIdx++) {
+        let filepath = './logs/'+files[fIdx];
+        fs.stat(filepath, (stat_err, stats) => {
+          if(!stat_err) {
+            var createDate = new Date(stats.birthtime);
+            createDate.setHours(0,0,0,0);
+            if(createDate < evictionDate) {
+              fs.unlink(filepath, (del_err, del_res) => {
+                if(del_err) {
+                  var errObj = {
+                    display_message:"Problem evicting log files",
+                    file: filepath,
+                    timestamp: new Date(),
+                    results: del_err
+                  }
+                  let logEntry = JSON.stringify(errObj)+'\n';
+                  errorLog.write(logEntry);
+                }
+              })
+            }
+          }
+        })
+      }
+    }
+  })
 
   var midnightTonight = new Date();
   midnightTonight.setDate(midnightTonight.getDate()+1);

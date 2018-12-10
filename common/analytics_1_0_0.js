@@ -32,7 +32,7 @@ Analytics.prototype.post = {
 
 		utilities.logEvent(tkn, eventDescriptor)
 		.then(function(logEvent_res) {
-			deferred.resolve(logEvent_res);
+			deferred.resolve({success: true});
 		})
 		.fail(function(err) {
 			deferred.reject(err);
