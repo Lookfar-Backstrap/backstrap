@@ -1,9 +1,0 @@
-{"start_timestamp":"2018-12-09T04:34:16.386Z","endpoint":"common/accounts/signin/1.0.0","user_agent":"PostmanRuntime/7.4.0","ips":"::1","end_timestamp":"2018-12-09T04:34:16.439Z","http_status":200}
-{"start_timestamp":"2018-12-09T04:34:17.729Z","endpoint":"common/accounts/signin/1.0.0","user_agent":"PostmanRuntime/7.4.0","ips":"::1","end_timestamp":"2018-12-09T04:34:17.751Z","http_status":200}
-{"start_timestamp":"2018-12-09T04:41:38.282Z","endpoint":"common/accounts/signin/1.0.0","user_agent":"PostmanRuntime/7.4.0","ips":"::1","end_timestamp":"2018-12-09T04:41:38.335Z","http_status":200}
-{"start_timestamp":"2018-12-09T04:41:39.213Z","endpoint":"common/accounts/signin/1.0.0","user_agent":"PostmanRuntime/7.4.0","ips":"::1","end_timestamp":"2018-12-09T04:41:39.228Z","http_status":200}
-{"start_timestamp":"2018-12-09T04:41:42.098Z","endpoint":"common/accounts/signin/1.0.0","user_agent":"PostmanRuntime/7.4.0","ips":"::1","end_timestamp":"2018-12-09T04:41:42.118Z","http_status":200}
-{"start_timestamp":"2018-12-09T04:41:43.113Z","endpoint":"common/accounts/signin/1.0.0","user_agent":"PostmanRuntime/7.4.0","ips":"::1","end_timestamp":"2018-12-09T04:41:43.130Z","http_status":200}
-{"start_timestamp":"2018-12-09T04:41:43.900Z","endpoint":"common/accounts/signin/1.0.0","user_agent":"PostmanRuntime/7.4.0","ips":"::1","end_timestamp":"2018-12-09T04:41:43.916Z","http_status":200}
-{"start_timestamp":"2018-12-09T04:41:44.790Z","endpoint":"common/accounts/signin/1.0.0","user_agent":"PostmanRuntime/7.4.0","ips":"::1","end_timestamp":"2018-12-09T04:41:44.812Z","http_status":200}
-{"start_timestamp":"2018-12-09T04:42:14.597Z","endpoint":"common/accounts/signin/1.0.0","user_agent":"PostmanRuntime/7.4.0","ips":"::1","end_timestamp":"2018-12-09T04:42:14.628Z","http_status":401}

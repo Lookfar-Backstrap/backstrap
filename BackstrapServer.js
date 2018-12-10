@@ -112,19 +112,20 @@ settings.init(config.s3.bucket, 'Settings.json', useRemoteSettings)
     console.log('Schema updated');
     
     // GET HANDLES FOR LOG FILES
-    let today = new Date();
-    let todayString = today.getDay()+'-'+today.getMonth()+'-'+today.getFullYear();
-    let errorLogPath = './logs/error-'+todayString;
-    let accessLogPath = './logs/access-'+todayString;
-    let sessionLogPath = './logs/session-'+todayString;
-    let eventLogPath = './logs/event-'+todayString;
+    // let today = new Date();
+    // let todayString = today.getDay()+'-'+today.getMonth()+'-'+today.getFullYear();
+    // let errorLogPath = './logs/error-'+todayString;
+    // let accessLogPath = './logs/access-'+todayString;
+    // let sessionLogPath = './logs/session-'+todayString;
+    // let eventLogPath = './logs/event-'+todayString;
 
-    errorLog = fs.createWriteStream(errorLogPath, {flags:'a'});
-    if(settings.data.access_logging === true)
-      accessLog = fs.createWriteStream(accessLogPath, {flags:'a'});
-    if(settings.data.session_logging === true)  
-      sessionLog = fs.createWriteStream(sessionLogPath, {flags:'a'});
-    eventLog = fs.createWriteStream(eventLogPath, {flags:'a'});
+    // errorLog = fs.createWriteStream(errorLogPath, {flags:'a'});
+    // if(settings.data.access_logging === true)
+    //   accessLog = fs.createWriteStream(accessLogPath, {flags:'a'});
+    // if(settings.data.session_logging === true)  
+    //   sessionLog = fs.createWriteStream(sessionLogPath, {flags:'a'});
+    // eventLog = fs.createWriteStream(eventLogPath, {flags:'a'});
+    changeErrorLogs();
     console.log('Log files opened');
 
     utilities.setLogs(eventLog, errorLog);
@@ -136,7 +137,7 @@ settings.init(config.s3.bucket, 'Settings.json', useRemoteSettings)
 		// STARTUP THE SESSION INVALIDATION -- CHECK EVERY X MINUTES
 		var timeoutInMintues = settings.data.timeout;
 		var invalidSessionTimer = setInterval(function () { checkForInvalidSessions(dataAccess, settings) }, settings.data.timeout_check * 60000);
-		
+    
 
 		// ========================================================
 		// SETUP ROUTE HANDLERS
@@ -360,6 +361,47 @@ function requestPipeline(req, res, verb) {
   });
 }
 
+// -----------------------------------
+// SWITCH ERROR LOGS AT MIDNIGHT
+// -----------------------------------
+function changeErrorLogs() {
+  let today = new Date();
+  let todayString = today.getDay()+'-'+today.getMonth()+'-'+today.getFullYear();
+  let errorLogPath = './logs/error-'+todayString;
+  let accessLogPath = './logs/access-'+todayString;
+  let sessionLogPath = './logs/session-'+todayString;
+  let eventLogPath = './logs/event-'+todayString;
+  if(errorLog != null) errorLog.end();
+  errorLog = fs.createWriteStream(errorLogPath, {flags:'a'});
+
+  if(settings.data.access_logging === true) {
+    if(accessLog != null) accessLog.end();
+    accessLog = fs.createWriteStream(accessLogPath, {flags:'a'});
+  }
+  else {
+    accessLog = null;
+  }
+
+  if(settings.data.session_logging === true) {
+    if(sessionLog != null) sessionLog.end();
+    sessionLog = fs.createWriteStream(sessionLogPath, {flags:'a'});
+  }
+  else {
+    sessionLog = null;
+  }
+
+  if(eventLog != null) eventLog.end();
+  eventLog = fs.createWriteStream(eventLogPath, {flags:'a'});
+
+  var midnightTonight = new Date();
+  midnightTonight.setDate(midnightTonight.getDate()+1);
+  midnightTonight.setHours(0, 0, 0, 0);
+  var rightNow = new Date();
+  var interval = midnightTonight.getTime() - rightNow.getTime();
+  setTimeout(changeErrorLogs, interval);
+
+  return;
+}
 
 // -----------------------------------
 // PRINT OBJECT AS JSON TO CONSOLE
