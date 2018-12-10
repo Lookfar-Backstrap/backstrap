@@ -111,25 +111,9 @@ settings.init(config.s3.bucket, 'Settings.json', useRemoteSettings)
 	.then(function (us_Res) {
     console.log('Schema updated');
     
-    // GET HANDLES FOR LOG FILES
-    // let today = new Date();
-    // let todayString = today.getDay()+'-'+today.getMonth()+'-'+today.getFullYear();
-    // let errorLogPath = './logs/error-'+todayString;
-    // let accessLogPath = './logs/access-'+todayString;
-    // let sessionLogPath = './logs/session-'+todayString;
-    // let eventLogPath = './logs/event-'+todayString;
-
-    // errorLog = fs.createWriteStream(errorLogPath, {flags:'a'});
-    // if(settings.data.access_logging === true)
-    //   accessLog = fs.createWriteStream(accessLogPath, {flags:'a'});
-    // if(settings.data.session_logging === true)  
-    //   sessionLog = fs.createWriteStream(sessionLogPath, {flags:'a'});
-    // eventLog = fs.createWriteStream(eventLogPath, {flags:'a'});
     changeErrorLogs();
-    console.log('Log files opened');
-
     utilities.setLogs(eventLog, errorLog);
-    
+    console.log('Log files opened');
 
 		// SERVER PORT
 		app.set('port', process.env.PORT || settings.data.server_port);
@@ -366,7 +350,7 @@ function requestPipeline(req, res, verb) {
 // -----------------------------------
 function changeErrorLogs() {
   let today = new Date();
-  let todayString = today.getDay()+'-'+today.getMonth()+'-'+today.getFullYear();
+  let todayString = today.getDate()+'-'+today.getMonth()+'-'+today.getFullYear();
   let errorLogPath = './logs/error-'+todayString;
   let accessLogPath = './logs/access-'+todayString;
   let sessionLogPath = './logs/session-'+todayString;
@@ -415,10 +399,6 @@ function printObject(obj) {
 // CHECK FOR SESSIONS WHICH HAVE TIMED OUT
 // ----------------------------------------
 function checkForInvalidSessions(dataAccess, settings, callback) {
-	//THIS FUNCTION INTENTIONALLY USES NEW DATA ACCESS FUNCTIONS THAT RETURN row_id UPON CREATING 
-	//SO WE DONT HAVE THE OVERHEAD OF RE-RESOLVING THEM LATER USING THE BUILT-IN DA FUNCTIONS
-
-	//SET UTILITIES DATA ACCESS
 	var deferred = Q.defer();
 	//THIS RETURNS STALE SESSIONS
 	dataAccess.GetDeadSessions(settings.data.timeout)

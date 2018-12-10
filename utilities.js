@@ -781,16 +781,9 @@ Utilities.prototype.logEvent = function(tkn, eventDescriptor) {
 		'event_data': eventDescriptor
   };
   let logEntry = JSON.stringify(loggedEvent)+'\n';
-
-  var writeToLog = Q.denodeify(eventLog.write);
-  writeToLog(logEntry)
-  .then(function(write_res) {
+  eventLog.write(logEntry, () => {
     deferred.resolve();
-  })
-  .fail(function(write_err) {
-    deferred.reject(write_err);
   });
-
 
 	return deferred.promise;
 }

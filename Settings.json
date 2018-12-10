@@ -1,7 +1,7 @@
 {
 	"token_header": "bs_api_token",
-	"timeout_check": 0.5,
-	"timeout": 0.5,
+	"timeout_check": 15,
+	"timeout": 120,
 	"server_port": 3000,
   "servers": [],
   "access_logging": true,
