@@ -404,8 +404,27 @@ function changeErrorLogs() {
               })
             }
           }
+          else {
+            var errObj = {
+              display_message:"Problem evicting log files",
+              file: filepath,
+              timestamp: new Date(),
+              results: stat_err
+            }
+            let logEntry = JSON.stringify(errObj)+'\n';
+            errorLog.write(logEntry);
+          }
         })
       }
+    }
+    else {
+      var errObj = {
+        display_message:"Problem evicting log files",
+        timestamp: new Date(),
+        results: err
+      }
+      let logEntry = JSON.stringify(errObj)+'\n';
+      errorLog.write(logEntry);
     }
   })
 
