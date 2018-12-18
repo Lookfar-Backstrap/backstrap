@@ -225,10 +225,9 @@ DataAccess.prototype.getDbConnection = function (callback) {
 // CLOSE A CONNECTION TO THE DATABASE AFTER USING FUNCTIONS
 DataAccess.prototype.closeDbConnection = function (connection, callback) {
 	var deferred = Q.defer();
-	if(!utilities.isNullOrUndefined(connection) && !connection.isReleased) {
+	if(!utilities.isNullOrUndefined(connection)) {
 		try {
 			connection.release();
-			connection.isReleased = true;
 			deferred.resolve(true);
 		}
 		catch (err) {
@@ -321,14 +320,13 @@ DataAccess.prototype.commitTransaction = function (connection, callback) {
 DataAccess.prototype.rollbackTransaction = function (connection, callback) {
 	var deferred = Q.defer();
 
-	if(!utilities.isNullOrUndefined(connection) && !connection.isReleased) {
-		if(connection.isTransactional) {
+	if(!utilities.isNullOrUndefined(connection)) {
+		if(connection.transactional) {
 			connection.client.query('ROLLBACK', (err) => {
 				if (err) {
 
 					if(!utilities.isNullOrUndefined(connection)) {
 						connection.release();
-						connection.isReleased = true;
 					}
 
 					var errorObj = new ErrorObj(500,
@@ -352,7 +350,6 @@ DataAccess.prototype.rollbackTransaction = function (connection, callback) {
 				}
 				else {
 					connection.release();
-					connection.isReleased = true;
 					deferred.resolve({ 'rollback_results': 'success' });
 				}
 			});
@@ -362,7 +359,6 @@ DataAccess.prototype.rollbackTransaction = function (connection, callback) {
 		// ABOUT ROLLING BACK.
 		else {
 			connection.release();
-			connection.isReleased = true;
 			deferred.resolve();
 		}
 	}
@@ -407,21 +403,21 @@ function resolveDbConnection(connection, callback) {
 function releaseConnection(connection) {
 	var deferred = Q.defer();
 
-	if(!utilities.isNullOrUndefined(connection) && !connection.isReleased) {
-		if(connection.isTransactional) {
-			dataAccess.rollbackTransaction(connection)
+	if(!utilities.isNullOrUndefined(connection)) {
+		if(connection.transactional) {
+			DataAccess.prototype.rollbackTransaction(connection)
 			.then(function(rollback_res) {
+        delete connection.transactional;
 				deferred.resolve();
 			})
 			.fail(function(rollback_err) {
 				connection.release();
-				connection.isReleased = true;
 				deferred.resolve();
 			});
 		}
 		else {
+      delete connection.transactional;
 			connection.release();
-			connection.isReleased = true;
 			deferred.resolve();
 		}
 	}
@@ -491,7 +487,6 @@ DataAccess.prototype.ExecutePostgresQuery = function (query, params, connection,
 			// AND FAIL OUT
 			if(utilities.isNullOrUndefined(connection)) {
 				db_connection.release();
-				db_connection.isReleased = true;
 				var errorObj = new ErrorObj(500,
 											'da0501',
 											__filename,
@@ -506,7 +501,7 @@ DataAccess.prototype.ExecutePostgresQuery = function (query, params, connection,
 			else {
 				// IF THIS IS PART OF A TRANSACTIONAL SEQUENCE, WE NEED TO ROLL BACK
 				// AND FAIL OUT
-				if(db_connection.isTransactional) {
+				if(db_connection.transactional) {
 					DataAccess.prototype.rollbackTransaction(db_connection)
 					.then(function(rollback_res) {
 						var errorObj = new ErrorObj(500,
@@ -526,7 +521,6 @@ DataAccess.prototype.ExecutePostgresQuery = function (query, params, connection,
 				// OTHERWISE, JUST RELEASE THE CONNECTION AND FAIL OUT
 				else {
 					db_connection.release();
-					db_connection.isReleased = true;
 					var errorObj = new ErrorObj(500,
 												'da0504',
 												__filename,
