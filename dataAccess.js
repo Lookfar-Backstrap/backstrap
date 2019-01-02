@@ -1039,25 +1039,24 @@ DataAccess.prototype.t_deleteEntity = function (connection, tableName, obj, call
 // REMOVES THIS ENTITY FROM THE DATABASE
 DataAccess.prototype.hardDeleteEntity = function (tableName, obj, connection, callback) {
 	var deferred = Q.defer();
-	var da = this;
 
 	resolveDbConnection(connection)
 	.then(function (connection) {
 		if (!utilities.isNullOrUndefined(obj.id) && !utilities.isNullOrUndefined(obj.object_type)) {
-			t_removeAllRelationships(connection, { "id": obj.id, "object_type": obj.object_type }, da)
+			t_removeAllRelationships(connection, { "id": obj.id, "object_type": obj.object_type })
 			.then(function () {
-				var qry = "DELETE FROM \"" + tableName + "\"WHERE data->>'id'=$1";
+				var qry = "DELETE FROM \"" + tableName + "\" WHERE data->>'id'=$1";
 				var params = [obj.id];
 				DataAccess.prototype.ExecutePostgresQuery(qry, params, connection)
 				.then(function (connection) {
-					deferred.resolve(true);
+          deferred.resolve(true);
 				})
 				.fail(function (err) {
-					deferred.reject(err.AddToError(__filename, 'hardDeleteEntity'));
+          deferred.reject(err.AddToError(__filename, 'hardDeleteEntity'));
 				})
 			})
 			.fail(function (rem_err) {
-				deferred.reject(rem_err.AddToError(__filename, 'hardDeleteEntity'));
+        deferred.reject(err.AddToError(__filename, 'hardDeleteEntity'));
 			});
 		}
 		else {
@@ -2026,7 +2025,7 @@ DataAccess.prototype.t_removeRelationship = function (connection, entity1, entit
 
 // obj -- AN ENTITY INCLUDING 'id' AND 'object_type'
 // REMOVES ALL RELATIONSHIPS TO ALL OTHER ENTITIES
-function removeAllRelationships(obj, da, connection, callback) {
+function removeAllRelationships(obj, connection, callback) {
 	var deferred = Q.defer();
 
 	if (!utilities.isNullOrUndefined(obj.id) && !utilities.isNullOrUndefined(obj.object_type)) {
@@ -2061,9 +2060,9 @@ function removeAllRelationships(obj, da, connection, callback) {
 			}
 			else {
 				// WE HAVE THE OBJECT, FIND THE RELATIONSHIPS AND DELETE THEM
-				var rowId = connection.results[0].row_id;
-				async.forEach(da.relationshipMap, function (relDescriptor, callback) {
-					if (relDescriptor.type1 === obj.object_type) {
+        var rowId = connection.results[0].row_id;
+				async.forEach(relationshipMap, function (relDescriptor, callback) {
+          if (relDescriptor.type1 === obj.object_type) {
 						var del_qry = "DELETE FROM \"" + relDescriptor.linkingTable + "\" WHERE left_id = $1";
 						var del_params = [rowId];
 						DataAccess.prototype.ExecutePostgresQuery(del_qry, del_params, connection)
@@ -2148,10 +2147,9 @@ function removeAllRelationships(obj, da, connection, callback) {
 	return deferred.promise;
 };
 
-function t_removeAllRelationships(connection, obj, da, callback) {
+function t_removeAllRelationships(connection, obj, callback) {
 	var deferred = Q.defer();
-
-	removeAllRelationships(obj, da, connection)
+	removeAllRelationships(obj, connection)
 	.then(function (res) {
 		deferred.resolve(res);
 	})

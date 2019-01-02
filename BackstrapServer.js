@@ -112,7 +112,7 @@ settings.init(config.s3.bucket, 'Settings.json', useRemoteSettings)
     console.log('Schema updated');
     
     changeErrorLogs();
-    utilities.setLogs(eventLog, errorLog);
+    utilities.setLogs(eventLog, errorLog, sessionLog);
     console.log('Log files opened');
 
 		// SERVER PORT
@@ -291,23 +291,28 @@ function requestPipeline(req, res, verb) {
       req.this_user = userOrNull;
     }
     if (sc.authRequired) {
-      return [sc, true, accessControl.verifyAccess(req, sc)];
+      return [sc, validTokenResponse.session, true, accessControl.verifyAccess(req, sc)];
     }
     else {
       var hasValidToken = false;
       if (validTokenResponse.hasOwnProperty('is_valid') && validTokenResponse.is_valid === true) {
         hasValidToken = true;
       }
-      return [sc, hasValidToken];
+      return [sc, validTokenResponse.session, hasValidToken];
     }
   })
-  .spread(function (sc, hasValidToken) {
-    return [sc, hasValidToken, serviceRegistration.validateArguments(serviceCall, area, controller, verb, version, args)];
+  .spread(function (sc, session, hasValidToken) {
+    return [sc, session, hasValidToken, serviceRegistration.validateArguments(serviceCall, area, controller, verb, version, args)];
   })
-  .spread(function (sc, hasValidToken) {
-    return mainController.resolveServiceCall(sc, req, hasValidToken);
+  .spread(function (sc, session, hasValidToken) {
+    return [session, mainController.resolveServiceCall(sc, req, hasValidToken)];
   })
-  .then(function (results) {
+  .spread(function (session, results) {
+    if(session != null) {
+      session.last_touch = new Date().toISOString();
+      dataAccess.saveEntity('session', session);
+    }
+
     // IF ACCESS LOGGING IS ENABLED.  ADD THE END TIMESTAMP
     // AND RESPONSE STATUS NUM TO THE ACCESS LOG EVENT AND
     // WRITE IT TO THE LOG
@@ -339,7 +344,8 @@ function requestPipeline(req, res, verb) {
       accessLog.write(logEntry);
     }
 
-    errorLog.write(JSON.stringify(err));
+    let errorLogEntry = JSON.stringify(err) + '\n';
+    errorLog.write(errorLogEntry);
 
     res.status(err.http_status).send(err);
   });
@@ -350,17 +356,35 @@ function requestPipeline(req, res, verb) {
 // -----------------------------------
 function changeErrorLogs() {
   let today = new Date();
-  let todayString = today.getMonth()+'-'+today.getDate()+'-'+today.getFullYear();
+  var monthNum = today.getMonth()+1;
+  var monthString = monthNum < 10 ? '0'+monthNum : monthNum;
+  var dateString = today.getDate() < 10 ? '0'+today.getDate() : today.getDate();
+  let todayString = monthString+'-'+dateString+'-'+today.getFullYear();
   let errorLogPath = './logs/error-'+todayString;
   let accessLogPath = './logs/access-'+todayString;
   let sessionLogPath = './logs/session-'+todayString;
   let eventLogPath = './logs/event-'+todayString;
+  
+
+  var newErrorLog = fs.createWriteStream(errorLogPath, {flags:'a'});
+  var newEventLog = fs.createWriteStream(eventLogPath, {flags:'a'});
+  var newAccessLog = null;
+  if(settings.data.access_logging === true)
+    newAccessLog = fs.createWriteStream(accessLogPath, {flags:'a'});
+  var newSessionLog = null;
+  if(settings.data.session_logging === true)
+    newSessionLog = fs.createWriteStream(sessionLogPath, {flags:'a'});
+
+
   if(errorLog != null) errorLog.end();
-  errorLog = fs.createWriteStream(errorLogPath, {flags:'a'});
+  errorLog = newErrorLog;
+
+  if(eventLog != null) eventLog.end();
+  eventLog = newEventLog;
 
   if(settings.data.access_logging === true) {
     if(accessLog != null) accessLog.end();
-    accessLog = fs.createWriteStream(accessLogPath, {flags:'a'});
+    accessLog = newAccessLog;
   }
   else {
     accessLog = null;
@@ -368,14 +392,12 @@ function changeErrorLogs() {
 
   if(settings.data.session_logging === true) {
     if(sessionLog != null) sessionLog.end();
-    sessionLog = fs.createWriteStream(sessionLogPath, {flags:'a'});
+    sessionLog = newSessionLog;
   }
   else {
     sessionLog = null;
   }
-
-  if(eventLog != null) eventLog.end();
-  eventLog = fs.createWriteStream(eventLogPath, {flags:'a'});
+  
 
   // DELETE LOGS OLDER THAN today - log_rotation_period
   var evictionDate = new Date();

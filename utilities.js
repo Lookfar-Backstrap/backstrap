@@ -16,6 +16,7 @@ var async = require('async');
 
 var eventLog;
 var errorLog;
+var sessionLog;
 
 var Utilities = function (s) {
 	settings = s;
@@ -58,9 +59,10 @@ Utilities.prototype.setDataAccess = function(da){
 	}
 };
 
-Utilities.prototype.setLogs = function(evl, erl) {
+Utilities.prototype.setLogs = function(evl, erl, sesl) {
   eventLog = evl;
   errorLog = erl;
+  sessionLog = sesl;
 }
 
 Utilities.prototype.validateUsername = function (newUsername, existingUsername) {
@@ -786,6 +788,32 @@ Utilities.prototype.logEvent = function(tkn, eventDescriptor) {
   });
 
 	return deferred.promise;
+}
+
+Utilities.prototype.invalidateSession = function(sessionObj) {
+  var deferred = Q.defer();
+
+  dataAccess.hardDeleteEntity('session', sessionObj)
+  .then(() => {
+    if(settings.data.session_logging === true) {
+      let dsObj = {
+        session_id: sessionObj.id,
+        token: sessionObj.token,
+        user_id: sessionObj.user_id,
+        started_at: sessionObj.started_at,
+        ended_at: new Date()
+      }
+      var logEntry = JSON.stringify(dsObj)+'\n';
+      sessionLog.write(logEntry);
+    }
+
+    deferred.resolve();
+  })
+  .fail((err) => {
+    deferred.reject(err.AddToError(__filename, 'invalidateSession'));
+  });
+
+  return deferred.promise;
 }
 
 Utilities.prototype.htmlify = function(obj, idx) {

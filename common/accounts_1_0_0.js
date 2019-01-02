@@ -1156,8 +1156,7 @@ Accounts.prototype.post = {
                 'user_id': userObj.id,
                 'started_at': rightNow,
                 'client_info': clientInfo,
-                'last_touch': rightNow,
-                'event_log': []
+                'last_touch': rightNow
             };
             return [tkn, userObj, dataAccess.saveEntity('session', sessionObj)];
         })
@@ -1335,20 +1334,25 @@ Accounts.prototype.post = {
 
         var token = req.headers[settings.data.token_header];
         dataAccess.find('session', {'token':token})
-            .then(function(sessions) {
-                if (sessions !== null && sessions.length > 0) {
-                    //INVALIDATE THE ARRAY OF SESSIONS WHICH SHOULD ONLY BE ONE
-                    //BUT TEH functionWANTS AN ARRAY WHICH IS PEACHY CAUSE THATS
-                    //WHAT WEVE GOT
-                    utilities.InvalidateSessions(sessions)
-                        .then(function(res) {
-                            deferred.resolve(res);
-                        })
-                        .fail(function() {
-                            deferred.resolve(res);
-                        });
-                }
-            });
+        .then(function(sessions) {
+          return Q.all(sessions.map((s) => {
+            var inner_deferred = Q.defer();
+            utilities.invalidateSession(s)
+            .then(() => {
+              inner_deferred.resolve();
+            })
+            .fail((inner_err) => {
+              inner_deferred.reject(inner_err);
+            })
+            return inner_deferred.promise;
+          }))
+        })
+        .then(function(invld_res) {
+          deferred.resolve({success: true});
+        })
+        .fail(function(err) {
+          deferred.reject(err.AddToError(__filename, 'signOut'));
+        })
 
         deferred.promise.nodeify(callback);
         return deferred.promise;
@@ -1953,8 +1957,7 @@ function createSession(userObj, clientInfo) {
 			'user_id': userObj.id,
 			'started_at': rightNow,
 			'client_info': clientInfo,
-			'last_touch': rightNow,
-			'event_log': []
+			'last_touch': rightNow
 		};
 		return [client, dataAccess.t_saveEntity(client, 'session', sessionObj)];
 	})
@@ -2013,8 +2016,7 @@ function createAnonymousSession(clientInfo) {
 			'username': 'anonymous',
 			'started_at': rightNow,
 			'client_info': clientInfo,
-			'last_touch': rightNow,
-			'event_log': []
+			'last_touch': rightNow
 		};
 		return [client, dataAccess.t_saveEntity(client, 'session', sessionObj)];
 	})
