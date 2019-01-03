@@ -26,16 +26,17 @@ Controller.prototype.resolveServiceCall = function(serviceCallDescriptor, req, h
 	try {
 		versionObj = exports.makeVersionObject(serviceCallDescriptor.version);
 	}
-	catch(err) {
-		var errorObj = new ErrorObj(400, 
-									'c0001', 
-									__filename, 
-									'resolveServiceCall',
-									'invalid version string',
-									'Invalid version string. Please follow version format x.y.x - major.minor.bug',
-									err 
-									);
-		deferred.reject(errorObj);
+	catch (err) {
+		var errorObj = new ErrorObj(400,
+			'c0001',
+			__filename,
+			'resolveServiceCall',
+			'invalid version string',
+			'Invalid version string. Please follow version format x.y.x - major.minor.bug',
+			err
+		);
+    deferred.reject(errorObj);
+    return deferred.promise;
 	}
 	var versionOfWS;
 
@@ -53,26 +54,28 @@ Controller.prototype.resolveServiceCall = function(serviceCallDescriptor, req, h
 		}
 	}
 	else {
-		var errorObj = new ErrorObj(400, 
-									'c0002', 
-									__filename, 
-									'resolveServiceCall',
-									'unsupported http verb',
-									'That http verb is not supported.  Please use GET, POST, PUT, PATCH, or DELETE' 
-									);
-		deferred.reject(errorObj);
+		var errorObj = new ErrorObj(400,
+			'c0002',
+			__filename,
+			'resolveServiceCall',
+			'unsupported http verb',
+			'That http verb is not supported.  Please use GET, POST, PUT, PATCH, or DELETE'
+		);
+    deferred.reject(errorObj);
+    return deferred.promise;
 	}
 
 	if(versionOfWS === null) {
 		var errorObj = new ErrorObj(500,
-									'c0003', 
-									__filename, 
-									'resolveServiceCall', 
-									'error locating correct controller file',
-									'Problem finding that endpoint',
-									serviceCallDescriptor
-									);
-		deferred.reject(errorObj);
+			'c0003',
+			__filename,
+			'resolveServiceCall',
+			'error locating correct controller file',
+			'Problem finding that endpoint',
+			serviceCallDescriptor
+		);
+    deferred.reject(errorObj);
+    return deferred.promise;
 	}
 
 	var funcName = null;
@@ -95,7 +98,7 @@ Controller.prototype.resolveServiceCall = function(serviceCallDescriptor, req, h
 		}
 	}
 	else {
-		var funcNames  = Object.keys(versionOfWS);
+		var funcNames = Object.keys(versionOfWS);
 		for(var fIdx = 0; fIdx < funcNames.length; fIdx++) {
 			if(funcNames[fIdx].toLowerCase() === serviceCallDescriptor.call.toLowerCase()) {
 				foundFuncName = true;
@@ -171,7 +174,7 @@ Controller.prototype.validateToken = function(tkn, callback) {
 
 	dataAccess.findOne('session', {'object_type':'session', 'token':tkn})
 	.then(function(find_results) {
-		deferred.resolve(find_results);
+		deferred.resolve({is_valid:true, session:find_results});
 	})
 	.fail(function(err) {
 		if(err !== undefined && err !== null && typeof(err.AddToError) === 'function') {
@@ -251,11 +254,18 @@ exports.getVersionOfWebService = function getVersionOfWebService(areaName, contr
 	}
 	if(baseServiceName === null) {
 		return null;
-	}
-	var serviceCallsPath = servicesDir+baseServiceName+'_'+inputVersionString+'.js';
-	var ServiceCalls = require(serviceCallsPath)[baseServiceName];
-	var versionOfWS = new ServiceCalls(dataAccess, utilities, accessControl, serviceRegistration, settings, models);
-	return versionOfWS;
+  }
+  
+  try {
+    var serviceCallsPath = servicesDir + baseServiceName + '_' + inputVersionString + '.js';
+    var ServiceCalls = require(serviceCallsPath)[baseServiceName];
+    var versionOfWS = new ServiceCalls(dataAccess, utilities, accessControl, serviceRegistration, settings, models);
+    return versionOfWS;
+  }
+  catch(e) {
+    let logEntry = e+'\n';
+    errorLog.write(logEntry);
+  }
 }
 
 exports.Controller = Controller;

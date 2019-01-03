@@ -152,16 +152,31 @@ AccessControl.prototype.save = function(doNetworkReload) {
 
 AccessControl.prototype.verifyAccess = function (req, serviceCall, callback) {
 	var deferred = Q.defer();
-	var userObj = req.this_user;
-	if(userObj.is_locked) {
+  var userObj = req.this_user;
+  if(userObj == null) {
+    var errorObj = new ErrorObj(403, 
+                                'ac0010', 
+                                __filename, 
+                                'verifyAccess', 
+                                'no user object found on the request',
+                                'Unauthorized',
+                                null 
+                                );
+    deferred.reject(errorObj);
+
+    deferred.promise.nodeify(callback);
+    return deferred.promise;
+  }
+
+	if(userObj == null || userObj.is_locked) {
 		var errorObj = new ErrorObj(403, 
-									'ac0009', 
-									__filename, 
-									'verifyAccess', 
-									'bsuser is locked',
-									'Unauthorized',
-									null 
-									);
+                                'ac0009', 
+                                __filename, 
+                                'verifyAccess', 
+                                'bsuser is locked',
+                                'Unauthorized',
+                                null 
+                                );
 		deferred.reject(errorObj);
 		
 		deferred.promise.nodeify(callback);

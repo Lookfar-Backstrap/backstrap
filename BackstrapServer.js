@@ -40,6 +40,9 @@ app.use(bodyParser.urlencoded({ extended: true }));			// DETERMINE IF THIS IS HT
 app.use(express.static(path.join(__dirname, 'public')));	// MAP STATIC PAGE CALLS TO public FOLDER
 app.use(cors());
 
+// process.on('warning', e => console.warn(e.stack));       // USEFUL IN DEBUGGING
+// process.on('unhandledRejection', r => console.log(r));   // USEFUL IN DEBUGGING
+
 
 //Settings File, contains DB params
 var nodeEnv = process.env.NODE_ENV || 'local';
@@ -71,6 +74,11 @@ var serviceRegistration;
 var utilities;
 var accessControl;
 var mainController;
+
+var errorLog;
+var sessionLog;
+var accessLog;
+var eventLog;
 
 var settings = new Settings();
 settings.init(config.s3.bucket, 'Settings.json', useRemoteSettings)
@@ -111,14 +119,24 @@ settings.init(config.s3.bucket, 'Settings.json', useRemoteSettings)
 		return schemaControl.updateSchema(models, config.db.name, config.db.user, config.db.pass, config.db.host, config.db.port, utilities)
 	})
 	.then(function (us_Res) {
-		console.log('Schema updated');
+    console.log('Schema updated');
+    
+    // CREATE A LOG DIRECTORY IF NEEDED
+    // DO IT SYNCHRONOUSLY WHICH IS ALRIGHT SINCE THIS IS JUST ONCE
+    // DURING STARTUP
+    if(!fs.existsSync('../../logs')) fs.mkdirSync('../../logs');
+    
+    changeErrorLogs();
+    utilities.setLogs(eventLog, errorLog, sessionLog);
+    console.log('Log files opened');
+
 		// SERVER PORT
 		app.set('port', process.env.PORT || settings.data.server_port);
 
-		// STARTUP THE SESSION INVALIDATION -- CHECK EVERY 15 MINUTES
+		// STARTUP THE SESSION INVALIDATION -- CHECK EVERY X MINUTES
 		var timeoutInMintues = settings.data.timeout;
 		var invalidSessionTimer = setInterval(function () { checkForInvalidSessions(dataAccess, settings) }, settings.data.timeout_check * 60000);
-		
+    
 
 		// ========================================================
 		// SETUP ROUTE HANDLERS
@@ -127,73 +145,7 @@ settings.init(config.s3.bucket, 'Settings.json', useRemoteSettings)
 		// GETS
 		// ---------------------------------------------------------------------------------
 		app.get('/:area/:controller/:serviceCall/:version?', function (req, res) {
-			var params = req.params;
-			var area = params.area;
-			var controller = params.controller;
-			var serviceCall = params.serviceCall;
-			var args = req.query;
-
-			var version = params.version;		
-
-			serviceRegistration.serviceCallExists(serviceCall, area, controller, 'GET', version)
-				.then(function (sc) {
-					if (sc.authRequired) {
-						return [sc, mainController.validateToken(req.headers[settings.data.token_header])];
-					}
-					else {
-						return [sc, utilities.validateTokenAndContinue(req.headers[settings.data.token_header])];
-					}
-				})
-				.spread(function (sc, validTokenResponse) {
-					return [sc, validTokenResponse, utilities.createLoggedEventObj(req, false, sc.authRequired)];
-				})
-				.spread(function (sc, validTokenResponse, logged_event) {
-					//PUT THE USER OBJECT ON THE REQ AND REMOVE IT FROM THE LOGGED EVENT OBJ
-					req.this_user = logged_event.this_user;
-					delete logged_event.this_user;
-					req.logged_event = logged_event;
-					if (sc.authRequired) {
-						return [sc, true, accessControl.verifyAccess(req, sc)];
-					}
-					else {
-						var hasValidToken = false;
-						if (validTokenResponse.hasOwnProperty('is_valid') && validTokenResponse.is_valid === true) {
-							hasValidToken = true;
-						}
-						return [sc, hasValidToken];
-					}
-				})
-				.spread(function (sc, hasValidToken) {
-					return [sc, hasValidToken, serviceRegistration.validateArguments(serviceCall, area, controller, 'GET', version, args)];
-				})
-				.spread(function (sc, hasValidToken) {
-					return mainController.resolveServiceCall(sc, req, hasValidToken);
-				})
-				.then(function (results) {
-					return [results, utilities.saveLoggedEventObj(req)];
-				})
-				.spread(function (results, logged_event_res) {
-					res.status(200).send(results);
-				})
-				.fail(function (err) {
-					if (err.http_status === null) {
-						err.http_status = 500;
-					}
-
-					if (err.message == null || err.message.length === 0) {
-						err['message'] = 'Something went wrong and we are working to fix it. Please try again later.'
-					}
-
-					utilities.writeErrorToLog(err)
-						.then(function (success) {
-							utilities.saveLoggedEventObj(req)
-								.then(function (res) {
-									//DO NOTHING
-								});
-						});
-
-					res.status(err.http_status).send(err);
-				});
+			requestPipeline(req, res, 'GET');
 		});
 		// ---------------------------------------------------------------------------------
 		// ---------------------------------------------------------------------------------
@@ -202,71 +154,7 @@ settings.init(config.s3.bucket, 'Settings.json', useRemoteSettings)
 		// POSTS
 		// ---------------------------------------------------------------------------------
 		app.post('/:area/:controller/:serviceCall/:version?', function (req, res) {
-			var args = req.body;
-			var area = req.params.area;
-			var controller = req.params.controller;
-			var serviceCall = req.params.serviceCall;
-			var version = req.params.version;
-
-			serviceRegistration.serviceCallExists(serviceCall, area, controller, 'POST', version)
-				.then(function (sc) {
-					if (sc.authRequired) {
-						return [sc, mainController.validateToken(req.headers[settings.data.token_header])];
-					}
-					else {
-						return [sc, utilities.validateTokenAndContinue(req.headers[settings.data.token_header])];
-					}
-				})
-				.spread(function (sc, validTokenResponse) {
-					return [sc, validTokenResponse, utilities.createLoggedEventObj(req, false, sc.authRequired)];
-				})
-				.spread(function (sc, validTokenResponse, logged_event) {
-					//PUT THE USER OBJECT ON THE REQ AND REMOVE IT FROM THE LOGGED EVENT OBJ
-					req.this_user = logged_event.this_user;
-					delete logged_event.this_user;
-					req.logged_event = logged_event;
-					if (sc.authRequired) {
-						return [sc, true, accessControl.verifyAccess(req, sc)];
-					}
-					else {
-						var hasValidToken = false;
-						if (validTokenResponse.hasOwnProperty('is_valid') && validTokenResponse.is_valid === true) {
-							hasValidToken = true;
-						}
-						return [sc, hasValidToken];
-					}
-				})
-				.spread(function (sc, hasValidToken) {
-					return [sc, hasValidToken, serviceRegistration.validateArguments(serviceCall, area, controller, 'POST', version, args)];
-				})
-				.spread(function (sc, hasValidToken) {
-					return mainController.resolveServiceCall(sc, req, hasValidToken);
-				})
-				.then(function (results) {
-					return [results, utilities.saveLoggedEventObj(req)];
-				})
-				.spread(function (results, logged_event_res) {
-					res.status(200).send(results);
-				})
-				.fail(function (err) {
-					if (err.http_status === null) {
-						err.http_status = 500;
-					}
-
-					if (err.message == null || err.message.length === 0) {
-						err['message'] = 'Something went wrong and we are working to fix it. Please try again later.'
-					}
-
-					utilities.writeErrorToLog(err)
-						.then(function (success) {
-							utilities.saveLoggedEventObj(req)
-								.then(function (res) {
-									//DO NOTHING
-								});
-						});
-
-					res.status(err.http_status).send(err);
-				});
+			requestPipeline(req, res, 'POST');
 		});
 		// ---------------------------------------------------------------------------------
 		// ---------------------------------------------------------------------------------
@@ -274,71 +162,7 @@ settings.init(config.s3.bucket, 'Settings.json', useRemoteSettings)
 		// PUTS
 		// ---------------------------------------------------------------------------------
 		app.put('/:area/:controller/:serviceCall/:version?', function (req, res) {
-			var args = req.body;
-			var area = req.params.area;
-			var controller = req.params.controller;
-			var serviceCall = req.params.serviceCall;
-			var version = req.params.version;
-
-			serviceRegistration.serviceCallExists(serviceCall, area, controller, 'PUT', version)
-				.then(function (sc) {
-					if (sc.authRequired) {
-						return [sc, mainController.validateToken(req.headers[settings.data.token_header])];
-					}
-					else {
-						return [sc, utilities.validateTokenAndContinue(req.headers[settings.data.token_header])];
-					}
-				})
-				.spread(function (sc, validTokenResponse) {
-					return [sc, validTokenResponse, utilities.createLoggedEventObj(req, false, sc.authRequired)];
-				})
-				.spread(function (sc, validTokenResponse, logged_event) {
-					//PUT THE USER OBJECT ON THE REQ AND REMOVE IT FROM THE LOGGED EVENT OBJ
-					req.this_user = logged_event.this_user;
-					delete logged_event.this_user;
-					req.logged_event = logged_event;
-					if (sc.authRequired) {
-						return [sc, true, accessControl.verifyAccess(req, sc)];
-					}
-					else {
-						var hasValidToken = false;
-						if (validTokenResponse.hasOwnProperty('is_valid') && validTokenResponse.is_valid === true) {
-							hasValidToken = true;
-						}
-						return [sc, hasValidToken];
-					}
-				})
-				.spread(function (sc, hasValidToken) {
-					return [sc, hasValidToken, serviceRegistration.validateArguments(serviceCall, area, controller, 'PUT', version, args)];
-				})
-				.spread(function (sc, hasValidToken) {
-					return mainController.resolveServiceCall(sc, req, hasValidToken);
-				})
-				.then(function (results) {
-					return [results, utilities.saveLoggedEventObj(req)];
-				})
-				.spread(function (results, logged_event_res) {
-					res.status(200).send(results);
-				})
-				.fail(function (err) {
-					if (err.http_status === null) {
-						err.http_status = 500;
-					}
-
-					if (err.message == null || err.message.length === 0) {
-						err['message'] = 'Something went wrong and we are working to fix it. Please try again later.'
-					}
-
-					utilities.writeErrorToLog(err)
-						.then(function (success) {
-							utilities.saveLoggedEventObj(req)
-								.then(function (res) {
-									//DO NOTHING
-								});
-						});
-
-					res.status(err.http_status).send(err);
-				});
+			requestPipeline(req, res, 'PUT');
 		});
 		// ---------------------------------------------------------------------------------
 		// ---------------------------------------------------------------------------------
@@ -346,71 +170,7 @@ settings.init(config.s3.bucket, 'Settings.json', useRemoteSettings)
 		// PATCH
 		// ---------------------------------------------------------------------------------
 		app.patch('/:area/:controller/:serviceCall/:version?', function (req, res) {
-			var args = req.body;
-			var area = req.params.area;
-			var controller = req.params.controller;
-			var serviceCall = req.params.serviceCall;
-			var version = req.params.version;
-
-			serviceRegistration.serviceCallExists(serviceCall, area, controller, 'PATCH', version)
-				.then(function (sc) {
-					if (sc.authRequired) {
-						return [sc, mainController.validateToken(req.headers[settings.data.token_header])];
-					}
-					else {
-						return [sc, utilities.validateTokenAndContinue(req.headers[settings.data.token_header])];
-					}
-				})
-				.spread(function (sc, validTokenResponse) {
-					return [sc, validTokenResponse, utilities.createLoggedEventObj(req, false, sc.authRequired)];
-				})
-				.spread(function (sc, validTokenResponse, logged_event) {
-					//PUT THE USER OBJECT ON THE REQ AND REMOVE IT FROM THE LOGGED EVENT OBJ
-					req.this_user = logged_event.this_user;
-					delete logged_event.this_user;
-					req.logged_event = logged_event;
-					if (sc.authRequired) {
-						return [sc, true, accessControl.verifyAccess(req, sc)];
-					}
-					else {
-						var hasValidToken = false;
-						if (validTokenResponse.hasOwnProperty('is_valid') && validTokenResponse.is_valid === true) {
-							hasValidToken = true;
-						}
-						return [sc, hasValidToken];
-					}
-				})
-				.spread(function (sc, hasValidToken) {
-					return [sc, hasValidToken, serviceRegistration.validateArguments(serviceCall, area, controller, 'PATCH', version, args)];
-				})
-				.spread(function (sc, hasValidToken) {
-					return mainController.resolveServiceCall(sc, req, hasValidToken);
-				})
-				.then(function (results) {
-					return [results, utilities.saveLoggedEventObj(req)];
-				})
-				.spread(function (results, logged_event_res) {
-					res.status(200).send(results);
-				})
-				.fail(function (err) {
-					if (err.http_status === null) {
-						err.http_status = 500;
-					}
-
-					if (err.message == null || err.message.length === 0) {
-						err['message'] = 'Something went wrong and we are working to fix it. Please try again later.'
-					}
-
-					utilities.writeErrorToLog(err)
-						.then(function (success) {
-							utilities.saveLoggedEventObj(req)
-								.then(function (res) {
-									//DO NOTHING
-								});
-						});
-
-					res.status(err.http_status).send(err);
-				});
+			requestPipeline(req, res, 'PATCH');
 		});
 		// ---------------------------------------------------------------------------------
 		// ---------------------------------------------------------------------------------
@@ -418,82 +178,7 @@ settings.init(config.s3.bucket, 'Settings.json', useRemoteSettings)
 		// DELETES
 		// ---------------------------------------------------------------------------------
 		app.delete('/:area/:controller/:serviceCall/:version?', function (req, res) {
-			var args = req.body;
-
-			// CHECK THE BODY FIRST, IF THERE IS NO BODY OR THE BODY IS EMPTY
-			// CHECK THE QUERY STRING.
-			if (utilities.isNullOrUndefinedOrZeroLength(args)) {
-				args = {};
-			}
-			var argKeys = Object.keys(args);
-			if (argKeys.length === 0) {
-				args = req.query;
-				req.body = req.query;
-			}
-			var area = req.params.area;
-			var controller = req.params.controller;
-			var serviceCall = req.params.serviceCall;
-			var version = req.params.version;
-
-			serviceRegistration.serviceCallExists(serviceCall, area, controller, 'DELETE', version)
-				.then(function (sc) {
-					if (sc.authRequired) {
-						return [sc, mainController.validateToken(req.headers[settings.data.token_header])];
-					}
-					else {
-						return [sc, utilities.validateTokenAndContinue(req.headers[settings.data.token_header])];
-					}
-				})
-				.spread(function (sc, validTokenResponse) {
-					return [sc, validTokenResponse, utilities.createLoggedEventObj(req, false, sc.authRequired)];
-				})
-				.spread(function (sc, validTokenResponse, logged_event) {
-					//PUT THE USER OBJECT ON THE REQ AND REMOVE IT FROM THE LOGGED EVENT OBJ
-					req.this_user = logged_event.this_user;
-					delete logged_event.this_user;
-					req.logged_event = logged_event;
-					if (sc.authRequired) {
-						return [sc, true, accessControl.verifyAccess(req, sc)];
-					}
-					else {
-						var hasValidToken = false;
-						if (validTokenResponse.hasOwnProperty('is_valid') && validTokenResponse.is_valid === true) {
-							hasValidToken = true;
-						}
-						return [sc, hasValidToken];
-					}
-				})
-				.spread(function (sc, hasValidToken) {
-					return [sc, hasValidToken, serviceRegistration.validateArguments(serviceCall, area, controller, 'DELETE', version, args)];
-				})
-				.spread(function (sc, hasValidToken) {
-					return mainController.resolveServiceCall(sc, req, hasValidToken);
-				})
-				.then(function (results) {
-					return [results, utilities.saveLoggedEventObj(req)];
-				})
-				.spread(function (results, logged_event_res) {
-					res.status(200).send(results);
-				})
-				.fail(function (err) {
-					if (err.http_status === null) {
-						err.http_status = 500;
-					}
-
-					if (err.message == null || err.message.length === 0) {
-						err['message'] = 'Something went wrong and we are working to fix it. Please try again later.'
-					}
-
-					utilities.writeErrorToLog(err)
-						.then(function (success) {
-							utilities.saveLoggedEventObj(req)
-								.then(function (res) {
-									//DO NOTHING
-								});
-						});
-
-					res.status(err.http_status).send(err);
-				});
+			requestPipeline(req, res, 'DELETE');
 		});
 		// ---------------------------------------------------------------------------------
 		// ---------------------------------------------------------------------------------
@@ -544,9 +229,262 @@ settings.init(config.s3.bucket, 'Settings.json', useRemoteSettings)
 	});
 
 
-// ====================================================================================================
-// FUNCTIONS
-// ====================================================================================================
+// ================================================
+// MAIN REQUEST PIPELINE
+// ================================================
+function requestPipeline(req, res, verb) {
+  var params = req.params;
+  var area = params.area;
+  var controller = params.controller;
+  var serviceCall = params.serviceCall;
+  var args;
+  if(verb.toLowerCase() === 'get') {
+    args = req.query;
+  }
+  else if(verb.toLowerCase() === 'delete') {
+    // CHECK THE BODY FIRST, IF THERE IS NO BODY OR THE BODY IS EMPTY
+    // CHECK THE QUERY STRING.
+    args = req.body;
+    if (utilities.isNullOrUndefinedOrZeroLength(args)) {
+      args = {};
+    }
+    var argKeys = Object.keys(args);
+    if (argKeys.length === 0) {
+      args = req.query;
+      req.body = req.query;
+    }
+  }
+  else {
+    args = req.body;
+  }
+
+  var version = params.version;
+
+  var accessLogEvent;
+  if(settings.data.access_logging === true) {
+    var endpointString = area+'/'+controller+'/'+serviceCall+'/'+version;
+    var ips = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+    accessLogEvent = {
+      start_timestamp: new Date().toISOString(),
+      endpoint: endpointString,
+      user_agent: req.headers['user-agent'],
+      ips: ips
+    };
+  }
+
+  serviceRegistration.serviceCallExists(serviceCall, area, controller, verb, version)
+  .then(function (sc) {
+    if (sc.authRequired) {
+      return [sc, mainController.validateToken(req.headers[settings.data.token_header])];
+    }
+    else {
+      return [sc, utilities.validateTokenAndContinue(req.headers[settings.data.token_header])];
+    }
+  })
+  .spread(function(sc, validTokenResponse) {
+    var inner_deferred = Q.defer();
+    if(validTokenResponse.is_valid === true) {
+      if(settings.data.access_logging === true)
+        accessLogEvent.session_id = validTokenResponse.session.id;
+
+      dataAccess.joinOne({object_type:'session', id:validTokenResponse.session.id}, 'bsuser')
+      .then(function(usr) {
+        inner_deferred.resolve(usr);
+      })
+      .fail(function(usr_err) {
+        if(sc.authRequired) {
+          var errorObj = new ErrorObj(403,
+                                      __filename,
+                                      'requestPipeline',
+                                      'unauthorized',
+                                      'Unauthorized',
+                                      null);
+          inner_deferred.reject(errorObj);
+        }
+        else {
+          inner_deferred.resolve(null);
+        }
+      });
+    }
+    else {
+      inner_deferred.resolve(null);
+    }
+    return [sc, validTokenResponse, inner_deferred.promise];
+  })
+  .spread(function (sc, validTokenResponse, userOrNull) {
+    //PUT THE USER OBJECT ON THE REQUEST
+    if(userOrNull !== null) {
+      req.this_user = userOrNull;
+    }
+    if (sc.authRequired) {
+      return [sc, validTokenResponse.session, true, accessControl.verifyAccess(req, sc)];
+    }
+    else {
+      var hasValidToken = false;
+      if (validTokenResponse.hasOwnProperty('is_valid') && validTokenResponse.is_valid === true) {
+        hasValidToken = true;
+      }
+      return [sc, validTokenResponse.session, hasValidToken];
+    }
+  })
+  .spread(function (sc, session, hasValidToken) {
+    return [sc, session, hasValidToken, serviceRegistration.validateArguments(serviceCall, area, controller, verb, version, args)];
+  })
+  .spread(function (sc, session, hasValidToken) {
+    return [session, mainController.resolveServiceCall(sc, req, hasValidToken)];
+  })
+  .spread(function (session, results) {
+    if(session != null) {
+      session.last_touch = new Date().toISOString();
+      dataAccess.saveEntity('session', session);
+    }
+
+    // IF ACCESS LOGGING IS ENABLED.  ADD THE END TIMESTAMP
+    // AND RESPONSE STATUS NUM TO THE ACCESS LOG EVENT AND
+    // WRITE IT TO THE LOG
+    if(settings.data.access_logging === true) {
+      accessLogEvent.end_timestamp = new Date().toISOString();
+      accessLogEvent.http_status = 200;
+      let logEntry = JSON.stringify(accessLogEvent)+'\n';
+      accessLog.write(logEntry);
+    }
+
+    res.status(200).send(results);
+  })
+  .fail(function (err) {
+    if (err.http_status === null) {
+      err.http_status = 500;
+    }
+
+    if (err.message == null || err.message.length === 0) {
+      err['message'] = 'Something went wrong and we are working to fix it. Please try again later.'
+    }
+
+    // IF ACCESS LOGGING IS ENABLED.  ADD THE END TIMESTAMP
+    // AND RESPONSE STATUS NUM TO THE ACCESS LOG EVENT AND
+    // WRITE IT TO THE LOG
+    if(settings.data.access_logging === true) {
+      accessLogEvent.end_timestamp = new Date().toISOString();
+      accessLogEvent.http_status = err.http_status;
+      let logEntry = JSON.stringify(accessLogEvent)+'\n';
+      accessLog.write(logEntry);
+    }
+
+    let errorLogEntry = JSON.stringify(err) + '\n';
+    errorLog.write(errorLogEntry);
+
+    res.status(err.http_status).send(err);
+  });
+}
+
+// -----------------------------------
+// SWITCH ERROR LOGS AT MIDNIGHT
+// -----------------------------------
+function changeErrorLogs() {
+  let today = new Date();
+  var monthNum = today.getMonth()+1;
+  var monthString = monthNum < 10 ? '0'+monthNum : monthNum;
+  var dateString = today.getDate() < 10 ? '0'+today.getDate() : today.getDate();
+  let todayString = monthString+'-'+dateString+'-'+today.getFullYear();
+  let errorLogPath = '../../logs/error-'+todayString;
+  let accessLogPath = '../../logs/access-'+todayString;
+  let sessionLogPath = '../../logs/session-'+todayString;
+  let eventLogPath = '../../logs/event-'+todayString;
+  
+
+  var newErrorLog = fs.createWriteStream(errorLogPath, {flags:'a'});
+  var newEventLog = fs.createWriteStream(eventLogPath, {flags:'a'});
+  var newAccessLog = null;
+  if(settings.data.access_logging === true)
+    newAccessLog = fs.createWriteStream(accessLogPath, {flags:'a'});
+  var newSessionLog = null;
+  if(settings.data.session_logging === true)
+    newSessionLog = fs.createWriteStream(sessionLogPath, {flags:'a'});
+
+
+  if(errorLog != null) errorLog.end();
+  errorLog = newErrorLog;
+
+  if(eventLog != null) eventLog.end();
+  eventLog = newEventLog;
+
+  if(settings.data.access_logging === true) {
+    if(accessLog != null) accessLog.end();
+    accessLog = newAccessLog;
+  }
+  else {
+    accessLog = null;
+  }
+
+  if(settings.data.session_logging === true) {
+    if(sessionLog != null) sessionLog.end();
+    sessionLog = newSessionLog;
+  }
+  else {
+    sessionLog = null;
+  }
+  
+
+  // DELETE LOGS OLDER THAN today - log_rotation_period
+  var evictionDate = new Date();
+  evictionDate.setDate(evictionDate.getDate()-settings.data.log_rotation_period);
+  evictionDate.setHours(0,0,0,0);
+  fs.readdir('../../logs/', (err, files) => {
+    if(!err) {
+      for(var fIdx = 0; fIdx < files.length; fIdx++) {
+        let filepath = '../../logs/'+files[fIdx];
+        fs.stat(filepath, (stat_err, stats) => {
+          if(!stat_err) {
+            var createDate = new Date(stats.birthtime);
+            createDate.setHours(0,0,0,0);
+            if(createDate < evictionDate) {
+              fs.unlink(filepath, (del_err, del_res) => {
+                if(del_err) {
+                  var errObj = {
+                    display_message:"Problem evicting log files",
+                    file: filepath,
+                    timestamp: new Date(),
+                    results: del_err
+                  }
+                  let logEntry = JSON.stringify(errObj)+'\n';
+                  errorLog.write(logEntry);
+                }
+              })
+            }
+          }
+          else {
+            var errObj = {
+              display_message:"Problem evicting log files",
+              file: filepath,
+              timestamp: new Date(),
+              results: stat_err
+            }
+            let logEntry = JSON.stringify(errObj)+'\n';
+            errorLog.write(logEntry);
+          }
+        })
+      }
+    }
+    else {
+      var errObj = {
+        display_message:"Problem evicting log files",
+        timestamp: new Date(),
+        results: err
+      }
+      let logEntry = JSON.stringify(errObj)+'\n';
+      errorLog.write(logEntry);
+    }
+  })
+
+  var midnightTonight = new Date();
+  midnightTonight.setDate(midnightTonight.getDate()+1);
+  midnightTonight.setHours(0, 0, 0, 0);
+  var rightNow = new Date();
+  var interval = midnightTonight.getTime() - rightNow.getTime();
+  setTimeout(changeErrorLogs, interval);
+
+  return;
+}
 
 // -----------------------------------
 // PRINT OBJECT AS JSON TO CONSOLE
@@ -560,40 +498,45 @@ function printObject(obj) {
 // CHECK FOR SESSIONS WHICH HAVE TIMED OUT
 // ----------------------------------------
 function checkForInvalidSessions(dataAccess, settings, callback) {
-	//THIS FUNCTION INTENTIONALLY USES NEW DATA ACCESS FUNCTIONS THAT RETURN row_id UPON CREATING 
-	//SO WE DONT HAVE THE OVERHEAD OF RE-RESOLVING THEM LATER USING THE BUILT-IN DA FUNCTIONS
-
-	//SET UTILITIES DATA ACCESS
-	//utilities.setDataAccess(dataAccess);
-	
 	var deferred = Q.defer();
-	//THIS RETURNS A NICE LITTLE SQL QUERY FOR STALE SESSIONS
+	//THIS RETURNS STALE SESSIONS
 	dataAccess.GetDeadSessions(settings.data.timeout)
 	.then(function (deadSessions) {
-		utilities.InvalidateSessions(deadSessions)
-		.then(function(res){
-			deferred.resolve(res);
-		})
-		.fail(function(){
-			deferred.resolve(res);
-		});
+    var dsIds = [];
+    // IF LOGGING SESSIONS, WRITE OUT THE DEAD SESSIONS TO
+    // THE SESSION LOG
+    for(var sIdx = 0; sIdx < deadSessions.length; sIdx++) {
+      let dsid = "'"+deadSessions[sIdx].rid+"'";
+      dsIds.push(dsid);
+      
+      if(settings.data.session_logging === true) {
+        let dsObj = {
+          session_id: deadSessions[sIdx].data.id,
+          token: deadSessions[sIdx].data.token,
+          user_id: deadSessions[sIdx].data.user_id,
+          started_at: deadSessions[sIdx].data.started_at,
+          ended_at: new Date()
+        }
+        var logEntry = JSON.stringify(dsObj)+'\n';
+        sessionLog.write(logEntry);
+      }
+    }
+
+    if(dsIds.length > 0) {
+      dataAccess.DeleteSessions(dsIds)
+      .then(function(res) {
+        deferred.resolve();
+      })
+      .fail(function(err) {
+        let logEntry = JSON.stringify(err)+'\n';
+        errorLog.write(logEntry);
+        deferred.resolve();
+      })
+    }
+    else {
+      deferred.resolve();
+    }
 	});
 	deferred.promise.nodeify(callback);
-	return deferred.promise;
-}
-
-function promiseWhile(condition, body) {
-	var deferred = Q.defer();
-	function loop() {
-		// When the result of calling `condition` is no longer true, we are
-		// done.
-		if (!condition()) {
-			return deferred.resolve();
-		}
-
-		Q.when(body(), loop, deferred.reject);
-	}
-	Q.nextTick(loop);
-
 	return deferred.promise;
 }
