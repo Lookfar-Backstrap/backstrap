@@ -196,7 +196,7 @@ DataAccess.prototype.getDbConnection = function (callback) {
 
 	pool.connect((err, client, done) => {
 		if (!err) {
-			deferred.resolve({ 'client': client, 'release': done, 'transactional': false, 'results': [] });
+			deferred.resolve({ 'client': client, 'release': done, 'transactional': false, 'results': [], isReleased: false });
 		}
 		else {
 			var errorObj = new ErrorObj(500,
@@ -218,9 +218,10 @@ DataAccess.prototype.getDbConnection = function (callback) {
 // CLOSE A CONNECTION TO THE DATABASE AFTER USING FUNCTIONS
 DataAccess.prototype.closeDbConnection = function (connection, callback) {
 	var deferred = Q.defer();
-	if(!utilities.isNullOrUndefined(connection)) {
+	if(!utilities.isNullOrUndefined(connection) && !connection.isReleased) {
 		try {
-			connection.release();
+      connection.release();
+      connection.isReleased = true;
 			deferred.resolve(true);
 		}
 		catch (err) {
@@ -250,7 +251,7 @@ DataAccess.prototype.startTransaction = function (callback) {
 	DataAccess.prototype.getDbConnection()
 		.then(function (connection) {
 			//SET TRANSACTIONAL
-			connection['transactional'] = true;
+      connection['transactional'] = true;
 			connection.client.query('BEGIN', (err) => {
 				if (err) {
 					var errorObj = new ErrorObj(500,
@@ -313,13 +314,14 @@ DataAccess.prototype.commitTransaction = function (connection, callback) {
 DataAccess.prototype.rollbackTransaction = function (connection, callback) {
 	var deferred = Q.defer();
 
-	if(!utilities.isNullOrUndefined(connection)) {
+	if(!utilities.isNullOrUndefined(connection) && !connection.isReleased) {
 		if(connection.transactional) {
 			connection.client.query('ROLLBACK', (err) => {
 				if (err) {
 
 					if(!utilities.isNullOrUndefined(connection)) {
-						connection.release();
+            connection.release();
+            connection.isReleased = true;
 					}
 
 					var errorObj = new ErrorObj(500,
@@ -342,7 +344,8 @@ DataAccess.prototype.rollbackTransaction = function (connection, callback) {
 					deferred.reject(errorObj);
 				}
 				else {
-					connection.release();
+          connection.release();
+          connection.isReleased = true;
 					deferred.resolve({ 'rollback_results': 'success' });
 				}
 			});
@@ -351,7 +354,8 @@ DataAccess.prototype.rollbackTransaction = function (connection, callback) {
 		// ON A SINGLE CONNECTION.  CLOSE THE CONNECTION, BUT DON'T WORRY
 		// ABOUT ROLLING BACK.
 		else {
-			connection.release();
+      connection.release();
+      connection.isReleased = true;
 			deferred.resolve();
 		}
 	}
@@ -396,7 +400,7 @@ function resolveDbConnection(connection, callback) {
 function releaseConnection(connection) {
 	var deferred = Q.defer();
 
-	if(!utilities.isNullOrUndefined(connection)) {
+	if(!utilities.isNullOrUndefined(connection) && !connection.isReleased) {
 		if(connection.transactional) {
 			DataAccess.prototype.rollbackTransaction(connection)
 			.then(function(rollback_res) {
@@ -404,13 +408,15 @@ function releaseConnection(connection) {
 				deferred.resolve();
 			})
 			.fail(function(rollback_err) {
-				connection.release();
+        connection.release();
+        connection.isReleased = true;
 				deferred.resolve();
 			});
 		}
 		else {
       delete connection.transactional;
-			connection.release();
+      connection.release();
+      connection.isReleased = true;
 			deferred.resolve();
 		}
 	}
@@ -479,7 +485,8 @@ DataAccess.prototype.ExecutePostgresQuery = function (query, params, connection,
 			// THIS IS A ONE-OFF AND WE MUST SHUT DOWN THE CONNECTION WE MADE
 			// AND FAIL OUT
 			if(utilities.isNullOrUndefined(connection)) {
-				db_connection.release();
+        db_connection.release();
+        db_connection.isReleased = true;
 				var errorObj = new ErrorObj(500,
 											'da0501',
 											__filename,
@@ -513,7 +520,8 @@ DataAccess.prototype.ExecutePostgresQuery = function (query, params, connection,
 				}
 				// OTHERWISE, JUST RELEASE THE CONNECTION AND FAIL OUT
 				else {
-					db_connection.release();
+          db_connection.release();
+          db_connection.isReleased = true;
 					var errorObj = new ErrorObj(500,
 												'da0504',
 												__filename,
