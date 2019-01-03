@@ -114,6 +114,11 @@ settings.init(config.s3.bucket, 'Settings.json', useRemoteSettings)
 	.then(function (us_Res) {
     console.log('Schema updated');
     
+    // CREATE A LOG DIRECTORY IF NEEDED
+    // DO IT SYNCHRONOUSLY WHICH IS ALRIGHT SINCE THIS IS JUST ONCE
+    // DURING STARTUP
+    if(!fs.existsSync('./logs')) fs.mkdirSync('./logs');
+    
     changeErrorLogs();
     utilities.setLogs(eventLog, errorLog, sessionLog);
     console.log('Log files opened');
