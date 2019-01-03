@@ -592,24 +592,7 @@ DataAccess.prototype.createEntity = function (tableName, obj, connection, callba
 };
 
 DataAccess.prototype.t_createEntity = function (connection, tableName, obj, callback) {
-	var deferred = Q.defer();
-
-	DataAccess.prototype.createEntity(tableName, obj, connection)
-	.then(function (res_obj) {
-		deferred.resolve(res_obj)
-	})
-	.fail(function (err) {
-		DataAccess.prototype.rollbackTransaction(connection)
-		.then(function (rollback_res) {
-			deferred.reject(err.AddToError(__filename, 't_createEntity', 'transaction rolled back'));
-		})
-		.fail(function (rollback_err) {
-			deferred.reject(rollback_err.AddToError(__filename, 't_createEntity'));
-		});
-  });
-  
-  deferred.promise.nodeify(callback);
-  return deferred.promise;
+	return DataAccess.prototype.createEntity(tableName, obj, connection);
 };
 
 // tableName -- NAME OF THE TABLE
@@ -647,40 +630,7 @@ DataAccess.prototype.getEntity = function (tableName, obj, connection, callback)
 };
 
 DataAccess.prototype.t_getEntity = function (connection, tableName, obj, callback) {
-
-	if (obj.id !== null) {
-		DataAccess.prototype.getEntity(tableName, obj, connection)
-		.then(function (res_obj) {
-			deferred.resolve(res_obj)
-		})
-		.fail(function (err) {
-			DataAccess.prototype.rollbackTransaction(connection)
-			.then(function (rollback_res) {
-				deferred.reject(err.AddToError(__filename, 't_getEntity'));
-			})
-			.fail(function (rollback_err) {
-				deferred.reject(rollback_err.AddToError(__filename, 't_getEntity'));
-			});
-		});
-	}
-	else {
-		DataAccess.prototype.rollbackTransaction(connection)
-		.then(function (rollback_res) {
-			var errorObj = new ErrorObj(500,
-				'da0013',
-				__filename,
-				't_getEntity',
-				'object input must have an id and object_type property'
-			);
-			deferred.reject(errorObj);
-		})
-		.fail(function (rollback_err) {
-			deferred.reject(rollback_err.AddToError(__filename, 't_getEntity'));
-		});
-	}
-
-	deferred.promise.nodeify(callback);
-	return deferred.promise;
+  return DataAccess.prototype.getEntity(tableName, obj, connection)
 };
 
 // tableName -- NAME OF THE TABLE
@@ -802,24 +752,7 @@ DataAccess.prototype.saveEntity = function (tableName, obj, connection, callback
 };
 
 DataAccess.prototype.t_saveEntity = function (connection, tableName, obj, callback) {
-	var deferred = Q.defer();
-
-	DataAccess.prototype.saveEntity(tableName, obj, connection)
-	.then(function (res_obj) {
-		deferred.resolve(res_obj)
-	})
-	.fail(function (err) {
-		DataAccess.prototype.rollbackTransaction(connection)
-		.then(function (rollback_res) {
-			deferred.reject(err.AddToError(__filename, 't_saveEntity', 'transaction rolled back'));
-		})
-		.fail(function (rollback_err) {
-			deferred.reject(rollback_err.AddToError(__filename, 't_saveEntity'));
-		});
-	});
-
-	deferred.promise.nodeify(callback);
-	return deferred.promise;
+	return DataAccess.prototype.saveEntity(tableName, obj, connection);
 };
 
 // tableName -- NAME OF THE TABLE
@@ -911,45 +844,7 @@ DataAccess.prototype.updateEntity = function (tableName, updateObj, connection, 
 };
 
 DataAccess.prototype.t_updateEntity = function (connection, tableName, updateObj, callback) {
-	var deferred = Q.defer();
-
-	if (updateObj.id === undefined || updateObj.id === null) {
-		DataAccess.prototype.rollbackTransaction(connection)
-		.then(function (rollback_res) {
-			var errorObj = new ErrorObj(500,
-				'da0027',
-				__filename,
-				't_updateEntity',
-				'updateObj must include an id',
-				'Updating Entity failed',
-				{}
-			);
-			deferred.reject(errorObj);
-		})
-		.fail(function (rollback_err) {
-			deferred.reject(rollback_err.AddToError(__filename, 't_updateEntity'));
-		});
-	}
-	else {
-
-		DataAccess.prototype.updateEntity(tableName, updateObj, connection)
-		.then(function (result) {
-			deferred.resolve(result);
-		})
-		.fail(function (err) {
-			DataAccess.prototype.rollbackTransaction(connection)
-			.then(function (rollback_res) {
-				deferred.reject(err.AddToError(__filename, 't_updateEntity', 'transaction rolled back'));
-			})
-			.fail(function (rollback_err) {
-				deferred.reject(rollback_err.AddToError(__filename, 't_updateEntity'));
-			});
-		})
-
-	}
-
-	deferred.promise.nodeify(callback);
-	return deferred.promise;
+	return DataAccess.prototype.updateEntity(tableName, updateObj, connection);
 };
 
 // tableName -- NAME OF THE TABLE
@@ -1022,24 +917,7 @@ DataAccess.prototype.deleteEntity = function (tableName, obj, connection, callba
 };
 
 DataAccess.prototype.t_deleteEntity = function (connection, tableName, obj, callback) {
-	var deferred = Q.defer();
-
-	DataAccess.prototype.deleteEntity(tableName, obj, connection)
-	.then(function (res_obj) {
-		deferred.resolve(res_obj);
-	})
-	.fail(function (err) {
-		da.rollbackTransaction(connection)
-		.then(function () {
-			deferred.reject(err.AddToError(__filename, 't_deleteEntity', 'transaction rolled back'));
-		})
-		.fail(function (rollback_err) {
-			deferred.reject(rollback_err.AddToError(__filename, 't_deleteEntity'));
-		});
-	});
-
-	deferred.promise.nodeify(callback);
-	return deferred.promise;
+	return DataAccess.prototype.deleteEntity(tableName, obj, connection);
 };
 
 // tableName -- NAME OF THE TABLE
@@ -1088,25 +966,7 @@ DataAccess.prototype.hardDeleteEntity = function (tableName, obj, connection, ca
 };
 
 DataAccess.prototype.t_hardDeleteEntity = function (connection, tableName, obj, callback) {
-	var deferred = Q.defer();
-
-	DataAccess.prototype.hardDeleteEntity(tableName, obj, connection)
-		.then(function (result) {
-			deferred.resolve(result);
-		})
-		.fail(function (err) {
-			DataAccess.prototype.rollbackTransaction(connection)
-				.then(function (rb_res) {
-					deferred.reject(err.AddToError(__filename, 't_hardDeleteEntity'));
-				})
-				.fail(function (rollback_err) {
-					deferred.reject(rollback_err.AddToError(__filename, 't_hardDeleteEntity'));
-				});
-
-		})
-
-	deferred.promise.nodeify(callback);
-	return deferred.promise;
+	return DataAccess.prototype.hardDeleteEntity(tableName, obj, connection)
 };
 
 //UpdateAllEntities REQUIRES POSTGRES 9.5.X 
@@ -1168,24 +1028,7 @@ DataAccess.prototype.findAll = function (tableName, connection, callback) {
 };
 
 DataAccess.prototype.t_findAll = function (connection, tableName, callback) {
-	var deferred = Q.defer();
-
-	DataAccess.prototype.findAll(tableName, connection)
-	.then(function (results) {
-		deferred.resolve([results, connection]);
-	})
-	.fail(function (err) {
-		DataAccess.prototype.rollbackTransaction(connection)
-		.then(function (rollback_res) {
-			deferred.reject(err.AddToError(__filename, 't_findAll', 'transaction rolled back'));
-		})
-		.fail(function (rollback_err) {
-			deferred.reject(rollback_err.AddToError(__filename, 't_findAll'));
-		});
-	})
-
-	deferred.promise.nodeify(callback);
-	return deferred.promise;
+	return DataAccess.prototype.findAll(tableName, connection);
 };
 
 // tableName -- NAME OF THE TABLE
@@ -1233,24 +1076,7 @@ DataAccess.prototype.find = function (tableName, searchObject, connection, callb
 };
 
 DataAccess.prototype.t_find = function (connection, tableName, searchObject, callback) {
-	var deferred = Q.defer();
-
-	DataAccess.prototype.find(tableName, searchObject, connection)
-	.then(function (results) {
-		deferred.resolve(results);
-	})
-	.fail(function (err) {
-		DataAccess.prototype.rollbackTransaction(connection)
-		.then(function (rollback_res) {
-			deferred.reject(err.AddToError(__filename, 't_find', 'transaction rolled back'));
-		})
-		.fail(function (rollback_err) {
-			deferred.reject(rollback_err.AddToError(__filename, 't_find'));
-		});
-	})
-
-	deferred.promise.nodeify(callback);
-	return deferred.promise;
+	return DataAccess.prototype.find(tableName, searchObject, connection);
 };
 
 // objType -- VALUE OF object_type FOR THE ENTITIES IN QUESTION
@@ -1363,24 +1189,7 @@ DataAccess.prototype.findOne = function (tableName, searchObject, connection, ca
 };
 
 DataAccess.prototype.t_findOne = function (connection, tableName, searchObject, callback) {
-	var deferred = Q.defer();
-
-	DataAccess.prototype.findOne(tableName, searchObject, connection)
-	.then(function (results) {
-		deferred.resolve(results);
-	})
-	.fail(function (err) {
-		DataAccess.prototype.rollbackTransaction(connection)
-		.then(function (rollback_res) {
-			deferred.reject(err.AddToError(__filename, 't_findOne', 'transaction rolled back'));
-		})
-		.fail(function (rollback_err) {
-			deferred.reject(rollback_err.AddToError(__filename, 't_findOne'));
-		});
-	});
-
-	deferred.promise.nodeify(callback);
-	return deferred.promise;
+	return DataAccess.prototype.findOne(tableName, searchObject, connection)
 };
 
 // tableName -- NAME OF THE TABLE
@@ -1409,24 +1218,7 @@ DataAccess.prototype.findLike = function (tableName, searchObject, likeField, li
 };
 
 DataAccess.prototype.t_findLike = function (connection, tableName, searchObject, likeField, likeVal, callback) {
-	var deferred = Q.defer();
-
-	DataAccess.prototype.findLike(tableName, searchObject, likeField, likeVal, connection)
-	.then(function (results) {
-		deferred.resolve(results);
-	})
-	.fail(function (err) {
-		DataAccess.prototype.rollbackTransaction(connection)
-		.then(function (rollback_res) {
-			deferred.reject(err.AddToError(__filename, 't_findLike', 'transaction rolled back'));
-		})
-		.fail(function (rollback_err) {
-			deferred.reject(rollback_err.AddToError(__filename, 't_findLike'));
-		});
-	})
-
-	deferred.promise.nodeify(callback);
-	return deferred.promise;
+	return DataAccess.prototype.findLike(tableName, searchObject, likeField, likeVal, connection);
 };
 
 // tableName -- NAME OF THE TABLE
@@ -1459,24 +1251,7 @@ DataAccess.prototype.findOrdered = function (tableName, searchObject, orderField
 };
 
 DataAccess.prototype.t_findOrdered = function (connection, tableName, searchObject, orderField, desc, callback) {
-	var deferred = Q.defer();
-
-	DataAccess.prototype.findOrdered(tableName, searchObject, orderField, desc, connection)
-	.then(function (results) {
-		deferred.resolve(results);
-	})
-	.fail(function (err) {
-		DataAccess.prototype.rollbackTransaction(connection)
-		.then(function (rollback_res) {
-			deferred.reject(err.AddToError(__filename, 't_findOrdered', 'transaction rolled back'));
-		})
-		.fail(function (rollback_err) {
-			deferred.reject(rollback_err.AddToError(__filename, 't_findOrdered'));
-		});
-	});
-
-	deferred.promise.nodeify(callback);
-	return deferred.promise;
+	return DataAccess.prototype.findOrdered(tableName, searchObject, orderField, desc, connection)
 };
 
 // tableName -- NAME OF THE TABLE
@@ -1515,24 +1290,7 @@ DataAccess.prototype.findMultiOrdered = function (tableName, searchObject, order
 };
 
 DataAccess.prototype.t_findMultiOrdered = function (connection, tableName, searchObject, orderFields, desc, callback) {
-	var deferred = Q.defer();
-
-	DataAccess.prototype.findMultiOrdered(tableName, searchObject, orderFields, desc, connection)
-	.then(function (results) {
-		deferred.resolve(results);
-	})
-	.fail(function (err) {
-		DataAccess.prototype.rollbackTransaction(connection)
-		.then(function (rollback_res) {
-			deferred.reject(err.AddToError(__filename, 't_findMultiOrdered', 'transaction rolled back'));
-		})
-		.fail(function (rollback_err) {
-			deferred.reject(rollback_err.AddToError(__filename, 't_findMultiOrdered'));
-		});
-	})
-
-	deferred.promise.nodeify(callback);
-	return deferred.promise;
+	return DataAccess.prototype.findMultiOrdered(tableName, searchObject, orderFields, desc, connection);
 };
 
 // tableName  -- NAME OF THE TABLE
@@ -1595,24 +1353,7 @@ DataAccess.prototype.findBetweenDates = function (tableName, dateField, startDat
 }
 
 DataAccess.prototype.t_findBetweenDates = function (connection, tableName, dateField, startDate, endDate, callback) {
-	var deferred = Q.defer();
-
-	DataAccess.prototype.findBetweenDates(tableName, dateField, startDate, endDate, connection)
-	.then(function (results) {
-		deferred.resolve(results);
-	})
-	.fail(function (err) {
-		DataAccess.prototype.rollbackTransaction(connection)
-		.then(function (rollback_res) {
-			deferred.reject(err.AddToError(__filename, 't_findBetweenDates', 'transaction rolled back'));
-		})
-		.fail(function (rollback_err) {
-			deferred.reject(rollback_err.AddToError(__filename, 't_findBetweenDates'));
-		});
-	});
-
-	deferred.promise.nodeify(callback);
-	return deferred.promise;
+	return DataAccess.prototype.findBetweenDates(tableName, dateField, startDate, endDate, connection);
 }
 // ================================================================================
 
@@ -1824,24 +1565,7 @@ DataAccess.prototype.addRelationship = function (entity1, entity2, relType, conn
 }
 
 DataAccess.prototype.t_addRelationship = function (connection, entity1, entity2, relType, rel_props, callback) {
-	var deferred = Q.defer();
-
-	DataAccess.prototype.addRelationship(entity1, entity2, relType, connection, rel_props, callback)
-	.then(function (res_obj) {
-		deferred.resolve(res_obj)
-	})
-	.fail(function (err) {
-		DataAccess.prototype.rollbackTransaction(connection)
-		.then(function (rollback_res) {
-			deferred.reject(err.AddToError(__filename, 't_addRelationship', 'transaction rolled back'));
-		})
-		.fail(function (rollback_err) {
-			deferred.reject(rollback_err.AddToError(__filename, 't_addRelationship'));
-		})
-	});
-
-	deferred.promise.nodeify(callback);
-	return deferred.promise;
+	return DataAccess.prototype.addRelationship(entity1, entity2, relType, connection, rel_props, callback);
 };
 
 // entity1 -- ONE ENTITY IN THE RELATIONSHIP
@@ -2013,22 +1737,7 @@ DataAccess.prototype.removeRelationship = function (entity1, entity2, relType, c
 };
 
 DataAccess.prototype.t_removeRelationship = function (connection, entity1, entity2, relType, callback) {
-	var deferred = Q.defer();
-	DataAccess.prototype.removeRelationship(entity1, entity2, relType, connection, callback)
-	.then(function (res_obj) {
-		deferred.resolve(res_obj)
-	})
-	.fail(function (err) {
-		DataAccess.prototype.rollbackTransaction(connection)
-		.then(function (rollback_res) {
-			deferred.reject(err.AddToError(__filename, 't_removeRelationship', 'transaction rolled back'));
-		})
-		.fail(function (rollback_err) {
-			deferred.reject(rollback_err.AddToError(__filename, 't_removeRelationship'));
-		});
-	});
-	deferred.promise.nodeify(callback);
-	return deferred.promise;
+	return DataAccess.prototype.removeRelationship(entity1, entity2, relType, connection, callback);
 };
 
 // obj -- AN ENTITY INCLUDING 'id' AND 'object_type'
@@ -2156,22 +1865,7 @@ function removeAllRelationships(obj, connection, callback) {
 };
 
 function t_removeAllRelationships(connection, obj, callback) {
-	var deferred = Q.defer();
-	removeAllRelationships(obj, connection)
-	.then(function (res) {
-		deferred.resolve(res);
-	})
-	.fail(function (err) {
-		DataAccess.prototype.rollbackTransaction(connection)
-		.then(function (rollback_res) {
-			deferred.reject(err.AddToError(__filename, 't_removeAllRelationships', 'transaction rolled back'));
-		})
-		.fail(function (rollback_err) {
-			deferred.reject(rollback_err.AddToError(__filename, 't_removeAllRelationships'));
-		});
-	});
-	deferred.promise.nodeify(callback);
-	return deferred.promise;
+	return removeAllRelationships(obj, connection);
 };
 
 
@@ -2309,23 +2003,7 @@ DataAccess.prototype.join = function (obj, relatedType, relType, connection, cal
 };
 
 DataAccess.prototype.t_join = function (connection, obj, relatedType, relType, callback) {
-	var deferred = Q.defer();
-	DataAccess.prototype.join(obj, relatedType, relType, connection)
-	.then(function (res_obj) {
-		deferred.resolve(res_obj);
-	})
-	.fail(function (err) {
-		DataAccess.prototype.rollbackTransaction(connection)
-		.then(function (rollback_res) {
-			deferred.reject(err.AddToError(__filename, 't_join', 'transaction rolled back'));
-		})
-		.fail(function (rollback_err) {
-			deferred.reject(rollback_err.AddToError(__filename, 't_join'));
-		});
-	});
-
-	deferred.promise.nodeify(callback);
-	return deferred.promise;
+	return DataAccess.prototype.join(obj, relatedType, relType, connection);
 };
 
 // obj -- AN ENTITY INCLUDING 'id' AND 'object_type'
@@ -2482,23 +2160,7 @@ DataAccess.prototype.joinOne = function (obj, relatedType, relType, connection, 
 };
 
 DataAccess.prototype.t_joinOne = function (connection, obj, relatedType, relType, callback) {
-	var deferred = Q.defer();
-	DataAccess.prototype.joinOne(obj, relatedType, relType, connection)
-	.then(function (res_obj) {
-		deferred.resolve(res_obj);
-	})
-	.fail(function (err) {
-		DataAccess.prototype.rollbackTransaction(connection)
-		.then(function (rollback_res) {
-			deferred.reject(err.AddToError(__filename, 't_joinOne', 'transaction rolled back'));
-		})
-		.fail(function (rollback_err) {
-			deferred.reject(rollback_err.AddToError(__filename, 't_joinOne'));
-		});
-	});
-
-	deferred.promise.nodeify(callback);
-	return deferred.promise;
+	return DataAccess.prototype.joinOne(obj, relatedType, relType, connection);
 };
 
 // objectType -- AN 'object_type' VALUE
@@ -2634,23 +2296,7 @@ DataAccess.prototype.joinWhere = function (objectType, objectWhere, relatedType,
 };
 
 DataAccess.prototype.t_joinWhere = function (connection, objectType, objectWhere, relatedType, relatedWhere, relType, callback) {
-	var deferred = Q.defer();
-	DataAccess.prototype.joinWhere(objectType, objectWhere, relatedType, relatedWhere, relType, connection)
-	.then(function (res_obj) {
-		deferred.resolve(res_obj);
-	})
-	.fail(function (err) {
-		DataAccess.prototype.rollbackTransaction(connection)
-		.then(function (rollback_res) {
-			deferred.reject(err.AddToError(__filename, 't_joinWhere', 'transaction rolled back'));
-		})
-		.fail(function (rollback_err) {
-			deferred.reject(rollback_err.AddToError(__filename, 't_joinWhere'));
-		});
-	});
-
-	deferred.promise.nodeify(callback);
-	return deferred.promise;
+	return DataAccess.prototype.joinWhere(objectType, objectWhere, relatedType, relatedWhere, relType, connection);
 };
 
 // objectType -- AN 'object_type' VALUE
@@ -2782,23 +2428,7 @@ DataAccess.prototype.joinWhereOrdered = function (objectType, objectWhere, relat
 };
 
 DataAccess.prototype.t_joinWhereOrdered = function (connection, objectType, objectWhere, relatedType, relatedWhere, relType, orderField, desc, callback) {
-	var deferred = Q.defer();
-	DataAccess.prototype.joinWhereOrdered(objectType, objectWhere, relatedType, relatedWhere, relType, orderField, desc, connection)
-	.then(function (res_obj) {
-		deferred.resolve(res_obj);
-	})
-	.fail(function (err) {
-		DataAccess.prototype.rollbackTransaction(connection)
-		.then(function (rollback_res) {
-			deferred.reject(err.AddToError(__filename, 't_joinWhereOrdered', 'transaction rolled back'));
-		})
-		.fail(function (rollback_err) {
-			deferred.reject(rollback_err.AddToError(__filename, 't_joinWhereOrdered'));
-		});
-	});
-
-	deferred.promise.nodeify(callback);
-	return deferred.promise;
+	return DataAccess.prototype.joinWhereOrdered(objectType, objectWhere, relatedType, relatedWhere, relType, orderField, desc, connection);
 };
 
 // obj -- THE ROOT ENTITY USED FOR THE JOIN
@@ -2991,23 +2621,7 @@ DataAccess.prototype.joinBetweenDates = function (obj, relatedType, relType, dat
 };
 
 DataAccess.prototype.t_joinBetweenDates = function (connection, obj, relatedType, relType, dateField, startDate, endDate, callback) {
-	var deferred = Q.defer();
-	DataAccess.prototype.joinBetweenDates(obj, relatedType, relType, dateField, startDate, endDate, connection)
-	.then(function (res_obj) {
-		deferred.resolve(res_obj);
-	})
-	.fail(function (err) {
-		DataAccess.prototype.rollbackTransaction(connection)
-		.then(function (rollback_res) {
-			deferred.reject(err.AddToError(__filename, 't_joinBetweenDates', 'transaction rolled back'));
-		})
-		.fail(function (rollback_err) {
-			deferred.reject(rollback_err.AddToError(__filename, 't_joinBetweenDates'));
-		});
-	});
-
-	deferred.promise.nodeify(callback);
-	return deferred.promise;
+	return DataAccess.prototype.joinBetweenDates(obj, relatedType, relType, dateField, startDate, endDate, connection);
 };
 
 // objectType -- AN 'object_type' VALUE
@@ -3233,23 +2847,7 @@ DataAccess.prototype.joinWhereAndResolve = function (objectType, objectWhere, re
 };
 
 DataAccess.prototype.t_joinWhereAndResolve = function (connection, objectType, objectWhere, relatedType, relatedWhere, relType, callback) {
-	var deferred = Q.defer();
-	DataAccess.prototype.joinWhereAndResolve(objectType, objectWhere, relatedType, relatedWhere, relType, connection)
-	.then(function (res_obj) {
-		deferred.resolve(res_obj);
-	})
-	.fail(function (err) {
-		DataAccess.prototype.rollbackTransaction(connection)
-		.then(function (rollback_res) {
-			deferred.reject(err.AddToErrorr(__filename, 't_joinWhereOrdered', 'transaction rolled back'));
-		})
-		.fail(function (rollback_err) {
-			deferred.reject(rollback_err.AddToError(__filename, 't_joinWhereAndResolve'));
-		});
-	});
-
-	deferred.promise.nodeify(callback);
-	return deferred.promise;
+	return DataAccess.prototype.joinWhereAndResolve(objectType, objectWhere, relatedType, relatedWhere, relType, connection);
 };
 // ================================================================================
 
@@ -3276,22 +2874,7 @@ DataAccess.prototype.runSql = function (sqlStatement, params, connection) {
 
 // RUN ARBITRARY SQL STATEMENTS ON THE DB CONNECTION PASSED IN AS ARGUMENT
 DataAccess.prototype.t_runSql = function (connection, sqlStatement, params) {
-	var deferred = Q.defer();
-	DataAccess.prototype.runSql(sqlStatement, params, connection)
-	.then(function (res_obj) {
-		deferred.resolve(res_obj);
-	})
-	.fail(function (err) {
-		DataAccess.prototype.rollbackTransaction(connection)
-		.then(function (rollback_res) {
-			deferred.reject(err.AddToError(__filename, 't_runSql', 'transaction rolled back'));
-		})
-		.fail(function (rollback_err) {
-			deferred.reject(rollback_err.AddToError(__filename, 't_runSql'));
-		});
-	});
-	
-	return deferred.promise;
+	return DataAccess.prototype.runSql(sqlStatement, params, connection);
 };
 
 // RETURN THE USER ENTITY BASED ON AN EMAIL ADDRESS
@@ -3483,23 +3066,7 @@ DataAccess.prototype.getByRowId = function (tableName, rowId, connection, callba
 };
 
 DataAccess.prototype.t_getByRowId = function (connection, tableName, rowId, callback) {
-	var deferred = Q.defer();
-	DataAccess.prototype.getByRowId(tableName, rowId, connection)
-	.then(function (res_obj) {
-		deferred.resolve(res_obj);
-	})
-	.fail(function (err) {
-		DataAccess.prototype.rollbackTransaction(connection)
-		.then(function (rollback_res) {
-			deferred.reject(err.AddToError(__filename, 't_getByRowId', 'transaction rolled back'));
-		})
-		.fail(function (rollback_err) {
-			deferred.reject(rollback_err.AddToError(__filename, 't_getByRowId'));
-		});
-	});
-
-	deferred.promise.nodeify(callback);
-	return deferred.promise;
+	return DataAccess.prototype.getByRowId(tableName, rowId, connection);
 };
 
 // tableName -- THE NAME OF THE TABLE
@@ -3563,23 +3130,7 @@ DataAccess.prototype.updateByRowId = function (tableName, obj, rowId, callback) 
 };
 
 DataAccess.prototype.t_updateByRowId = function (connection, tableName, obj, rowId, callback) {
-	var deferred = Q.defer();
-	DataAccess.prototype.updateByRowId(tableName, obj, rowId)
-	.then(function (res_obj) {
-		deferred.resolve(res_obj);
-	})
-	.fail(function (err) {
-		DataAccess.prototype.rollbackTransaction(connection)
-		.then(function (rollback_res) {
-			deferred.reject(err.AddToError(__filename, 't_updateByRowId', 'transaction rolled back'));
-		})
-		.fail(function (rollback_err) {
-			deferred.reject(rollback_err.AddToError(__filename, 't_updateByRowId'));
-		});
-	});
-
-	deferred.promise.nodeify(callback);
-	return deferred.promise;
+	return DataAccess.prototype.updateByRowId(tableName, obj, rowId);
 };
 // ================================================================================
 
