@@ -40,6 +40,9 @@ app.use(bodyParser.urlencoded({ extended: true }));			// DETERMINE IF THIS IS HT
 app.use(express.static(path.join(__dirname, 'public')));	// MAP STATIC PAGE CALLS TO public FOLDER
 app.use(cors());
 
+// process.on('warning', e => console.warn(e.stack));       // USEFUL IN DEBUGGING
+// process.on('unhandledRejection', r => console.log(r));   // USEFUL IN DEBUGGING
+
 
 //Settings File, contains DB params
 var nodeEnv = process.env.NODE_ENV || 'local';
@@ -276,8 +279,19 @@ function requestPipeline(req, res, verb) {
       .then(function(usr) {
         inner_deferred.resolve(usr);
       })
-      .fail(function() {
-        inner_deferred.resolve(null);
+      .fail(function(usr_err) {
+        if(sc.authRequired) {
+          var errorObj = new ErrorObj(403,
+                                      __filename,
+                                      'requestPipeline',
+                                      'unauthorized',
+                                      'Unauthorized',
+                                      null);
+          inner_deferred.reject(errorObj);
+        }
+        else {
+          inner_deferred.resolve(null);
+        }
       });
     }
     else {
