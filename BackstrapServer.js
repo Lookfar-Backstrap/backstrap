@@ -124,7 +124,7 @@ settings.init(config.s3.bucket, 'Settings.json', useRemoteSettings)
     // CREATE A LOG DIRECTORY IF NEEDED
     // DO IT SYNCHRONOUSLY WHICH IS ALRIGHT SINCE THIS IS JUST ONCE
     // DURING STARTUP
-    if(!fs.existsSync('../../logs')) fs.mkdirSync('../../logs');
+    if(!fs.existsSync('./logs')) fs.mkdirSync('./logs');
     
     changeErrorLogs();
     utilities.setLogs(eventLog, errorLog, sessionLog);
@@ -386,10 +386,10 @@ function changeErrorLogs() {
   var monthString = monthNum < 10 ? '0'+monthNum : monthNum;
   var dateString = today.getDate() < 10 ? '0'+today.getDate() : today.getDate();
   let todayString = monthString+'-'+dateString+'-'+today.getFullYear();
-  let errorLogPath = '../../logs/error-'+todayString;
-  let accessLogPath = '../../logs/access-'+todayString;
-  let sessionLogPath = '../../logs/session-'+todayString;
-  let eventLogPath = '../../logs/event-'+todayString;
+  let errorLogPath = './logs/error-'+todayString;
+  let accessLogPath = './logs/access-'+todayString;
+  let sessionLogPath = './logs/session-'+todayString;
+  let eventLogPath = './logs/event-'+todayString;
   
 
   var newErrorLog = fs.createWriteStream(errorLogPath, {flags:'a'});
@@ -429,10 +429,10 @@ function changeErrorLogs() {
   var evictionDate = new Date();
   evictionDate.setDate(evictionDate.getDate()-settings.data.log_rotation_period);
   evictionDate.setHours(0,0,0,0);
-  fs.readdir('../../logs/', (err, files) => {
+  fs.readdir('./logs/', (err, files) => {
     if(!err) {
       for(var fIdx = 0; fIdx < files.length; fIdx++) {
-        let filepath = '../../logs/'+files[fIdx];
+        let filepath = './logs/'+files[fIdx];
         fs.stat(filepath, (stat_err, stats) => {
           if(!stat_err) {
             var createDate = new Date(stats.birthtime);
