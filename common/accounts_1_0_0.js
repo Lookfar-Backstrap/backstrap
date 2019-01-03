@@ -1066,13 +1066,10 @@ Accounts.prototype.post = {
     },
     signIn: function(req, callback) {
         var deferred = Q.defer();
-        
-        //deferred.resolve('done');
-        
         var body = req.body;
 
         try {
-            var username = (typeof (req.body.username) == 'undefined' || req.body.username === null) ? req.body.email.toLowerCase() : req.body.username.toLowerCase();
+            var username = (req.body.username)== null ? req.body.email.toLowerCase() : req.body.username.toLowerCase();
         }
         catch (err) {
             var errorObj = new ErrorObj(400,
@@ -1116,6 +1113,8 @@ Accounts.prototype.post = {
                     'error retrieving salt for this user'
                 );
                 deferred.reject(errorObj);
+                deferred.promise.nodeify(callback);
+                return deferred.promise;
             }
             var stored_password = userObj.password;
             if (stored_password === null) {
@@ -1126,6 +1125,8 @@ Accounts.prototype.post = {
                     'error retrieving password for this user'
                 );
                 deferred.reject(errorObj);
+                deferred.promise.nodeify(callback);
+                return deferred.promise;
             }
 
             // SALT AND HASH PASSWORD
@@ -1152,10 +1153,10 @@ Accounts.prototype.post = {
                 'object_type': 'session',
                 'token': tkn,
                 'username': username,
+                'user_id': userObj.id,
                 'started_at': rightNow,
                 'client_info': clientInfo,
-                'last_touch': rightNow,
-                'event_log': []
+                'last_touch': rightNow
             };
             return [tkn, userObj, dataAccess.saveEntity('session', sessionObj)];
         })
@@ -1333,20 +1334,25 @@ Accounts.prototype.post = {
 
         var token = req.headers[settings.data.token_header];
         dataAccess.find('session', {'token':token})
-            .then(function(sessions) {
-                if (sessions !== null && sessions.length > 0) {
-                    //INVALIDATE THE ARRAY OF SESSIONS WHICH SHOULD ONLY BE ONE
-                    //BUT TEH functionWANTS AN ARRAY WHICH IS PEACHY CAUSE THATS
-                    //WHAT WEVE GOT
-                    utilities.InvalidateSessions(sessions)
-                        .then(function(res) {
-                            deferred.resolve(res);
-                        })
-                        .fail(function() {
-                            deferred.resolve(res);
-                        });
-                }
-            });
+        .then(function(sessions) {
+          return Q.all(sessions.map((s) => {
+            var inner_deferred = Q.defer();
+            utilities.invalidateSession(s)
+            .then(() => {
+              inner_deferred.resolve();
+            })
+            .fail((inner_err) => {
+              inner_deferred.reject(inner_err);
+            })
+            return inner_deferred.promise;
+          }))
+        })
+        .then(function(invld_res) {
+          deferred.resolve({success: true});
+        })
+        .fail(function(err) {
+          deferred.reject(err.AddToError(__filename, 'signOut'));
+        })
 
         deferred.promise.nodeify(callback);
         return deferred.promise;
@@ -1946,12 +1952,12 @@ function createSession(userObj, clientInfo) {
 		var sessionObj = {
 			'object_type': 'session',
 			'is_anonymous': false,
-			'token': tkn,
-			'username': userObj.username,
+      'token': tkn,
+      'username': userObj.username,
+			'user_id': userObj.id,
 			'started_at': rightNow,
 			'client_info': clientInfo,
-			'last_touch': rightNow,
-			'event_log': []
+			'last_touch': rightNow
 		};
 		return [client, dataAccess.t_saveEntity(client, 'session', sessionObj)];
 	})
@@ -2010,8 +2016,7 @@ function createAnonymousSession(clientInfo) {
 			'username': 'anonymous',
 			'started_at': rightNow,
 			'client_info': clientInfo,
-			'last_touch': rightNow,
-			'event_log': []
+			'last_touch': rightNow
 		};
 		return [client, dataAccess.t_saveEntity(client, 'session', sessionObj)];
 	})

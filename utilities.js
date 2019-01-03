@@ -14,6 +14,10 @@ var mkdirp = require('mkdirp');
 var UtilitiesExtension = require('./utilities_ext.js');
 var async = require('async');
 
+var eventLog;
+var errorLog;
+var sessionLog;
+
 var Utilities = function (s) {
 	settings = s;
 	this.extension = {};
@@ -54,6 +58,12 @@ Utilities.prototype.setDataAccess = function(da){
 		this.extension = new UtilitiesExtension(this, da, settings);
 	}
 };
+
+Utilities.prototype.setLogs = function(evl, erl, sesl) {
+  eventLog = evl;
+  errorLog = erl;
+  sessionLog = sesl;
+}
 
 Utilities.prototype.validateUsername = function (newUsername, existingUsername) {
 	var deferred = Q.defer();
@@ -158,123 +168,6 @@ Utilities.prototype.getUserFromApiToken = function (apiTkn, callback) {
 	return deferred.promise;
 };
 
-
-Utilities.prototype.createLoggedEventObj = function (req, override, sc_reqires_auth, callback) {
-	var deferred = Q.defer();
-	var urlLower = req.url.toLowerCase();
-	var ips = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
-	var logged_event = {
-		'object_type': 'logged_event',
-		'event_type': 'request',
-		'event_data': {
-			'http_method': req.method,
-			'url': req.url
-		},
-		'user_data': {
-			'user': {},
-			'user_agent': req.headers['user-agent'],
-			'ip': ips
-		},
-		'event_date': new Date()
-	};
-	var tkn = req.headers[settings.data.token_header];
-	if (!sc_reqires_auth && !override) {
-		deferred.resolve(logged_event);
-	}
-	else {
-		Utilities.prototype.getUserFromApiToken(tkn)
-		.then(function (userObj) {
-			logged_event.this_user = userObj;
-			var uid = userObj.id || null;
-			logged_event.user_data.user = {
-				'username': userObj.username,
-				'id': uid
-			};
-
-			dataAccess.findOne('session', { 'token': tkn })
-			.then(function (sess) {
-				sess.last_touch = new Date();
-				dataAccess.saveEntity('session', sess)
-					.then(function (save_res) {
-						logged_event.session_id = sess.id;
-						deferred.resolve(logged_event);
-					})
-					.fail(function (err) {
-						if (err !== undefined && err !== null && typeof (err.AddToError) === 'function') {
-							deferred.reject(err.AddToError(__filename, 'createLoggedEventObj', 'error updating last touch for session'));
-						}
-						else {
-							var errorObj = new ErrorObj(500,
-								'u0022',
-								__filename,
-								'createLoggedEventObj',
-								'error updating last touch for session',
-								'error updating last touch for session',
-								err
-							);
-							deferred.reject(errorObj);
-						}
-					});
-			})
-			.fail(function (err) {
-				if (err !== undefined && err !== null && typeof (err.AddToError) === 'function') {
-					deferred.reject(err.AddToError(__filename, 'createLoggedEventObj', 'could not find session for this token'));
-				}
-				else {
-					var errorObj = new ErrorObj(500,
-						'u0022',
-						__filename,
-						'createLoggedEventObj',
-						'could not find session for this token',
-						'could not find session for this token',
-						err
-					);
-					deferred.reject(errorObj);
-				}
-			});
-		})
-		.fail(function (err) {
-			if (err !== undefined && err !== null && typeof (err.AddToError) === 'function') {
-				deferred.reject(err.AddToError(__filename, 'createLoggedEventObj', 'could not find user for this token'));
-			}
-			else {
-				var errorObj = new ErrorObj(500,
-					'u0022',
-					__filename,
-					'createLoggedEventObj',
-					'could not find user for this token',
-					'could not find user for this token',
-					err
-				);
-				deferred.reject(errorObj);
-			}
-		});
-	}
-
-	deferred.promise.nodeify(callback);
-	return deferred.promise;
-};
-
-Utilities.prototype.saveLoggedEventObj = function (req, callback) {
-	var deferred = Q.defer();
-
-	//DONT LOG THESE EVENTS
-	if (req.url.indexOf("internalSystem") != -1 || req.url.indexOf("defaultUserCheck") != -1){
-		deferred.resolve(true);
-	}
-	else{
-		try { delete req.this_user; delete req.logged_event.this_user; } catch (err) { }
-		dataAccess.saveEntity('logged_event', req.logged_event)
-		.then(function (res) {
-			deferred.resolve(res);
-		})
-		.fail(function (err) {
-			deferred.reject(err);
-		});
-	}
-	deferred.promise.nodeify(callback);
-	return deferred.promise;
-};
 
 Utilities.prototype.FormatStackTraceMessage = function (verb, objType, versionExtension) {
 	return { 'class': objType + versionExtension, 'function': verb + ' ' + objType };
@@ -486,24 +379,20 @@ Utilities.prototype.writeBinaryToFile = function (file_path, strData) {
 	return deferred.promise;
 };
 
-Utilities.prototype.writeErrorToLog = function (err) {
-	var deferred = Q.defer();
-	fs.appendFile('./backstrap_errors.txt', JSON.stringify(err, null, 4),
-		function (err) {
-			if (err) {
-				var errorObj = new ErrorObj(500,
-					'u0008',
-					__filename,
-					'writeToFile',
-					'error with fs.appendFile',
-					'External error',
-					err
-				);
-				deferred.reject(errorObj);
-			}
-			deferred.resolve(true);
-		}
-	);
+Utilities.prototype.writeErrorToLog = function (errObj) {
+  var deferred = Q.defer();
+
+  let logEntry = JSON.stringify(errObj)+'\n';
+
+  var writeToLog = Q.denodeify(errorLog.write);
+  writeToLog(logEntry)
+  .then(function(write_res) {
+    deferred.resolve();
+  })
+  .fail(function(write_err) {
+    deferred.reject(write_err);
+  });
+
 	return deferred.promise;
 };
 
@@ -882,152 +771,49 @@ Utilities.prototype.isNullOrUndefined = function (meVar) {
 };
 
 Utilities.prototype.isNullOrUndefinedOrZeroLength = function (meVar) {
-	return this.isNullOrUndefined(meVar) || meVar.length === 0;
+	return meVar == null || meVar.length === 0;
 };
 
-//INVALIDATE SESSION FUNCTIONS
-//REQUIRES AN ARRAY OF SESSIONS
-Utilities.prototype.InvalidateSessions = function(deadSessions, callback){
-	//CREATE PROMISE
-	var deferred = Q.defer();
 
-	//DO EACH IN ORDER FOR DEBUGGING AND THIS CAN PROB BE ASYNC AFTER REVIEW (async.ForEach)
-	async.eachSeries(deadSessions, function (sess, sCallback) {
-		//THIS RETURNS THE SESSION OBJ WITH NESTED REQ SESSIONS
-		dataAccess.find('logged_event', {'session_id': sess.id})
-			.then(function (logged_events) {
-				var logged_event_ids = [];
-				//CREATE DEAD SESSION OBJ
-				var deadSession = sess;
-				delete deadSession.object_type;
-				//ADD LOGGED EVENTS TO SESSION
-				deadSession['event_log'] = logged_events;
-				//CREATE AN ARRAY OF IDS TO DELETE
-				logged_events.forEach((e) => {
-					logged_event_ids.push(e.id);
-				});
-				var defGetReqSession = Q.defer();
-				//THE ID PROP GETS TRUNC SO WELL ADD AS session_id TO THE ANALYITIC OBJ
-				deadSession['session_id'] = sess.id;
-				delete deadSession.id;
-				deadSession['object_type'] = 'analytics';
-				//SAVE THE DEAD SESS W/ LOGGED EVENTS AS ANALYTIC OBJ
-				dataAccess.CreateEntityReturnObjAndRowId('analytics', deadSession)
-				.then(function (dbAnalyticSess) {
-					defGetReqSession.resolve([logged_event_ids, deadSession, dbAnalyticSess]);
-				})
-				.fail(function (err) {
-					defGetReqSession.reject({
-						'error': 'probem while invalidating sessions',
-						'message': 'Unable to create analytic record',
-						'deadSession': dbAnalyticSess.data.id
-					});
-				});
-				return defGetReqSession.promise;
-			})
-			.spread(function (logged_event_ids, sess, dbAnalyticSess) {
-				var defJoinUser = Q.defer();
-				//THIS TAKES THE STALE SESSION NOW THAT THE ANALYTIC OBJ HAS BEEN CREATED AND 
-				//RETURNS THE USER ASSOCIATED
-				dataAccess.DeleteInvalidSessReturnUser(sess, null)
-				.then(function (userObjs) {
-					if (userObjs.length === 1) {
-						var userObj = userObjs[0];
-
-						//ADD RELATIONSHIP TO THE NEWLY CREATE ANALYTIC OBJ
-						dataAccess.AddRelationshipUsingRowIds('bsuser_analytics', userObj.row_id, dbAnalyticSess.row_id, '', null)
-							.then(function (uRes) {
-								defJoinUser.resolve(logged_event_ids);
-							})
-							.fail(function (err) {
-								// PROBLEM CREATING THE RELATIONSHIP BETWEEN bsuser OBJ AND
-								// THE analytics OBJ.
-								// DELETE THE LOGGED EVENT IDS ANYWAY AS THEY HAVE BEEN FLATTENED
-								// INTO THE ANALYTICS OBJ, SO CONTINUE INSTEAD OF REJECTING THE
-								// PROMISE
-								console.log(err);
-								defJoinUser.resolve(logged_event_ids);
-							});
-					}
-					else{
-						//PROB ANONNY
-						defJoinUser.resolve(logged_event_ids);
-					}
-				})
-				.fail(function (err) {
-					defJoinUser.reject(err);
-				});
-				return defJoinUser.promise;
-			})
-			.then(function (logged_event_ids) {
-				if (logged_event_ids.length === 0) {
-					sCallback();
-				}
-				else {
-					//GET RID OF THE OLD REQ SESSION OBJS NOW EMBEDDED IN THE ANALTIC OBJ
-					dataAccess.DeleteAllById('logged_event', logged_event_ids)
-					.finally(function () {
-						sCallback();
-					});
-				}
-			})
-			.fail(function(err) {
-				console.log(err);
-				sCallback();
-			});
-	}, function () {
-		//ALL DONE
-		deferred.resolve(true);
-	});
-
-	deferred.promise.nodeify(callback);
-	return deferred.promise;
-};
-
-Utilities.prototype.logRequestEvent = function(req, eventDescriptor, callback) {
-	var deferred = Q.defer();
-
-	var keys = Object.getOwnPropertyNames(eventDescriptor);
-	for(var pIdx = 0; pIdx < keys.length; pIdx++) {
-		req.logged_event.event_data[keys[pIdx]] = eventDescriptor[keys[pIdx]];
-	}
-
-	deferred.resolve(req.logged_event);
-
-	deferred.promise.nodeify(callback);
-	return deferred.promise;
-}
-
-Utilities.prototype.logEvent = function(tkn, eventDescriptor, callback) {
+Utilities.prototype.logEvent = function(tkn, eventDescriptor) {
 	var deferred = Q.defer();
 
 	var loggedEvent = {
-		'object_type': 'logged_event',
-		'event_type': 'custom',
+		'token': tkn,
 		'event_data': eventDescriptor
-	};
+  };
+  let logEntry = JSON.stringify(loggedEvent)+'\n';
+  eventLog.write(logEntry, () => {
+    deferred.resolve();
+  });
 
-	dataAccess.getDbConnection()
-	.then(function(db_handle) {
-		return [db_handle, dataAccess.t_findOne(db_handle, 'session', {'token': tkn})];
-	})
-	.spread(function(db_handle, sess) {
-		loggedEvent.session_id = sess.id;
-		return [db_handle, dataAccess.t_saveEntity(db_handle, 'logged_event', loggedEvent)];
-	})
-	.spread(function(db_handle, savedLoggedEvent) {
-		return [savedLoggedEvent, dataAccess.closeDbConnection(db_handle)]
-	})
-	.spread(function(savedLoggedEvent, close_res) {
-		deferred.resolve(savedLoggedEvent);
-	})
-	.fail(function(err) {
-		deferred.reject(err.AddToErr(__filename, 'logEvent'));
-	});
-
-
-	deferred.promise.nodeify(callback);
 	return deferred.promise;
+}
+
+Utilities.prototype.invalidateSession = function(sessionObj) {
+  var deferred = Q.defer();
+
+  dataAccess.hardDeleteEntity('session', sessionObj)
+  .then(() => {
+    if(settings.data.session_logging === true) {
+      let dsObj = {
+        session_id: sessionObj.id,
+        token: sessionObj.token,
+        user_id: sessionObj.user_id,
+        started_at: sessionObj.started_at,
+        ended_at: new Date()
+      }
+      var logEntry = JSON.stringify(dsObj)+'\n';
+      sessionLog.write(logEntry);
+    }
+
+    deferred.resolve();
+  })
+  .fail((err) => {
+    deferred.reject(err.AddToError(__filename, 'invalidateSession'));
+  });
+
+  return deferred.promise;
 }
 
 Utilities.prototype.htmlify = function(obj, idx) {
