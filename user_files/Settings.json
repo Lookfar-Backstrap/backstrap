@@ -3,7 +3,10 @@
 	"timeout_check": 15,
 	"timeout": 120,
 	"server_port": 3000,
-	"servers": [],
+  "servers": [],
+  "access_logging": false,
+  "session_logging": false,
+  "log_rotation_period": 90,
 	"mail_options": {
 		"account": "[YOUR EMAIL ADDRESS]",
 		"service": "sendgrid",
