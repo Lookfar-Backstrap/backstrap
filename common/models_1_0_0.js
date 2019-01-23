@@ -33,7 +33,7 @@ Models.prototype.get = {
     var modelType;
     var offset;
     var range;
-    var resolve_rels = (args.resolve_rels === 'true');
+    var resolve_rels = (args.resolve_rels !== 'false');
     delete args.resolve_rels;
 
 		if(args){
