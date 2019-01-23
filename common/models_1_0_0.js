@@ -33,6 +33,8 @@ Models.prototype.get = {
     var modelType;
     var offset;
     var range;
+    var resolve_rels = (args.resolve_rels === 'true');
+    delete args.resolve_rels;
 
 		if(args){
 			modelType = args.model_type;
@@ -126,7 +128,7 @@ Models.prototype.get = {
             "offset": offset,
             "range": range
       };
-      entityMethods.getActive(modelType, offset, range, queryObject, true, relsToResolve)
+      entityMethods.getActive(modelType, offset, range, queryObject, resolve_rels, relsToResolve)
       .then(function(objs) {
         deferred.resolve(objs);
       })
