@@ -33,10 +33,11 @@ Models.prototype.get = {
     var modelType;
     var offset;
     var range;
-    var resolve_rels = (args.resolve_rels !== 'false');
-    delete args.resolve_rels;
 
 		if(args){
+      var resolve_rels = (args.resolve_rels !== false && args.resolve_rels !== 'false');
+      delete args.resolve_rels;
+
 			modelType = args.model_type;
 			delete args.model_type;
 
@@ -48,16 +49,13 @@ Models.prototype.get = {
 				} finally {
 					delete args.resolve
 				}
-			}
-		//}
-
-      //var offset;
+      }
+      
       if(args.hasOwnProperty('offset')) {
         offset = args['offset'];
         delete args.offset;
       }
-
-      //var range;
+      
       if(args.hasOwnProperty('range')) {
         range = args['range'];
         delete args.range;
@@ -110,7 +108,6 @@ Models.prototype.get = {
         delete args['relates_to'];
       }
       
-      //var params = [];
       var keys = Object.keys(args);
       var keyNumber = keys.length;
       for(var i = 0; i < keyNumber; i++){
