@@ -1,3 +1,16 @@
+## Table of Contents
+- [Overview](#overview)
+- [Quick Start](#quick-start)
+- [Project Structure](#project-structure)
+- [Getting Started](#getting-started)
+- [On First Launch](#on-first-launch)
+- [Create a New Endpoint/Controller](#create-a-new-endpoint/controller)
+- [Security](#security)
+- [Using Extension Files](#using-extension-files)
+- [Using the ORM](#using-the-orm)
+- [Additional Features](#additional-features)
+
+
 ## Overview:
 Backstrap Server was built on the premise that there should be a clear line between an API's endpoint and the business logic behind it.  The routine tasks in a server-request pipeline such as token validation, access control, and argument verification should be handled automatically so that developers can spend their time writing the code that really matters to your project.
 
@@ -9,6 +22,47 @@ You will also find a number of common endpoints which are ready to go out-of-the
 
 Finally, Backstrap Server includes an onboard web console which allows developers to register/view/edit endpoints and their arguments, register/edit users and permissions, create/view/edit data models and their relationships, and even create/view/edit records in the database.
 
+
+## Quick Start
+__Make Sure You Have Everything Running__
+- Make sure you have node installed
+- Make sure you have postgres >- 9.4 installed and running
+- Make sure you have npm installed
+
+__Create The Database__
++ If you do not have a database for this project, create one in postgres 
+    - In PSQL run:
+        `create database [YOUR DB NAME]`
+
+__Install And Run Backstrap Server__
+- Go to project root
+- Run `npm init`
+- Run `npm install --save backstrap-server`
+- Copy the contents of [Project Root]/node_modules/backstrap-server/user_files/ and paste them to [Project Root]/
+- Open [Project Root]/config/config.local.js 
+    - Enter the name of your db user 
+    - Enter the database to use
+    - Enter the password for that db/user pair.
+    - Save
+- Open [Project Root]/Settings.json
+    - Enter a value for the "token_header"  (ie. myapp_api_token)
+    - Save  
+    - This is the name of the http header which Backstrap will use for auth
+- Open [Project Root]/package.json
+    - In the "scripts" object, add the following entry:
+	      `"start": "node index.js"`
+    - Save
+- Run npm start
+    - The server should start up and show it's initialization process on the command line.
+
+
+__Setup First User__
+- Using a browser, navigate to http://localhost:3000
+- There should be a prompt for you to add a password for the user "bsroot" which is the super-user which is created by default.
+- Enter a password
+- You should now be able to use the web console to add more users, add endpoints, add models, etc.
+
+** You may need to log out and log back in after setting up the bsroot user.  This is a known bug.
 
 
 ## Project Structure:
@@ -118,10 +172,10 @@ $ sudo apt-get install postgresql postgresql-contrib
 
 
 ### Install and Run Backstrap Server:
-You can install Backstrap Server either by checking out/forking the git repository (https://github.com/Lookfar-Backstrap/backstrap) or by using npm (npm install -s backstrap-server), and depending which route you select, your project root will be organized differently.
+You can install Backstrap Server either by checking out the git repository (https://github.com/Lookfar-Backstrap/backstrap) or by using npm (npm install --save backstrap-server), and depending which route you select, your project root will be organized differently.
 
 ### Using git:
-Once you've checked out or forked the repository, you'll have a project root with many of the Core, Configuration, and Extension files all mixed together.  This method of installing is useful if you intend to work on/contribute code to the Backstrap Server open-source project, or if you expect to heavily modify the Core files and do not intend to update your version of Backstrap.  Here is what your project root will contain:
+Once you've checked out the repository, you'll have a project root with many of the Core, Configuration, and Extension files all mixed together.  This method of installing is useful if you intend to work on/contribute code to the Backstrap Server open-source project, or if you expect to heavily modify the Core files and do not intend to update your version of Backstrap.  Here is what your project root will contain:
 ```
 /common — Core controllers with the logic for all out-of-the-box endpoints.
 /config — Configuration files with connection information for the Postgresql database and default S3  bucket (if running the server in distributed mode—more on that later).
@@ -586,7 +640,7 @@ If you are granting permissions to a specific method within a specific controlle
 
 ---
 
-## Using Extension files
+## Using Extension Files
 As you saw in the explanation of Controller files, a number of dependencies are injected into controllers.  Probably the two most common of these are dataAccess and utilities.  These two classes contain the framework's functions for reading/writing in the db and those which we have found to be useful in all controllers.  But what if you want to add some functionality to one of these injected files for use in all of your controllers?  For example, if you choose not to use the ORM, you will want to add all of your functions for accessing your database in `dataAccess_ext.js`.  Let's say we have a function which executes some SQL statements on your data and returns the results (we'll call it myCustomSqlMethod()).  When a project is started, `dataAccess_ext.js` will look like this:
 ```
 var Q = require('q');
@@ -649,7 +703,7 @@ In this way, you will be able to call from any controller `dataAccess.extension.
 
 
 
-Using the ORM:
+## Using the ORM
 Backstrap Server comes with an onboard ORM built for maximum flexibility.  You can define model with an arbitrary number of properties using types:
 - string — text
 - number — numeric
