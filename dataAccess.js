@@ -308,7 +308,9 @@ DataAccess.prototype.commitTransaction = function (connection, callback) {
 			deferred.reject(errorObj);
 		}
 		else {
-			releaseConnection(connection);
+			connection.release();
+			delete connection.transactional;
+      			connection.isReleased = true;
 			deferred.resolve(connection.results);
 		}
 	});
