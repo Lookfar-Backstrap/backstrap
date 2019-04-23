@@ -107,9 +107,9 @@ Admin.prototype.post = {
 
 		var username = req.body.username.toLowerCase();
 		var password = req.body.password;
-		var first = (utilities.isNullOrUndefined(req.body.first) ? '' : req.body.first);
-		var last = (utilities.isNullOrUndefined(req.body.last) ? '' : req.body.last);
-		var roles = (utilities.isNullOrUndefined(req.body.roles) ? ['default-user'] : req.body.roles);
+		var first = (req.body.first == null ? '' : req.body.first);
+		var last = (req.body.last == null ? '' : req.body.last);
+		var roles = (req.body.roles == null ? ['default-user'] : req.body.roles);
 		var email = req.body.email;
 		var userProfile = (req.body.userprofile === undefined || req.body.userprofile === null) ? {} : req.body.userprofile;
 
@@ -271,7 +271,7 @@ Admin.prototype.patch = {
 		var username;
 		var bIsActive = req.body.is_active;
 		if (req.body.username !== undefined) {
-			if (utilities.isNullOrUndefined(req.body.username)) {
+			if (req.body.username == null) {
 				var errorObj = new ErrorObj(500,
 					'ad0006',
 					__filename,
@@ -346,7 +346,7 @@ Admin.prototype.patch = {
 			}
 		})
 		.spread(function(existingUser, buf) {
-			if(buf !== undefined && !utilities.isNullOrUndefined(password)) {
+			if(buf !== undefined && password != null) {
 				var salt = buf.toString('hex');
 				var saltedPassword = password + salt;
 				var hashedPassword = crypto.createHash('sha256').update(saltedPassword).digest('hex');

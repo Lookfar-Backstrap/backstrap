@@ -1233,8 +1233,8 @@ Accounts.prototype.post = {
 
         var username = (typeof (req.body.username) == 'undefined' || req.body.username === null) ? req.body.email.toLowerCase() : req.body.username.toLowerCase();
         var password = req.body.password;
-        var first = (utilities.isNullOrUndefined(req) ? '' : req.body.first);
-        var last = (utilities.isNullOrUndefined(req.body.last) ? '' : req.body.last);
+        var first = (req == null ? '' : req.body.first);
+        var last = (req.body.last == null ? '' : req.body.last);
         var roles = ['default-user'];
         var email = req.body.email;
 
