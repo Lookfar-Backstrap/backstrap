@@ -289,19 +289,6 @@ Admin.prototype.patch = {
 		}
 
 		var password = req.body.password;
-		if (utilities.isNullOrUndefined(password)) {
-			var errorObj = new ErrorObj(500,
-										'ad0007',
-										__filename,
-										'user',
-										'cannot delete password',
-										'Cannot delete password');
-			deferred.reject(errorObj);
-
-			deferred.promise.nodeify(callback);
-			return deferred.promise;
-		}
-
 		var first = (req.body.first === null) ? '' : req.body.first;
 		var last = (req.body.last === null) ? '' : req.body.last;
 		var roles = (req.body.roles === null) ? ['default-user'] : req.body.roles;
@@ -359,7 +346,7 @@ Admin.prototype.patch = {
 			}
 		})
 		.spread(function(existingUser, buf) {
-			if(buf !== undefined) {
+			if(buf !== undefined && !utilities.isNullOrUndefined(password)) {
 				var salt = buf.toString('hex');
 				var saltedPassword = password + salt;
 				var hashedPassword = crypto.createHash('sha256').update(saltedPassword).digest('hex');
