@@ -13,14 +13,12 @@ var bucket = null;
 var file = null;
 var remoteSettings = null;
 var settings;
-var utilities;
 
 var endpointExtLocation;
 
-var Endpoints = function(s, u) {
+var Endpoints = function(s) {
 	s3 = new AWS.S3();
 	settings = s;
-	utilities = u;
 };
 
 Endpoints.prototype.init = function(b, f, rs) {
@@ -30,7 +28,7 @@ Endpoints.prototype.init = function(b, f, rs) {
 	file = f;
 	remoteSettings = rs;
 
-	if(utilities.isNullOrUndefined(remoteSettings) || remoteSettings === false) {
+	if(remoteSettings == null || remoteSettings === false) {
 		try {
 			endpointData = require('./Endpoints.json');
 
@@ -501,7 +499,7 @@ Endpoints.prototype.save = function(doNetworkReload) {
 		}
 	}
 
-	if(utilities.isNullOrUndefined(remoteSettings) || remoteSettings === false) {
+	if(remoteSettings == null || remoteSettings === false) {
 		var fswrite = Q.denodeify(fs.writeFile);
 		Q.all([fswrite('./node_modules/backstrap-server/Endpoints.json', JSON.stringify(systemEndpoints, null, 4)), fswrite(endpointExtLocation, JSON.stringify(customEndpoints, null, 4))])
 		.then(function(write_res) {

@@ -7,12 +7,10 @@ var file = null;
 var remoteSettings = null;
 var settings;
 var modelWriteLocation;
-var utilities;
 
-var Models = function(s, u) {
+var Models = function(s) {
 	s3 = new AWS.S3();
 	settings = s;
-	utilities = u;
 };
 
 Models.prototype.init = function(b, f, rs) {
@@ -21,8 +19,7 @@ Models.prototype.init = function(b, f, rs) {
 	bucket = b;
 	file = f;
 	remoteSettings = rs;
-	if(utilities.isNullOrUndefined(remoteSettings) || remoteSettings === false) {
-        var md;
+	if(remoteSettings == null || remoteSettings === false) {
 		try {
 			md = require('../../Models.json');
 			modelWriteLocation = './Models.json';
@@ -100,7 +97,7 @@ Models.prototype.reload = function() {
 
 Models.prototype.save = function(doNetworkReload) {
 	var deferred = Q.defer();
-	if(utilities.isNullOrUndefined(remoteSettings) || remoteSettings === false) {
+	if(remoteSettings == null || remoteSettings === false) {
 		var fswrite = Q.denodeify(fs.writeFile);
 		fswrite(modelWriteLocation, JSON.stringify(this.constructor.prototype.data, null, 4))
 		.then(function(write_res) {

@@ -1,6 +1,5 @@
 var Q = require('q');
 var fs = require('fs');
-var utilties;
 var securityObj;
 var permissions = {
 	some: 'some',
@@ -23,8 +22,7 @@ catch(e) {
 }
 var securityWriteLocation;
 
-var AccessControl = function(util, s) {
-	utilties = util;
+var AccessControl = function (util, s) {
 	s3 = new AWS.S3();
 	settings = s;
 
@@ -39,7 +37,7 @@ AccessControl.prototype.init = function(b, f, rs) {
 	file = f;
 	remoteSettings = rs;
 
-	if (utilties.isNullOrUndefined(remoteSettings) || remoteSettings === false) {
+	if (remoteSettings == null || remoteSettings === false) {
 		try {
 			securityObj = require('../../Security.json');
 			securityWriteLocation = './Security.json';

@@ -216,7 +216,7 @@ Data.prototype.post = {
         // THIS METHOD TAKES AN OBJECT, THUS ENTITIES DO NOT
         // GET VALIDATED AGAINST THEIR MODELS IN THE NORMAL WAY
         // SO WE MUST VALIDATE ARGUMENTS HERE
-        if(utilities.isNullOrUndefined(updateEntity)) {
+        if(updateEntity == null) {
             var errorObj = new ErrorObj(400,
                 'dc1103',
                 __filename,
