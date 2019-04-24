@@ -32,7 +32,7 @@ AccessControl.prototype.init = function (b, f, rs) {
 	file = f;
 	remoteSettings = rs;
 
-	if (utilties.isNullOrUndefined(remoteSettings) || remoteSettings === false) {
+	if (remoteSettings == null || remoteSettings === false) {
 		try {
 			if(file.substring(0,2) !== './') file = './'+file;
 			securityObj = require(file);
@@ -93,7 +93,7 @@ AccessControl.prototype.reload = function () {
 
 AccessControl.prototype.save = function (doNetworkReload) {
 	var deferred = Q.defer();
-	if (utilties.isNullOrUndefined(remoteSettings) || remoteSettings === false) {
+	if (remoteSettings == null || remoteSettings === false) {
 		var fswrite = Q.denodeify(fs.writeFile);
 		fswrite(file, JSON.stringify(this.data, null, 4))
 			.then(function (write_res) {
