@@ -373,7 +373,7 @@ DataAccess.prototype.rollbackTransaction = function (connection, callback) {
 function resolveDbConnection(connection, callback) {
 	var deferred = Q.defer();
 	
-	if(uconnection == null) {
+	if(connection == null) {
 		DataAccess.prototype.getDbConnection()
 		.then(function(db_connection) {
 			deferred.resolve(db_connection);
