@@ -140,9 +140,9 @@ function ($rootScope, $scope, $state, $location, $q, backstrap_service, Flash, M
             strVal = rel['rel_type']+'-';
         }
 
-        if (isNullOrUndefined(rel['name'])){
-            if (isNullOrUndefined(rel['username'])){
-                if (isNullOrUndefined(rel['title'])){     
+        if (rel['name'] == null){
+            if (rel['username'] == null){
+                if (rel['title'] == null){     
                     var exit = false;
                  
                     Object.keys(rel).forEach(function(key){	
@@ -480,8 +480,4 @@ $scope.addRelationshipModal = function(rel){
             $rootScope.backToQueryResults = true;
             $state.go('app.modelData');
         };
-
-        function isNullOrUndefined(meVar){
-            return meVar === undefined || meVar === null;
-        }
 }]);

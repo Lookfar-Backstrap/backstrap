@@ -14,12 +14,10 @@ var file = null;
 var extensionFile = null;
 var remoteSettings = null;
 var settings;
-var utilities;
 
-var Endpoints = function(s, u) {
+var Endpoints = function(s) {
 	s3 = new AWS.S3();
 	settings = s;
-	utilities = u;
 };
 
 Endpoints.prototype.init = function(b, f, rs) {
@@ -30,7 +28,7 @@ Endpoints.prototype.init = function(b, f, rs) {
 	extensionFile = file.substring(0, file.indexOf('.json'))+'_ext.json';
 	remoteSettings = rs;
 
-	if(utilities.isNullOrUndefined(remoteSettings) || remoteSettings === false) {
+	if(remoteSettings == null || remoteSettings === false) {
 		try {
 			if(file.substring(0,2) !== './') file = './'+file;
 			if(extensionFile.substring(0,2) !== './') extensionFile = './'+extensionFile;
@@ -496,7 +494,7 @@ Endpoints.prototype.save = function(doNetworkReload) {
 		}
 	}
 
-	if(utilities.isNullOrUndefined(remoteSettings) || remoteSettings === false) {
+	if(remoteSettings == null || remoteSettings === false) {
 		var fswrite = Q.denodeify(fs.writeFile);
 		Q.all([fswrite(file, JSON.stringify(systemEndpoints, null, 4)), fswrite(extensionFile, JSON.stringify(customEndpoints, null, 4))])
 		.then(function(write_res) {

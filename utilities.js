@@ -223,21 +223,13 @@ Utilities.prototype.requestHasHeaders = function (req) {
 	return req.headers[settings.data.token_header] !== undefined && req.headers[settings.data.token_header] !== null;
 };
 
-Utilities.prototype.isNullOrUndefined = function (meVar) {
-	return meVar === undefined || meVar === null;
-};
-
 Utilities.prototype.isNullOrUndefinedOrZeroLength = function (meVar) {
-	return this.isNullOrUndefined(meVar) || meVar.length === 0;
+	return meVar == null || meVar.length === 0;
 };
 
 
 Utilities.prototype.StringIsNullOrEmpty = function(stringValue){
 	return stringValue === null || stringValue === '';
-};
-
-Utilities.prototype.isNullOrUndefined = function(value){
-	return value === null || typeof(value) === 'undefined' || value === undefined;
 };
 
 //directory name contains version and file contains model and class
@@ -438,7 +430,7 @@ Utilities.prototype.sendMailTemplate = function (send_to, sbj, template_name, ar
 		args = {};
 	}
 
-	var templatePath = settings.data.mail_options.template_directory + template_name;
+	var templatePath = path.resolve(__dirname, settings.data.mail_options.template_directory + template_name);
 	var txtPath = templatePath + '.txt';
 	var htmlPath = templatePath + '.html';
 
@@ -733,7 +725,7 @@ function replaceTemplateValues(template, args) {
 Utilities.prototype.validateTokenAndContinue = function (tkn, callback) {
 	var deferred = Q.defer();
 
-	if (this.isNullOrUndefined(tkn)) {
+	if (tkn == null) {
 		deferred.resolve({ 'is_valid': false });
 	}
 	else {
@@ -761,19 +753,6 @@ Utilities.prototype.getUID = function (callback) {
 
 	return deferred.promise;
 };
-
-Utilities.prototype.requestHasHeaders = function (req) {
-	return req.headers[settings.data.token_header] !== undefined && req.headers[settings.data.token_header] !== null;
-};
-
-Utilities.prototype.isNullOrUndefined = function (meVar) {
-	return meVar === undefined || meVar === null;
-};
-
-Utilities.prototype.isNullOrUndefinedOrZeroLength = function (meVar) {
-	return meVar == null || meVar.length === 0;
-};
-
 
 Utilities.prototype.logEvent = function(tkn, eventDescriptor) {
 	var deferred = Q.defer();

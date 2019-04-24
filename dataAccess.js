@@ -218,7 +218,7 @@ DataAccess.prototype.getDbConnection = function (callback) {
 // CLOSE A CONNECTION TO THE DATABASE AFTER USING FUNCTIONS
 DataAccess.prototype.closeDbConnection = function (connection, callback) {
 	var deferred = Q.defer();
-	if(!utilities.isNullOrUndefined(connection) && !connection.isReleased) {
+	if(connection != null && !connection.isReleased) {
 		try {
       connection.release();
       connection.isReleased = true;
@@ -316,12 +316,12 @@ DataAccess.prototype.commitTransaction = function (connection, callback) {
 DataAccess.prototype.rollbackTransaction = function (connection, callback) {
 	var deferred = Q.defer();
 
-	if(!utilities.isNullOrUndefined(connection) && !connection.isReleased) {
+	if(connection != null && !connection.isReleased) {
 		if(connection.transactional) {
 			connection.client.query('ROLLBACK', (err) => {
 				if (err) {
 
-					if(!utilities.isNullOrUndefined(connection)) {
+					if(connection != null) {
             connection.release();
             connection.isReleased = true;
 					}
@@ -373,7 +373,7 @@ DataAccess.prototype.rollbackTransaction = function (connection, callback) {
 function resolveDbConnection(connection, callback) {
 	var deferred = Q.defer();
 	
-	if(utilities.isNullOrUndefined(connection)) {
+	if(connection == null) {
 		DataAccess.prototype.getDbConnection()
 		.then(function(db_connection) {
 			deferred.resolve(db_connection);
@@ -402,7 +402,7 @@ function resolveDbConnection(connection, callback) {
 function releaseConnection(connection) {
 	var deferred = Q.defer();
 
-	if(!utilities.isNullOrUndefined(connection) && !connection.isReleased) {
+	if(connection != null && !connection.isReleased) {
 		if(connection.transactional) {
 			DataAccess.prototype.rollbackTransaction(connection)
 			.then(function(rollback_res) {
@@ -436,7 +436,7 @@ DataAccess.prototype.ExecutePostgresQuery = function (query, params, connection,
 	var deferred = Q.defer();
 	var pg_query = query;
 	//THE QUERY CONFIG OBJECT DOES NOT WORK IF THERE IS AN EMPTY ARRAY OF PARAMS
-	if (!utilities.isNullOrUndefined(params) && params.length > 0) {
+	if (params != null && params.length > 0) {
 		pg_query = {
 			text: query,
 			values: params,
@@ -470,7 +470,7 @@ DataAccess.prototype.ExecutePostgresQuery = function (query, params, connection,
 			// IF THE ARG connection PASSED INTO THE FUNCTION IS null/undefined
 			// THIS IS A ONE-OFF AND WE MUST SHUT DOWN THE CONNECTION WE MADE
 			// BEFORE RETURNING THE RESULTS
-			if(utilities.isNullOrUndefined(connection)) {
+			if(connection == null) {
 				releaseConnection(db_connection)
 				.then(function() {
 					deferred.resolve(db_connection);
@@ -486,7 +486,7 @@ DataAccess.prototype.ExecutePostgresQuery = function (query, params, connection,
 			// IF THE ARG connection PASSED INTO THE FUNCTION IS null/undefined
 			// THIS IS A ONE-OFF AND WE MUST SHUT DOWN THE CONNECTION WE MADE
 			// AND FAIL OUT
-			if(utilities.isNullOrUndefined(connection)) {
+			if(connection == null) {
         db_connection.release();
         db_connection.isReleased = true;
 				var errorObj = new ErrorObj(500,
@@ -930,7 +930,7 @@ DataAccess.prototype.hardDeleteEntity = function (tableName, obj, connection, ca
 
 	resolveDbConnection(connection)
 	.then(function (connection) {
-		if (!utilities.isNullOrUndefined(obj.id) && !utilities.isNullOrUndefined(obj.object_type)) {
+		if (obj.id != null && obj.object_type != null) {
 			t_removeAllRelationships(connection, { "id": obj.id, "object_type": obj.object_type })
 			.then(function () {
 				var qry = "DELETE FROM \"" + tableName + "\" WHERE data->>'id'=$1";
@@ -1747,7 +1747,7 @@ DataAccess.prototype.t_removeRelationship = function (connection, entity1, entit
 function removeAllRelationships(obj, connection, callback) {
 	var deferred = Q.defer();
 
-	if (!utilities.isNullOrUndefined(obj.id) && !utilities.isNullOrUndefined(obj.object_type)) {
+	if (obj.id != null && obj.object_type != null) {
 		var col = obj.object_type;
 		var qry = "SELECT row_id FROM \"" + col + "\" WHERE \"data\" @> '{\"id\": \"" + obj.id + "\"}'";
 		var params = [];
