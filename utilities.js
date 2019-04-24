@@ -430,7 +430,7 @@ Utilities.prototype.sendMailTemplate = function (send_to, sbj, template_name, ar
 		args = {};
 	}
 
-	var templatePath = settings.data.mail_options.template_directory + template_name;
+	var templatePath = path.resolve(__dirname, settings.data.mail_options.template_directory + template_name);
 	var txtPath = templatePath + '.txt';
 	var htmlPath = templatePath + '.html';
 
