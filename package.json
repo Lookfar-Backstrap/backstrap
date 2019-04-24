@@ -21,31 +21,24 @@
   },
   "dependencies": {
     "angular-modal-service": "^0.10.1",
-    "async": "2.0.0-rc.5",
-    "aws-sdk": "2.2.48",
-    "body-parser": "1.14.2",
-    "cors": "2.5.3",
-    "cryptojs": "2.5.3",
-    "express": "4.13.4",
-    "fs": "0.0.2",
+    "async": "^2.6.2",
+    "aws-sdk": "^2.441.0",
+    "body-parser": "^1.18.3",
+    "cors": "^2.8.5",
+    "cryptojs": "^2.5.3",
+    "express": "^4.16.4",
+    "fs": "^0.0.2",
     "mkdirp": "^0.5.1",
     "moment": "^2.17.1",
-    "nodemailer": "^2.5.0",
-    "nodemailer-smtp-transport": "^2.6.0",
+    "nodemailer": "^6.1.0",
+    "nodemailer-smtp-transport": "^2.7.4",
     "os": "^0.1.1",
-    "path": "0.12.7",
-    "pg": "7.4.0",
-    "pluralize": "3.0.0",
-    "q": "1.4.1",
-    "request": "2.72.0",
+    "path": "^0.12.7",
+    "pg": "^7.10.0",
+    "pluralize": "^3.1.0",
+    "q": "^1.5.1",
+    "request": "^2.88.0",
     "xoauth2": "^1.2.0"
-  },
-  "dev-dependencies": {
-    "jade": "^1.11.0",
-    "mocha": "^2.5.2",
-    "nsp": "^2.1.0",
-    "jshint": "^2.5.6",
-    "pre-commit": "^1.1.2"
   },
   "main": "BackstrapServer.js",
   "scripts": {
@@ -58,9 +51,9 @@
     "server": "npm --env=server test"
   },
   "devDependencies": {
-    "Faker": "^0.7.2",
+    "faker": "^4.0.0",
     "chai": "^3.5.0",
     "chai-http": "^4.2.0",
-    "mocha": "^3.2.0"
+    "mocha": "^6.1.4"
   }
 }
