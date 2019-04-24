@@ -14,12 +14,10 @@ var file = null;
 var extensionFile = null;
 var remoteSettings = null;
 var settings;
-var utilities;
 
-var Endpoints = function(s, u) {
+var Endpoints = function(s) {
 	s3 = new AWS.S3();
 	settings = s;
-	utilities = u;
 };
 
 Endpoints.prototype.init = function(b, f, rs) {

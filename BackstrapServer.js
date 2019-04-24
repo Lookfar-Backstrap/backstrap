@@ -79,13 +79,13 @@ settings.init(config.s3.bucket, 'Settings.json', useRemoteSettings)
 		console.log('Settings initialized');
 		utilities = new Utilities(settings);
 		console.log('Utilities initialized');
-		models = new Models(settings, utilities);
+		models = new Models(settings);
 		return models.init(config.s3.bucket, 'Models.json', useRemoteSettings);
 	})
 	.then(function (endpoints_res) {
 		console.log('Models initialized');
-		endpoints = new Endpoints(settings, utilities);
-		return endpoints.init(config.s3.bucket, 'Endpoints.json', useRemoteSettings, utilities);
+		endpoints = new Endpoints(settings);
+		return endpoints.init(config.s3.bucket, 'Endpoints.json', useRemoteSettings);
 	})
 	.then(function (model_res) {
 		console.log('Endpoints initialized');

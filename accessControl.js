@@ -1,6 +1,5 @@
 var Q = require('q');
 var fs = require('fs');
-var utilties;
 var securityObj;
 var permissions = {
 	some: 'some',
@@ -17,7 +16,6 @@ var settings;
 var AccessControlExtension = require('./accessControl_ext.js');
 
 var AccessControl = function (util, s) {
-	utilties = util;
 	s3 = new AWS.S3();
 	settings = s;
 
