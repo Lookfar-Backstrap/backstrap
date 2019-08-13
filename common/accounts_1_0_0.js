@@ -1470,7 +1470,14 @@ Accounts.prototype.post = {
                     deferred.resolve(resolveObj);
                 })
                 .fail(function(err) {
-                    if (err !== undefined && err !== null && typeof (err.AddToError) == 'function') {
+                    if(err.err_code == 'da0200'){
+                        var resolveObj = { 
+                            'success': true,
+                            'uExists': false
+                        };
+                        deferred.resolve(resolveObj);
+                    }
+                    else if (err !== undefined && err !== null && typeof (err.AddToError) == 'function') {
                         err.setMessages('error generating password reset link', 'Problem generating email and link to reset password');
                         deferred.reject(err.AddToError(__filename, 'forgotPassword'));
                     }
