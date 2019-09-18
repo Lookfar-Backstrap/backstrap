@@ -1477,7 +1477,7 @@ Accounts.prototype.post = {
                         };
                         deferred.resolve(resolveObj);
                     }
-                    else if (err !== undefined && err !== null && typeof (err.AddToError) == 'function') {
+                    else if (err != null && typeof (err.AddToError) == 'function') {
                         err.setMessages('error generating password reset link', 'Problem generating email and link to reset password');
                         deferred.reject(err.AddToError(__filename, 'forgotPassword'));
                     }

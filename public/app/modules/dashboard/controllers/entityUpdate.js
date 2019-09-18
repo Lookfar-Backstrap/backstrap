@@ -94,7 +94,7 @@ function ($rootScope, $scope, $state, $location, $q, backstrap_service, Flash, M
             if (rels !== undefined && rels !== null){
                 var relTypes = Object.keys(rels);
                 for(var kIdx = 0; kIdx < relTypes.length; kIdx++) {
-                    relObjs = rels[relTypes[kIdx]];
+                    var relObjs = rels[relTypes[kIdx]];
 
                     if(relObjs.length > 0) {
                         relObjs.forEach(function(rObj){
@@ -115,7 +115,7 @@ function ($rootScope, $scope, $state, $location, $q, backstrap_service, Flash, M
             if (rels !== undefined && rels !== null){
                 var relTypes = Object.keys(rels);
                 for(var kIdx = 0; kIdx < relTypes.length; kIdx++) {
-                    relObjs = rels[relTypes[kIdx]];
+                    var relObjs = rels[relTypes[kIdx]];
 
                     if(relObjs.length > 0) {
                         relObjs.forEach(function(rObj){
