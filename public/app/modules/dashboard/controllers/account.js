@@ -38,7 +38,7 @@ function ($rootScope, $scope, $state, $location, $q, backstrap_service, Flash, M
         
     };  
     $scope.isActive = function (paramUser) {
-        $scope.user.is_active = !paramUser.is_active;
+        $scope.user.is_locked = (paramUser.is_locked !==null && typeof(paramUser.is_locked) != 'undefined') ? !paramUser.is_locked : false;
     };  
 
     $scope.cancel = function(){

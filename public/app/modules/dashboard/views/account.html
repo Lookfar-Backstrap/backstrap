@@ -24,8 +24,8 @@
                                  <div class="box-header">
                                     <b>Created Date: </b>{{createdDate}}
                                     <br />  <br />
-                                    <md-checkbox aria-label="user.is_active" ng-click="isActive(user)" ng-checked="user.is_active">
-                                        <b>Active</b>
+                                    <md-checkbox aria-label="user.is_locked" ng-click="isActive(user)" ng-checked="!user.is_locked">
+                                        <b>Account Active</b>
                                     </md-checkbox>
                                  </div>                             
                                  <div class="form-group" ng-show="!isEdit">

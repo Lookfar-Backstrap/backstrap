@@ -1094,7 +1094,7 @@ Accounts.prototype.post = {
                     'a2004',
                     __filename,
                     'signin',
-                    'bsuser is locked',
+                    'Account is locked',
                     'Unauthorized',
                     null
                 );
