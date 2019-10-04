@@ -57,7 +57,7 @@
                                 <!--<td class="text-center"><i class="margin-r-5"></i>{{user.id}}</td> -->
                                 <td class="text-center media-priority-2"><i class="margin-r-5"></i>{{user.email}}</td> 
                                 <td class="text-center media-priority-3"><i class="margin-r-5"></i>{{user.roles}}</td> 
-                                <td class="text-center media-priority-1"><i class="margin-r-5"></i><i class="fa fa-check-square-o margin-r-5" ng-show="{{user.is_active}}"></i><i class="fa fa-square-o margin-r-5" ng-show="{{!user.is_active}}"></i></td>                     
+                                <td class="text-center media-priority-1"><i class="margin-r-5"></i><i class="fa fa-check-square-o margin-r-5" ng-show="{{!user.is_locked}}"></i><i class="fa fa-square-o margin-r-5" ng-show="{{user.is_locked}}"></i></td>                     
                                 <td class="text-center media-priority-3"><i class="margin-r-5"></i>{{user.created_at}}</td>
                                 <td class="text-center media-priority-3"><i class="margin-r-5"></i>{{user.updated_at}}</td> 
                              </tr>

@@ -801,6 +801,11 @@ Utilities.prototype.invalidateSession = function(sessionObj) {
   return deferred.promise;
 }
 
+Utilities.prototype.isNullOrUndefined = function(value){
+	return value === null || typeof(value) === 'undefined' || value === undefined;
+};
+
+
 Utilities.prototype.htmlify = function(obj, idx) {
 	if(idx === undefined || idx === null || typeof(idx) !== 'number') {
 		idx = 0;
