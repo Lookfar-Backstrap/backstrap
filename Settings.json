@@ -4,6 +4,7 @@
 	"timeout": 120,
 	"server_port": 3000,
   "servers": [],
+  "index_service_call": "index",
   "access_logging": false,
   "session_logging": false,
   "log_rotation_period": 90,
