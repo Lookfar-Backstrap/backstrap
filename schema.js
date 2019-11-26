@@ -14,16 +14,16 @@ module.exports = {
 				return dataAccess.getDbConnection();
 			})
 			.then(function (connection) {
-				return [connection, createInitialTables(connection, name, user, pass, host, port)];
+				return [connection, createInitialTables(connection)];
 			})
 			.spread(function (connection, cit_res) {
-				return [connection, makeTables(connection, modelsJs.data.models, name, user, pass, host, port)];
+				return [connection, makeTables(connection, modelsJs.data.models)];
 			})
 			.spread(function (connection, res) {
 				return [res, dataAccess.closeDbConnection(connection)];
 			})
 			.spread(function (commit_res) {
-				return [createDefaultUser(name, user, pass, host, port, utilities)];
+				return [createDefaultUser(utilities)];
 			})
 			.then(function (res) {
 				deferred.resolve(res);
@@ -49,7 +49,7 @@ module.exports = {
 	}
 }
 
-function createInitialTables(connection, name, user, pass, host, port) {
+function createInitialTables(connection) {
 	var deferred = Q.defer();
 
 	var modelTables = ['bsuser', 'session', 'internal_system'];
@@ -184,7 +184,7 @@ function createInitialTables(connection, name, user, pass, host, port) {
 	return deferred.promise;
 }
 
-function createDefaultUser(name, user, pass, host, port, utilities) {
+function createDefaultUser(utilities) {
 	var deferred = Q.defer();
 	var qry = "SELECT * FROM bsuser WHERE data #>> '{username}' = 'bsroot'";
 	var qry_params = [];
@@ -256,7 +256,7 @@ function createDefaultUser(name, user, pass, host, port, utilities) {
 	return deferred.promise;
 }
 
-function makeTables(connection, models, name, user, pass, host, port) {
+function makeTables(connection, models) {
 	var deferred = Q.defer();
 	var allModels = models;
 

@@ -11,7 +11,7 @@ BackstrapSql = function (m) {
 ///BEGIN BACKSTRAP QUERY V2 
 
 var validQueryOperators = ['exact', 'equals', 'partial', 'like', 'gt', 'gte', 'lt', 'lte', 'between'];
-function parseQueryParameters(objType, objParams, relType, ix) {
+function parseQueryParameters(objType, objParams, ix) {
 	var noResObj = { "whereClause": "", "parameterVal": "", "ixAdd": 0 };
 	try {
 		var returnWhere = "";
@@ -256,7 +256,7 @@ BackstrapSql.prototype.BuildQuery = function (queryObject, models) {
 					qryJoins = qryJoins.replace(/,/g, '')
 					relTo.parameters.forEach(function (param) {
 						ixRelProps++;
-						var parse_relatedParam_res = parseQueryParameters(relTo.obj_type, param, relTo.rel_type, ixRelProps);
+						var parse_relatedParam_res = parseQueryParameters(relTo.obj_type, param, ixRelProps);
 						ixRelProps = ixRelProps + parse_relatedParam_res.ixAdd;
 						qryWhereAppend += parse_relatedParam_res.whereClause;
 						parse_relatedParam_res.parameterVals.forEach(function (pv) {
@@ -274,7 +274,7 @@ BackstrapSql.prototype.BuildQuery = function (queryObject, models) {
 			queryObject.parameters.forEach(function (objParam) {
         ixProps++;
         
-				var parse_model_param = parseQueryParameters(queryObject.obj_type, objParam, null, ixProps);
+				var parse_model_param = parseQueryParameters(queryObject.obj_type, objParam, ixProps);
 
         ixProps = ixProps + parse_model_param.ixAdd;
 				parse_model_param.parameterVals.forEach(function (pv) {

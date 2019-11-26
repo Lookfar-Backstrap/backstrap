@@ -1866,7 +1866,7 @@ function removeAllRelationships(obj, connection, callback) {
 	return deferred.promise;
 };
 
-function t_removeAllRelationships(connection, obj, callback) {
+function t_removeAllRelationships(connection, obj) {
 	return removeAllRelationships(obj, connection);
 };
 

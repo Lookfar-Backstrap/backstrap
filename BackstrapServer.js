@@ -246,7 +246,12 @@ function requestPipeline(req, res, verb) {
   var controller = params.controller;
   var serviceCall
   if(!params.serviceCall) {
-    serviceCall = settings.data.index_service_call;
+    if(settings.data.index_service_call != null) {
+      serviceCall = settings.data.index_service_call;
+    }
+    else {
+      serviceCall = "index";
+    }
   }
   else{
     serviceCall = params.serviceCall;
