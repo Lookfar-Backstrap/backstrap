@@ -146,6 +146,9 @@ settings.init(config.s3.bucket, 'Settings.json', useRemoteSettings)
 		// ---------------------------------------------------------------------------------
 		app.get('/:area/:controller/:serviceCall/:version?', function (req, res) {
 			requestPipeline(req, res, 'GET');
+    });
+    app.get('/:area/:controller?', function (req, res) {
+			requestPipeline(req, res, 'GET');
 		});
 		// ---------------------------------------------------------------------------------
 		// ---------------------------------------------------------------------------------
@@ -155,6 +158,9 @@ settings.init(config.s3.bucket, 'Settings.json', useRemoteSettings)
 		// ---------------------------------------------------------------------------------
 		app.post('/:area/:controller/:serviceCall/:version?', function (req, res) {
 			requestPipeline(req, res, 'POST');
+    });
+    app.post('/:area/:controller?', function (req, res) {
+			requestPipeline(req, res, 'POST');
 		});
 		// ---------------------------------------------------------------------------------
 		// ---------------------------------------------------------------------------------
@@ -162,6 +168,9 @@ settings.init(config.s3.bucket, 'Settings.json', useRemoteSettings)
 		// PUTS
 		// ---------------------------------------------------------------------------------
 		app.put('/:area/:controller/:serviceCall/:version?', function (req, res) {
+			requestPipeline(req, res, 'PUT');
+    });
+    app.put('/:area/:controller?', function (req, res) {
 			requestPipeline(req, res, 'PUT');
 		});
 		// ---------------------------------------------------------------------------------
@@ -171,6 +180,9 @@ settings.init(config.s3.bucket, 'Settings.json', useRemoteSettings)
 		// ---------------------------------------------------------------------------------
 		app.patch('/:area/:controller/:serviceCall/:version?', function (req, res) {
 			requestPipeline(req, res, 'PATCH');
+    });
+    app.patch('/:area/:controller?', function (req, res) {
+			requestPipeline(req, res, 'PATCH');
 		});
 		// ---------------------------------------------------------------------------------
 		// ---------------------------------------------------------------------------------
@@ -178,6 +190,9 @@ settings.init(config.s3.bucket, 'Settings.json', useRemoteSettings)
 		// DELETES
 		// ---------------------------------------------------------------------------------
 		app.delete('/:area/:controller/:serviceCall/:version?', function (req, res) {
+			requestPipeline(req, res, 'DELETE');
+    });
+    app.delete('/:area/:controller?', function (req, res) {
 			requestPipeline(req, res, 'DELETE');
 		});
 		// ---------------------------------------------------------------------------------
@@ -236,7 +251,19 @@ function requestPipeline(req, res, verb) {
   var params = req.params;
   var area = params.area;
   var controller = params.controller;
-  var serviceCall = params.serviceCall;
+  var serviceCall
+  if(!params.serviceCall) {
+    if(settings.data.index_service_call != null) {
+      serviceCall = settings.data.index_service_call;
+    }
+    else {
+      serviceCall = "index";
+    }
+  }
+  else{
+    serviceCall = params.serviceCall;
+  }
+  
   var args;
   if(verb.toLowerCase() === 'get') {
     args = req.query;
