@@ -43,7 +43,7 @@
                             "version": "1.0.0"
                         },
                         {
-                            "name": "cms",
+                            "controller": "cms",
                             "permission": "all",
                             "version": "1.0.0"
                         }
@@ -78,7 +78,8 @@
                             "permission": "all"
                         },
                         {
-                            "name": "cms",
+                            "controller": "cms",
+                            "version": "1.0.0",
                             "permission": "all"
                         }
                     ]

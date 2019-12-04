@@ -295,8 +295,8 @@ function requestPipeline(req, res, verb) {
   serviceRegistration.serviceCallExists(serviceCall, area, controller, verb, version)
   .then(function (sc) {
     // IF THERE IS A BACKSTRAP STYLE AUTH HEADER OR NEITHER A BACKSTRAP AUTH HEADER NOR BASIC AUTH HEADER 
-    if(req.headers.includes(settings.data.token_header) || 
-        (!req.headers.includes(settings.data.token_header) && !req.headers.includes('authorization'))) {
+    if(req.headers[settings.data.token_header] != null || 
+        (req.headers[settings.data.token_header] == null && req.headers['authorization'] == null)) {
       if (sc.authRequired) {
         return [sc, accessControl.validateToken(req.headers[settings.data.token_header])];
       }
@@ -345,7 +345,7 @@ function requestPipeline(req, res, verb) {
       else {
         if(settings.data.access_logging === true) accessLogEvent.client_id = validTokenResponse.client_id;
 
-        dataAccess.find('bsuser', {client_id: validTokenResponse.client_id})
+        dataAccess.findOne('bsuser', {client_id: validTokenResponse.client_id})
         .then(function(usr) {
           inner_deferred.resolve(usr);
         })
@@ -391,6 +391,7 @@ function requestPipeline(req, res, verb) {
   })
   .spread(function (validTokenResponse, results) {
     if(validTokenResponse.session != null) {
+      let session = validTokenResponse.session;
       session.last_touch = new Date().toISOString();
       dataAccess.saveEntity('session', session);
     }

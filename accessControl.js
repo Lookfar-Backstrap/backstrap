@@ -1,5 +1,7 @@
 var Q = require('q');
 var fs = require('fs');
+var crypto = require('crypto');
+
 var securityObj;
 var permissions = {
 	some: 'some',
@@ -200,7 +202,7 @@ AccessControl.prototype.validateBasicAuth = function(authHeader, callback) {
   if(authType.toLowerCase() === 'basic') {
     let [clientId, clientSecret] = new Buffer(authToken, 'base64').toString().split(':');
     if(clientId && clientSecret) {
-      dataAccess.find('bsuser', {client_id: clientId})
+      dataAccess.findOne('bsuser', {client_id: clientId})
       .then((usr) => {
         if(!usr.is_locked) {
           let saltedSecret = clientSecret + usr.salt;
