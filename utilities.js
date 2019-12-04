@@ -722,26 +722,6 @@ function replaceTemplateValues(template, args) {
 	return updatedTemplate;
 }
 
-Utilities.prototype.validateTokenAndContinue = function (tkn, callback) {
-	var deferred = Q.defer();
-
-	if (tkn == null) {
-		deferred.resolve({ 'is_valid': false });
-	}
-	else {
-		dataAccess.findOne('session', { 'object_type': 'session', 'token': tkn })
-		.then(function (find_results) {
-			deferred.resolve({ 'is_valid': true, 'session': find_results });
-		})
-		.fail(function (err) {
-			deferred.resolve({ 'is_valid': false });
-		});
-	}
-
-	deferred.promise.nodeify(callback);
-	return deferred.promise;
-};
-
 Utilities.prototype.getUID = function (callback) {
 	var deferred = Q.defer();
 

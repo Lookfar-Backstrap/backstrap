@@ -1164,7 +1164,7 @@ Accounts.prototype.post = {
             return [tkn, userObj, dataAccess.addRelationship(userObj, newSess, null)];
         })
         .spread(function(tkn, userObj, rel_res) {
-            return [tkn, userObj, utilities.validateTokenAndContinue(req.headers[settings.data.token_header])];
+            return [tkn, userObj, accessControl.validateTokenAndContinue(req.headers[settings.data.token_header])];
         })
         .spread(function(tkn, userObj, validTokenRes) {
             var sess = null;
@@ -1280,7 +1280,7 @@ Accounts.prototype.post = {
                 return dataAccess.saveEntity('bsuser', userObj);
             })
             .then(function(userObj) {
-                return [userObj, utilities.validateTokenAndContinue(req.headers[settings.data.token_header])];
+                return [userObj, accessControl.validateTokenAndContinue(req.headers[settings.data.token_header])];
             })
             .spread(function(userObj, validTokenRes) {
                 var sess;

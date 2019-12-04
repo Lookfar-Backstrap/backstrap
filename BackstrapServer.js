@@ -96,7 +96,7 @@ settings.init(config.s3.bucket, 'Settings.json', useRemoteSettings)
 		utilities.setDataAccess(dataAccess);
 		serviceRegistration = new ServiceRegistration(dataAccess, endpoints, models, utilities);
 		console.log('ServiceRegistration initialized');
-		accessControl = new AccessControl(utilities, settings);
+		accessControl = new AccessControl(utilities, settings, dataAccess);
 		return accessControl.init(config.s3.bucket, 'Security.json', useRemoteSettings);
 	})
 	.then(function (acl_res) {
@@ -294,41 +294,81 @@ function requestPipeline(req, res, verb) {
 
   serviceRegistration.serviceCallExists(serviceCall, area, controller, verb, version)
   .then(function (sc) {
-    if (sc.authRequired) {
-      return [sc, mainController.validateToken(req.headers[settings.data.token_header])];
+    // IF THERE IS A BACKSTRAP STYLE AUTH HEADER OR NEITHER A BACKSTRAP AUTH HEADER NOR BASIC AUTH HEADER 
+    if(req.headers.includes(settings.data.token_header) || 
+        (!req.headers.includes(settings.data.token_header) && !req.headers.includes('authorization'))) {
+      if (sc.authRequired) {
+        return [sc, accessControl.validateToken(req.headers[settings.data.token_header])];
+      }
+      else {
+        return [sc, accessControl.validateTokenAndContinue(req.headers[settings.data.token_header])];
+      }
     }
+    // OTHERWISE THERE MUST BE A BASIC AUTH HEADER
     else {
-      return [sc, utilities.validateTokenAndContinue(req.headers[settings.data.token_header])];
+      if(sc.authRequired) {
+        return [sc, accessControl.validateBasicAuth(req.headers['authorization'])];
+      }
+      else {
+        return [sc, accessControl.validateBasicAuthAndContinue(req.headers['authorization'])];;
+      }
     }
   })
   .spread(function(sc, validTokenResponse) {
     var inner_deferred = Q.defer();
+    
     if(validTokenResponse.is_valid === true) {
-      if(settings.data.access_logging === true)
-        accessLogEvent.session_id = validTokenResponse.session.id;
 
-      dataAccess.joinOne({object_type:'session', id:validTokenResponse.session.id}, 'bsuser')
-      .then(function(usr) {
-        inner_deferred.resolve(usr);
-      })
-      .fail(function(usr_err) {
-        if(sc.authRequired) {
-          var errorObj = new ErrorObj(403,
-                                      __filename,
-                                      'requestPipeline',
-                                      'unauthorized',
-                                      'Unauthorized',
-                                      null);
-          inner_deferred.reject(errorObj);
-        }
-        else {
-          inner_deferred.resolve(null);
-        }
-      });
+      // SEE IF THIS IS BACKSTRAP STYLE AUTH OR BASIC AUTH
+      if(validTokenResponse.hasOwnProperty('session')) {
+        if(settings.data.access_logging === true) accessLogEvent.session_id = validTokenResponse.session.id;
+
+        dataAccess.joinOne({object_type:'session', id:validTokenResponse.session.id}, 'bsuser')
+        .then(function(usr) {
+          inner_deferred.resolve(usr);
+        })
+        .fail(function(usr_err) {
+          if(sc.authRequired) {
+            var errorObj = new ErrorObj(403,
+                                        __filename,
+                                        'requestPipeline',
+                                        'unauthorized',
+                                        'Unauthorized',
+                                        null);
+            inner_deferred.reject(errorObj);
+          }
+          else {
+            inner_deferred.resolve(null);
+          }
+        });
+      }
+      else {
+        if(settings.data.access_logging === true) accessLogEvent.client_id = validTokenResponse.client_id;
+
+        dataAccess.find('bsuser', {client_id: validTokenResponse.client_id})
+        .then(function(usr) {
+          inner_deferred.resolve(usr);
+        })
+        .fail(function(usr_err) {
+          if(sc.authRequired) {
+            var errorObj = new ErrorObj(403,
+                                        __filename,
+                                        'requestPipeline',
+                                        'unauthorized',
+                                        'Unauthorized',
+                                        null);
+            inner_deferred.reject(errorObj);
+          }
+          else {
+            inner_deferred.resolve(null);
+          }
+        });
+      }
     }
     else {
       inner_deferred.resolve(null);
     }
+
     return [sc, validTokenResponse, inner_deferred.promise];
   })
   .spread(function (sc, validTokenResponse, userOrNull) {
@@ -337,24 +377,20 @@ function requestPipeline(req, res, verb) {
       req.this_user = userOrNull;
     }
     if (sc.authRequired) {
-      return [sc, validTokenResponse.session, true, accessControl.verifyAccess(req, sc)];
+      return [sc, validTokenResponse, accessControl.verifyAccess(req, sc)];
     }
     else {
-      var hasValidToken = false;
-      if (validTokenResponse.hasOwnProperty('is_valid') && validTokenResponse.is_valid === true) {
-        hasValidToken = true;
-      }
-      return [sc, validTokenResponse.session, hasValidToken];
+      return [sc, validTokenResponse];
     }
   })
-  .spread(function (sc, session, hasValidToken) {
-    return [sc, session, hasValidToken, serviceRegistration.validateArguments(serviceCall, area, controller, verb, version, args)];
+  .spread(function (sc, validTokenResponse) {
+    return [sc, validTokenResponse, serviceRegistration.validateArguments(serviceCall, area, controller, verb, version, args)];
   })
-  .spread(function (sc, session, hasValidToken) {
-    return [session, mainController.resolveServiceCall(sc, req, hasValidToken)];
+  .spread(function (sc, validTokenResponse) {
+    return [validTokenResponse, mainController.resolveServiceCall(sc, req)];
   })
-  .spread(function (session, results) {
-    if(session != null) {
+  .spread(function (validTokenResponse, results) {
+    if(validTokenResponse.session != null) {
       session.last_touch = new Date().toISOString();
       dataAccess.saveEntity('session', session);
     }
@@ -372,7 +408,7 @@ function requestPipeline(req, res, verb) {
     res.status(200).send(results);
   })
   .fail(function (err) {
-    if (err.http_status === null) {
+    if (err.http_status == null) {
       err.http_status = 500;
     }
 
