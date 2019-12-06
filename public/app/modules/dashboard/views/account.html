@@ -15,8 +15,9 @@
             <div class="col-md-12">
                 <div class="box box-success">
                     <div class="box-header with-border">
-                        <h3 ng-show="isEdit" class="box-title">Edit {{user.username}}'s Account</h3>    
-                        <h3 ng-show="!isEdit" class="box-title">Create New Account</h3>                         
+                        <h3 ng-show="isEdit && user.username != null" class="box-title">Edit {{user.username}}'s Account</h3>    
+                        <h3 ng-show="!isEdit && user.account_type != 'api'" class="box-title">Create New Account</h3>       
+                        <h3 ng-show="isEdit && user.account_type === 'api'">Client ID: {{user.client_id}}</h3>                  
                     </div>
                     <div class="box-body">
                         <div class="row">
@@ -28,7 +29,7 @@
                                         <b>Account Active</b>
                                     </md-checkbox>
                                  </div>                             
-                                 <div class="form-group" ng-show="!isEdit">
+                                 <div class="form-group" ng-show="!isEdit && user.username != null">
                                     <label for="username" class="col-md-12 control-label">
                                     <span ng-show="!usernameValid" style="float:left; color:red; margin-top:3px">**&nbsp;</span>User Name</label>
                                     <div class="col-md-12">
@@ -56,7 +57,7 @@
                                         <input type="text" class="form-control" name="lastname" placeholder="Last Name" required ng-keyup="validate();" data-ng-model="user.last">
                                     </div>
                                 </div>
-                                <div class="form-group" ng-show="!isEdit" >
+                                <div class="form-group" ng-show="!isEdit && user.username != null" >
                                     <label for="password" class="col-md-12 control-label margin-top-10">
                                     <span ng-show="!passwordValid" style="float:left; color:red; margin-top:3px">**&nbsp; </span>Password</label>
                                     <div class="col-md-12">
@@ -64,25 +65,26 @@
                                     </div>
                                 </div>
 
-                                <div class="form-group" ng-show="!isEdit" >
+                                <div class="form-group" ng-show="!isEdit && user.username != null" >
                                     <label for="cpasswd" class="col-md-12 control-label margin-top-10">Confirm Password</label>
                                     <div class="col-md-12">
                                         <input type="password" class="form-control" placeholder="Confirm Password" required data-ng-model="user.confirm_password">
                                     </div>
                                 </div>
-                                <div class="form-group" ng-show="isEdit" >
+                                <div class="form-group" ng-show="isEdit && user.username != null" >
                                     <label for="password" class="col-md-12 control-label margin-top-10">Reset Password - Leave this field blank to keep user's current password.</label>
                                     <div class="col-md-12">
                                         <input type="password" class="form-control" placeholder="Password" data-ng-model="user.password">
                                     </div>
                                 </div>
 
-                                <div class="form-group" ng-show="isEdit" >
+                                <div class="form-group" ng-show="isEdit && user.username != null" >
                                     <label for="cpasswd" class="col-md-12 control-label margin-top-10">Confirm Reset Password - Leave this field blank to keep user's current password.</label>
                                     <div class="col-md-12">
                                         <input type="password" class="form-control" placeholder="Confirm Password" data-ng-model="user.confirm_password">
                                     </div>
                                 </div>
+                                
                             </div>
                             <div class="col-md-1"></div>
                             <div class="col-md-5">
@@ -95,7 +97,22 @@
                                        {{ role.title }}
                                     </md-checkbox>
                                 </div>                               
-                            </div>   
+                            </div>
+                            
+                            <div ng-show="user.account_type === 'api'">
+                              <div class="box-header">
+                                <span style="color:#555299; font-size:16pt;">Reset Client Secret</span>                        
+                              </div>                            
+                              <div layout-wrap layout-gt-sm="row" >
+                                  <button ng-click="resetClientSecret()" class="btn btn-danger">
+                                    Reset
+                                  </button>
+                              </div>
+                              <div ng-show="clientSecret !== null" stye="margin-top:10px;">
+                                New Client Secret:<br /><strong>{{clientSecret}}</strong><br />
+                                <span style="font-size: small;">You will not be able to retrieve this value later.  Copy it now.</span>
+                              </div>
+                            </div>
                         </div>
                     </div>
                     <div class="col-xs-5 margin-top-20" style="margin-left:35%;">
@@ -106,7 +123,7 @@
                         </div>
                         <div class="col-xs-4 padding-right-none">
                             <button type="button" class="btn btn-block btn-warning" ng-click="cancel();">
-                                Cancel</span>
+                                <span>Cancel</span>
                             </button>
                         </div>
                     </div>
