@@ -212,7 +212,7 @@ AccessControl.prototype.validateBasicAuth = function(authHeader, callback) {
             deferred.resolve({is_valid: true, client_id: clientId});
           }
           else {
-            var errorObj = new ErrorObj(401,
+            let errorObj = new ErrorObj(401,
                                         'ac1009',
                                         __filename,
                                         'validateBasicAuth',
@@ -224,7 +224,7 @@ AccessControl.prototype.validateBasicAuth = function(authHeader, callback) {
           }
         }
         else {
-          var errorObj = new ErrorObj(401,
+          let errorObj = new ErrorObj(401,
             'ac1008',
             __filename,
             'validateBasicAuth',
@@ -236,7 +236,7 @@ AccessControl.prototype.validateBasicAuth = function(authHeader, callback) {
         }
       })
       .fail((usrErr) => {
-        var errorObj = new ErrorObj(401,
+        let errorObj = new ErrorObj(401,
           'ac1007',
           __filename,
           'validateBasicAuth',
@@ -248,7 +248,7 @@ AccessControl.prototype.validateBasicAuth = function(authHeader, callback) {
       })
     }
     else {
-      var errorObj = new ErrorObj(401,
+      let errorObj = new ErrorObj(401,
         'ac1006',
         __filename,
         'validateBasicAuth',
@@ -260,7 +260,7 @@ AccessControl.prototype.validateBasicAuth = function(authHeader, callback) {
     }
   }
   else {
-    var errorObj = new ErrorObj(401,
+    let errorObj = new ErrorObj(401,
       'ac1005',
       __filename,
       'validateBasicAuth',
@@ -340,7 +340,7 @@ AccessControl.prototype.verifyAccess = function (req, serviceCall, callback) {
 	var deferred = Q.defer();
   var userObj = req.this_user;
   if(userObj == null) {
-    var errorObj = new ErrorObj(403, 
+    let errorObj = new ErrorObj(403, 
                                 'ac0010', 
                                 __filename, 
                                 'verifyAccess', 
@@ -354,8 +354,8 @@ AccessControl.prototype.verifyAccess = function (req, serviceCall, callback) {
     return deferred.promise;
   }
 
-	if(userObj == null || userObj.is_locked) {
-		var errorObj = new ErrorObj(403, 
+	if(userObj.is_locked) {
+		let errorObj = new ErrorObj(403, 
                                 'ac0009', 
                                 __filename, 
                                 'verifyAccess', 
@@ -426,7 +426,7 @@ AccessControl.prototype.verifyAccess = function (req, serviceCall, callback) {
 		deferred.resolve(true);
 	}
 	else {
-		var errorObj = new ErrorObj(403,
+		let errorObj = new ErrorObj(403,
 			'ac0007',
 			__filename,
 			'verifyAccess',

@@ -25,7 +25,7 @@ app.service('backstrap_service', ['$rootScope', '$http', '$location', '$state', 
 
     //init master obj
     var objBs = JSON.parse(localStorage.getItem('backstrap_master'));
-    bs.objBackstrap = (objBs === null || objBs === undefined) ? objBackstrap : objBs;
+    bs.objBackstrap = objBs == null ? objBackstrap : objBs;
 
     //Reset header if new http
     $http.defaults.headers.common['Content-Type'] = 'application/json';

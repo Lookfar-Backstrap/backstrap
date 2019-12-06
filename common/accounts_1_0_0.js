@@ -1544,7 +1544,7 @@ Accounts.prototype.post = {
                     deferred.resolve(resolveObj);
                 })
                 .fail(function(err) {
-                    if(err.err_code == 'da0200'){
+                    if(err != null && err.err_code == 'da0200'){
                         var resolveObj = { 
                             'success': true,
                             'uExists': false

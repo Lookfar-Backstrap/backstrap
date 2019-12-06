@@ -71,7 +71,6 @@ function ($rootScope, $scope, $state, $location, $q, backstrap_service, Flash, M
     }
 
     $scope.resetClientSecret = function() {
-      var deferred = $q.defer();
       backstrap_service.resetClientSecret($scope.user.client_id)
       .then(function(res) {
         $scope.clientSecret = res.client_secret;
