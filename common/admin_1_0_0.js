@@ -256,7 +256,47 @@ Admin.prototype.post = {
 
 		deferred.promise.nodeify(callback);
 		return deferred.promise;
-	}
+  },
+  resetClientSecret: function(req, callback) {
+    var deferred = Q.defer();
+
+    var clientId = req.body.client_id;
+    var cryptoCall = Q.denodeify(crypto.randomBytes);
+
+    dataAccess.findOne('bsuser', {client_id: clientId})
+    .then((usr) => {
+      return [usr, cryptoCall(24)];
+    })
+    .spread((usr, buf) => {
+      let clientSecret = buf.toString('hex');
+      return [usr, clientSecret, cryptoCall(48)];
+    })
+    .spread((usr, clientSecret, buf) => {
+      let salt = buf.toString('hex');
+      let saltedSecret = clientSecret + salt;
+      let hashedSecret = crypto.createHash('sha256').update(saltedSecret).digest('hex');
+
+      return [clientSecret, dataAccess.updateEntity('bsuser', {object_type: 'bsuser', id: usr.id, salt: salt, client_secret: hashedSecret})];
+    })
+    .spread((clientSecret, usr) => {
+      deferred.resolve({client_secret: clientSecret});
+    })
+    .fail((err) => {
+      var errorObj = new ErrorObj(500,
+                                  'ad0020',
+                                  __filename,
+                                  'POST resetClientSecret',
+                                  'error resetting client secret',
+                                  'Error resetting client secret',
+                                  err
+                              );
+      deferred.reject(errorObj);
+    });
+
+
+    deferred.promise.nodeify(callback);
+    return deferred.promise;
+  }
 };
 
 Admin.prototype.put = {

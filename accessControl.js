@@ -1,5 +1,7 @@
 var Q = require('q');
 var fs = require('fs');
+var crypto = require('crypto');
+
 var securityObj;
 var permissions = {
 	some: 'some',
@@ -12,6 +14,7 @@ var file = null;
 var remoteSettings = null;
 var data = [];
 var settings;
+var dataAccess;
 
 var AccessControlExtension;
 try {
@@ -22,9 +25,10 @@ catch(e) {
 }
 var securityWriteLocation;
 
-var AccessControl = function (util, s) {
+var AccessControl = function (util, s, d) {
 	s3 = new AWS.S3();
-	settings = s;
+  settings = s;
+  dataAccess = d;
 
 	this.extension = new AccessControlExtension(this, util, s);
 };
@@ -148,11 +152,196 @@ AccessControl.prototype.save = function(doNetworkReload) {
 	return deferred.promise;
 };
 
+
+AccessControl.prototype.validateToken = function (tkn, callback) {
+	var deferred = Q.defer();
+
+	if (tkn === undefined || tkn === null) {
+		var errorObj = new ErrorObj(401,
+			'ac0005',
+			__filename,
+			'validateToken',
+			'no token provided'
+		);
+		deferred.reject(errorObj);
+
+		deferred.promise.nodeify(callback);
+		return deferred.promise;
+	}
+
+	dataAccess.findOne('session', { 'object_type': 'session', 'token': tkn })
+  .then(function (find_results) {
+    deferred.resolve({is_valid:true, session:find_results});
+  })
+  .fail(function (err) {
+    if (err !== undefined && err !== null && typeof (err.AddToError) === 'function') {
+      err.setStatus(401);
+      err.setMessages('could not find session for this token', 'unauthorized');
+      deferred.reject(err.AddToError(__filename, 'validateToken', 'could not find session for this token'));
+    }
+    else {
+      var errorObj = new ErrorObj(401,
+        'ac1004',
+        __filename,
+        'validateToken',
+        'could not find session for this token',
+        'unauthorized',
+        err
+      );
+      deferred.reject(errorObj);
+    }
+  });
+
+	deferred.promise.nodeify(callback);
+	return deferred.promise;
+};
+
+AccessControl.prototype.validateBasicAuth = function(authHeader, callback) {
+  var deferred = Q.defer();
+
+  let [authType, authToken] = authHeader.split(' ');
+  if(authType.toLowerCase() === 'basic') {
+    let [clientId, clientSecret] = new Buffer(authToken, 'base64').toString().split(':');
+    if(clientId && clientSecret) {
+      dataAccess.findOne('bsuser', {client_id: clientId})
+      .then((usr) => {
+        if(!usr.is_locked) {
+          let saltedSecret = clientSecret + usr.salt;
+          let hashedClientSecret = crypto.createHash('sha256').update(saltedSecret).digest('hex');
+          if(hashedClientSecret === usr.client_secret) {
+            // VALID
+            deferred.resolve({is_valid: true, client_id: clientId});
+          }
+          else {
+            let errorObj = new ErrorObj(401,
+                                        'ac1009',
+                                        __filename,
+                                        'validateBasicAuth',
+                                        'Authentication Error',
+                                        'unauthorized',
+                                        null
+                                      );
+            deferred.reject(errorObj);
+          }
+        }
+        else {
+          let errorObj = new ErrorObj(401,
+            'ac1008',
+            __filename,
+            'validateBasicAuth',
+            'User is locked',
+            'unauthorized',
+            null
+          );
+          deferred.reject(errorObj);
+        }
+      })
+      .fail((usrErr) => {
+        let errorObj = new ErrorObj(401,
+          'ac1007',
+          __filename,
+          'validateBasicAuth',
+          'Authentication Error',
+          'unauthorized',
+          null
+        );
+        deferred.reject(errorObj);
+      })
+    }
+    else {
+      let errorObj = new ErrorObj(401,
+        'ac1006',
+        __filename,
+        'validateBasicAuth',
+        'Malformed basic auth',
+        'unauthorized',
+        null
+      );
+      deferred.reject(errorObj);
+    }
+  }
+  else {
+    let errorObj = new ErrorObj(401,
+      'ac1005',
+      __filename,
+      'validateBasicAuth',
+      'Malformed basic auth',
+      'unauthorized',
+      null
+    );
+    deferred.reject(errorObj);
+  }
+
+  deferred.promise.nodeify(callback);
+  return deferred.promise;
+}
+
+AccessControl.prototype.validateBasicAuthAndContinue = function(authHeader, callback) {
+  var deferred = Q.defer();
+
+  let [authType, authToken] = authHeader.split(' ');
+  if(authType.toLowerCase() === 'basic') {
+    let [clientId, clientSecret] = new Buffer(authToken, 'base64').toString().split(':');
+    if(clientId && clientSecret) {
+      dataAccess.find('bsuser', {client_id: clientId})
+      .then((usr) => {
+        if(!usr.is_locked) {
+          let saltedSecret = clientSecret + usr.salt;
+          let hashedClientSecret = crypto.createHash('sha256').update(saltedSecret).digest('hex');
+          if(hashedClientSecret === usr.client_secret) {
+            // VALID
+            deferred.resolve({is_valid: true, client_id: clientId});
+          }
+          else {
+            deferred.resolve({is_valid: false});
+          }
+        }
+        else {
+          deferred.resolve({is_valid: false});
+        }
+      })
+      .fail((usrErr) => {
+        deferred.resolve({is_valid: false});
+      })
+    }
+    else {
+      deferred.resolve({is_valid: false});
+    }
+  }
+  else {
+    deferred.resolve({is_valid: false});
+  }
+
+  deferred.promise.nodeify(callback);
+  return deferred.promise;
+}
+
+
+AccessControl.prototype.validateTokenAndContinue = function (tkn, callback) {
+	var deferred = Q.defer();
+
+	if (tkn == null) {
+		deferred.resolve({ 'is_valid': false });
+	}
+	else {
+		dataAccess.findOne('session', { 'object_type': 'session', 'token': tkn })
+		.then(function (find_results) {
+			deferred.resolve({ 'is_valid': true, 'session': find_results });
+		})
+		.fail(function (err) {
+			deferred.resolve({ 'is_valid': false });
+		});
+	}
+
+	deferred.promise.nodeify(callback);
+	return deferred.promise;
+};
+
 AccessControl.prototype.verifyAccess = function (req, serviceCall, callback) {
 	var deferred = Q.defer();
   var userObj = req.this_user;
   if(userObj == null) {
-    var errorObj = new ErrorObj(403, 
+    let errorObj = new ErrorObj(403, 
                                 'ac0010', 
                                 __filename, 
                                 'verifyAccess', 
@@ -166,8 +355,8 @@ AccessControl.prototype.verifyAccess = function (req, serviceCall, callback) {
     return deferred.promise;
   }
 
-	if(userObj == null || userObj.is_locked) {
-		var errorObj = new ErrorObj(403, 
+	if(userObj.is_locked) {
+		let errorObj = new ErrorObj(403, 
                                 'ac0009', 
                                 __filename, 
                                 'verifyAccess', 
@@ -238,7 +427,7 @@ AccessControl.prototype.verifyAccess = function (req, serviceCall, callback) {
 		deferred.resolve(true);
 	}
 	else {
-		var errorObj = new ErrorObj(403,
+		let errorObj = new ErrorObj(403,
 			'ac0007',
 			__filename,
 			'verifyAccess',

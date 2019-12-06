@@ -1164,7 +1164,7 @@ Accounts.prototype.post = {
             return [tkn, userObj, dataAccess.addRelationship(userObj, newSess, null)];
         })
         .spread(function(tkn, userObj, rel_res) {
-            return [tkn, userObj, utilities.validateTokenAndContinue(req.headers[settings.data.token_header])];
+            return [tkn, userObj, accessControl.validateTokenAndContinue(req.headers[settings.data.token_header])];
         })
         .spread(function(tkn, userObj, validTokenRes) {
             var sess = null;
@@ -1280,7 +1280,7 @@ Accounts.prototype.post = {
                 return dataAccess.saveEntity('bsuser', userObj);
             })
             .then(function(userObj) {
-                return [userObj, utilities.validateTokenAndContinue(req.headers[settings.data.token_header])];
+                return [userObj, accessControl.validateTokenAndContinue(req.headers[settings.data.token_header])];
             })
             .spread(function(userObj, validTokenRes) {
                 var sess;
@@ -1328,6 +1328,80 @@ Accounts.prototype.post = {
 
         deferred.promise.nodeify(callback);
         return deferred.promise;
+    },
+    // CREATE A NEW API USER WITH CLIENT ID & CLIENT SECRET
+    apiUser: function(req, callback) {
+      var deferred = Q.defer();
+
+      //var username = req.body.username == null ? req.body.email.toLowerCase() : req.body.username.toLowerCase();
+      //var password = req.body.password;
+      var first = req.body.first == null ? '' : req.body.first;
+      var last = req.body.last == null ? '' : req.body.last;
+      var roles = ['default-user'];
+      var email = req.body.email;
+
+      var validEmailRegex = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
+      if (!validEmailRegex.test(email)) {
+          var errorObj = new ErrorObj(500,
+              'a0029',
+              __filename,
+              'signUp',
+              'invalid email address'
+          );
+          deferred.reject(errorObj);
+          deferred.promise.nodeify(callback);
+          return deferred.promise;
+      }
+
+      utilities.validateEmail(email)
+      .then(function() {
+          return generateApiUserCreds();
+      })
+      .then(function(creds) {
+          var saltedSecret = creds.clientSecret + creds.salt;
+          var hashedSecret = crypto.createHash('sha256').update(saltedSecret).digest('hex');
+
+          var userObj = {
+              'object_type': 'bsuser',
+              'account_type': 'api',
+              'client_id': creds.clientId,
+              'first': first,
+              'last': last,
+              'email': email,
+              'salt': creds.salt,
+              'client_secret': hashedSecret,
+              'roles': roles,
+              'is_active': true,
+              'is_locked': false
+          };
+          return [creds.clientSecret, dataAccess.saveEntity('bsuser', userObj)];
+      })
+      .spread(function(clientSecret, userObj) {
+          delete userObj.id;
+          delete userObj.salt;
+          userObj.client_secret = clientSecret;
+
+          deferred.resolve(userObj);
+      })
+      .fail(function(err) {
+          if (err !== undefined && err !== null && typeof (err.AddToError) == 'function') {
+              deferred.reject(err.AddToError(__filename, 'apiUser'));
+          }
+          else {
+              var errorObj = new ErrorObj(500,
+                  'a1051',
+                  __filename,
+                  'POST apiUser',
+                  'error signing up api user',
+                  'Error creating new api user',
+                  err
+              );
+              deferred.reject(errorObj);
+          }
+      });
+
+      deferred.promise.nodeify(callback);
+      return deferred.promise;
     },
     signOut: function(req, callback) {
         var deferred = Q.defer();
@@ -1470,7 +1544,7 @@ Accounts.prototype.post = {
                     deferred.resolve(resolveObj);
                 })
                 .fail(function(err) {
-                    if(err.err_code == 'da0200'){
+                    if(err != null && err.err_code == 'da0200'){
                         var resolveObj = { 
                             'success': true,
                             'uExists': false
@@ -2123,6 +2197,38 @@ function splitParams(paramString) {
 	}
 
 	return params;
+}
+
+function generateApiUserCreds() {
+  var deferred = Q.defer();
+
+  var cryptoCall = Q.denodeify(crypto.randomBytes);
+  cryptoCall(12)
+  .then((buf) => {
+    let clientId = buf.toString('hex');
+    return [clientId, cryptoCall(24)];
+  })
+  .spread((clientId, buf) => {
+    let clientSecret = buf.toString('hex');
+    return [clientId, clientSecret, cryptoCall(48)];
+  })
+  .spread((clientId, clientSecret, buf) => {
+    let salt = buf.toString('hex');
+    deferred.resolve({clientId: clientId, clientSecret: clientSecret, salt: salt});
+  })
+  .fail((err) => {
+    var errorObj = new ErrorObj(500,
+                              'a1050',
+                              __filename,
+                              'generateApiUserCreds',
+                              'error generating credentials for api user',
+                              'Error generating credentials for api user',
+                              err
+                              );
+    deferred.reject(errorObj);
+  });
+
+  return deferred.promise;
 }
 
 exports.accounts = Accounts;

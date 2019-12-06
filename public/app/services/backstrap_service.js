@@ -25,7 +25,7 @@ app.service('backstrap_service', ['$rootScope', '$http', '$location', '$state', 
 
     //init master obj
     var objBs = JSON.parse(localStorage.getItem('backstrap_master'));
-    bs.objBackstrap = (objBs === null || objBs === undefined) ? objBackstrap : objBs;
+    bs.objBackstrap = objBs == null ? objBackstrap : objBs;
 
     //Reset header if new http
     $http.defaults.headers.common['Content-Type'] = 'application/json';
@@ -363,15 +363,26 @@ app.service('backstrap_service', ['$rootScope', '$http', '$location', '$state', 
 
     //service to communicate with users to include a new user
     bs.updateUser = function (userObj) {
-        var deferred = $q.defer();
-        update("common/admin/user/1.0.0", userObj).then(function (response) {
-            deferred.resolve(response);
-        },
-            function (response) {
-                deferred.reject(response);
-            });
-        return deferred.promise;
+      var deferred = $q.defer();
+      update("common/admin/user/1.0.0", userObj).then(function (response) {
+          deferred.resolve(response);
+      },
+          function (response) {
+              deferred.reject(response);
+          });
+      return deferred.promise;
     };
+
+    bs.resetClientSecret = function(clientId) {
+      var deferred = $q.defer();
+      post("common/admin/resetClientSecret/1.0.0", {client_id: clientId}).then(function (response) {
+          deferred.resolve(response);
+      },
+      function (response) {
+          deferred.reject(response);
+      });
+      return deferred.promise;
+    }
 
     //service to communicate with users to include a new user
     bs.defaultUserCheck = function () {

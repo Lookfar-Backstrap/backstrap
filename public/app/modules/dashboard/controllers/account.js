@@ -10,6 +10,7 @@ function ($rootScope, $scope, $state, $location, $q, backstrap_service, Flash, M
     $scope.emailValid = false;
     $scope.usernameValid = false;
     $scope.isValid = false;
+    $scope.clientSecret = null;
     validateForm();
 
     if ($scope.isEdit){
@@ -69,6 +70,13 @@ function ($rootScope, $scope, $state, $location, $q, backstrap_service, Flash, M
         }       
     }
 
+    $scope.resetClientSecret = function() {
+      backstrap_service.resetClientSecret($scope.user.client_id)
+      .then(function(res) {
+        $scope.clientSecret = res.client_secret;
+      });
+    }
+
     function createNew(){
         var deferred = $q.defer();
         backstrap_service.signup($scope.user.username, $scope.user.password, $scope.user.email)
@@ -123,13 +131,14 @@ function ($rootScope, $scope, $state, $location, $q, backstrap_service, Flash, M
         $scope.emailValid = ($scope.user.email !== undefined && $scope.user.email.length > 0 && $scope.user.email.indexOf('@') > -1 &&  $scope.user.email.indexOf('.') > -1);
         $scope.firstValid = $scope.user.first !== undefined && $scope.user.first.length > 0;
         $scope.lastValid = $scope.user.last !== undefined && $scope.user.last.length > 0;
-        if ($scope.isEdit){
+        if ($scope.isEdit && $scope.user.account_type !== 'api'){
             $scope.usernameValid = $scope.user.username.length > 2;
         }
         else{
             $scope.usernameValid = true;
         }
         $scope.isValid = $scope.emailValid && $scope.firstValid && $scope.lastValid && $scope.usernameValid;
+        $scope.isValid = $scope.emailValid && $scope.firstValid && $scope.lastValid;
     }
 
     $scope.validateName = function(){

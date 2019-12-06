@@ -17,7 +17,7 @@ var Controller = function(da, utils, ac, sr, st, m) {
 	models = m;
 };
 
-Controller.prototype.resolveServiceCall = function(serviceCallDescriptor, req, hasValidToken, callback) {
+Controller.prototype.resolveServiceCall = function (serviceCallDescriptor, req, callback) {
 	var deferred = Q.defer();
 	// ===================================================================
 	// PULL THE APPROPRIATE VERSION OF WEB SERVICE WITH APPROPRIATE VERB
@@ -133,70 +133,28 @@ Controller.prototype.resolveServiceCall = function(serviceCallDescriptor, req, h
 
 			errorObj.timestamp = new Date();
 			
-			console.log('\n========================== ERROR ==========================');
-			console.log(errorObj);
-			console.log('=============================================================\n');
 
-			deferred.reject(errorObj);
-		});
+      console.log('\n========================== ERROR ==========================');
+      console.log(errorObj);
+      console.log('=============================================================\n');
+
+      deferred.reject(errorObj);
+    });			
 	}
 	else {
-		var errorObj = new ErrorObj(400, 
-									'c1005', 
-									__filename, 
-									'resolveServiceCall', 
-									'error locating correct function in controller file',
-									'Problem finding that endpoint',
-									serviceCallDescriptor 
-									);
+		var errorObj = new ErrorObj(400,
+			'c1005',
+			__filename,
+			'resolveServiceCall',
+			'error locating correct function in controller file',
+			'Problem finding that endpoint',
+			serviceCallDescriptor
+		);
 		deferred.reject(errorObj);
 	}
 
 	deferred.promise.nodeify(callback);
-    return deferred.promise;
-};
-
-Controller.prototype.validateToken = function(tkn, callback) {
-	var deferred = Q.defer();
-
-	if(tkn === undefined || tkn === null) {
-		var errorObj = new ErrorObj(401, 
-									'c0005', 
-									__filename, 
-									'validateToken', 
-									'no token provided' 
-									);
-		deferred.reject(errorObj);
-
-		deferred.promise.nodeify(callback);
-    	return deferred.promise;
-	}
-
-	dataAccess.findOne('session', {'object_type':'session', 'token':tkn})
-	.then(function(find_results) {
-		deferred.resolve({is_valid:true, session:find_results});
-	})
-	.fail(function(err) {
-		if(err !== undefined && err !== null && typeof(err.AddToError) === 'function') {
-			err.setStatus(401);
-			err.setMessages('could not find session for this token', 'unauthorized');
-			deferred.reject(err.AddToError(__filename, 'validateToken', 'could not find session for this token'));
-		}
-		else {
-			var errorObj = new ErrorObj(401, 
-										'c1004', 
-										__filename, 
-										'validateToken', 
-										'could not find session for this token',
-										'unauthorized',
-										err 
-										);
-			deferred.reject(errorObj);
-		}
-	});
-
-	deferred.promise.nodeify(callback);
-    return deferred.promise;
+	return deferred.promise;
 };
 
 /**
