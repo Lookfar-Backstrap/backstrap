@@ -14,7 +14,12 @@
 		"user": "YOUR USER",
 		"pass": "YOUR PASSWORD",
 		"template_directory": "./templates/"
-	},
+  },
+  "identity": {
+    "provider": "auth0",
+    "key_url": "https://test-symple.auth0.com/.well-known/jwks.json",
+    "kid": "70cARp0CJ5GSiOjj_Zyih"
+  },
 	"oauth": {
 		"facebook": {
 			"client_id": "",

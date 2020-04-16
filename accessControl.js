@@ -16,6 +16,8 @@ var data = [];
 var settings;
 var dataAccess;
 
+const jwt = require('./jwt.js');
+
 var AccessControlExtension = require('./accessControl_ext.js');
 
 var AccessControl = function (util, s, d) {
@@ -72,6 +74,307 @@ AccessControl.prototype.init = function (b, f, rs) {
 	}
 
 	return deferred.promise;
+}
+
+AccessControl.prototype.signIn = (params, headers) => {
+  var deferred = Q.defer();
+
+  var username = params.username || null;
+  var email = params.email || null;
+  var password = params.password || null;
+  var token = params.token || null;
+
+  Q()
+  .then(() => {
+    // CHECK THE ARGUMENTS PASSED IN AND GET THE USER FROM OUR DB.  
+    // IF USERNAME/PASSWORD IS USED, GET THE USER VIA USERNAME
+    // IF TOKEN IS USED, CHECK THAT THE TOKEN IS VALID, THEN EXTRACT EXTERNAL ID TO
+    // GET THE USER FROM OUR DB
+    let inner_deferred = Q.defer();
+
+    // WE HAVE USERNAME/PASSWORD
+    if((username || email) && password) {
+      let identifier = username ? username : email;
+      if(identifier) {
+        dataAccess.getUserByUserName(identifier)
+        .then((usr) => {
+          inner_deferred.resolve(usr);
+        })
+        .fail((usrErr) => {
+          inner_deferred.reject(usrErr);
+        })
+      }
+      else {
+        // NO USERNAME
+        var errorObj = new ErrorObj(401,
+                                    'ac0103',
+                                    __filename,
+                                    'signin',
+                                    'unauthorized',
+                                    'invalid credentials'
+                                  );
+        inner_deferred.reject(errorObj);
+      }
+    }
+    // WE HAVE A TOKEN
+    else if(token) {
+      let keyUrl = settings.data.identity.key_url || null;
+      let kid = settings.data.identity.kid || null;
+      jwt.getKey(keyUrl, kid)
+      .then((key) => {
+        return jwt.verifyToken(token, key);
+      })
+      .then((decodedToken) => {
+        let externalId = decodedToken.sub;
+        return dataAccess.getUserByExternalIdentityId(externalId);
+      })
+      .then((usr) => {
+        inner_deferred.resolve(usr);
+      })
+      .fail((jwtErr) => {
+        inner_deferred.reject(jwtErr.AddToError(__filename, 'signin'));
+      });
+    }
+    else {
+      var errorObj = new ErrorObj(401,
+                                  'ac0102',
+                                  __filename,
+                                  'signin',
+                                  'unauthorized',
+                                  'invalid credentials'
+                                );
+      inner_deferred.reject(errorObj);
+    }
+
+    return inner_deferred.promise;
+  })
+  .then((userObj) => {
+    // IF THIS IS A USERNAME/PASSWORD SIGNIN, CHECK THE CREDENTIALS AGAINST OUR DB
+    // IF THIS IS A TOKEN SIGNIN, JUST PASS THROUGH
+    var inner_deferred = Q.defer();
+
+    // NATIVE SIGNIN -- USE OUR DB
+    if(settings.data.identity == null || settings.data.identity.length === 0 || 
+      (settings.data.identity.provider != null && settings.data.identity.provider.toLowerCase() === 'native')) {
+      
+      AccessControl.prototype.checkCredentials(password, userObj)
+      .then(() => {
+        inner_deferred.resolve(userObj);
+      })
+      .fail((credErr) => {
+        // JUST PASS ALONG THE ERROR, WE'LL MARK IT UP IN THE MAIN FAIL BLOCK OF THIS FUNCTION
+        inner_deferred.reject(credErr);
+      });
+    }
+    // EXTERNAL SIGNIN -- TOKEN HAS ALREADY BEEN CHECKED, JUST PASS ALONG
+    else if(settings.data.identity.provider != null && settings.data.identity.provider.toLowerCase() === 'auth0') {
+      if(token) {
+        inner_deferred.resolve(userObj)
+      }
+      // WE'RE USING EXTERNAL SIGNIN, BUT THIS IS AN ADMIN OR SUPERUSER USING USERNAME/PASSWORD
+      else if((userObj.roles.includes('super-user') || userObj.roles.includes('admin-user')) && ((username || email) && password)) {
+        AccessControl.prototype.checkCredentials(password, userObj)
+        .then(() => {
+          inner_deferred.resolve(userObj);
+        })
+        .fail((credErr) => {
+          // JUST PASS ALONG THE ERROR, WE'LL MARK IT UP IN THE MAIN FAIL BLOCK OF THIS FUNCTION
+          inner_deferred.reject(credErr);
+        });
+      }
+      else {
+        // INSUFFICIENT CREDENTIALS
+        var errorObj = new ErrorObj(500,
+                                    'ac0103',
+                                    __filename,
+                                    'signin',
+                                    'unauthorized',
+                                    'invalid credentials'
+                                  );
+        inner_deferred.reject(errorObj);
+      }
+    }
+    else {
+      // UNKNOWN IDENTITY PROVIDER
+      var errorObj = new ErrorObj(500,
+                                  'ac0101',
+                                  __filename,
+                                  'signin',
+                                  'Unknown identity provider',
+                                  'Ask your administrator to set up a known identity provider.'
+                                );
+      inner_deferred.reject(errorObj);
+    }
+
+    return inner_deferred.promise;
+  })
+  .then((userObj) => {
+    // START UP A SESSION
+    return AccessControl.prototype.startSession(userObj, headers, params.clientInfo);
+  })
+  .then((sessRes) => {
+    deferred.resolve(sessRes);
+  })
+  .fail((err) => {
+    var errorObj = new ErrorObj(401,
+                                'ac0100',
+                                __filename,
+                                'signin',
+                                'unauthorized',
+                                'invalid credentials',
+                                err
+                              );
+    deferred.reject(errorObj);
+  });
+
+  return deferred.promise;
+}
+
+AccessControl.prototype.checkCredentials = (password, userObj) => {
+  var deferred = Q.defer();
+
+  // IF USER IS LOCKED, BAIL OUT
+  if (userObj.is_locked) {
+    var errorObj = new ErrorObj(403,
+        'ac0200',
+        __filename,
+        'signin',
+        'Account is locked',
+        'Unauthorized',
+        null
+    );
+    deferred.reject(errorObj);
+
+    deferred.promise.nodeify(callback);
+    return deferred.promise;
+  }
+  // GOT A USER, MAKE SURE THERE IS A STORED SALT
+  var salt = userObj.salt;
+  if (salt === null) {
+      var errorObj = new ErrorObj(500,
+          'a0025',
+          __filename,
+          'signIn',
+          'error retrieving salt for this user'
+      );
+      deferred.reject(errorObj);
+      deferred.promise.nodeify(callback);
+      return deferred.promise;
+  }
+  var stored_password = userObj.password;
+  if (stored_password === null) {
+      var errorObj = new ErrorObj(500,
+          'a0026',
+          __filename,
+          'signIn',
+          'error retrieving password for this user'
+      );
+      deferred.reject(errorObj);
+      deferred.promise.nodeify(callback);
+      return deferred.promise;
+  }
+
+  // SALT AND HASH PASSWORD
+  var saltedPassword = password + userObj.salt;
+  var hashedPassword = crypto.createHash('sha256').update(saltedPassword).digest('hex');
+
+  // CHECK IF HASHES MATCH
+  if (hashedPassword === stored_password) {
+      deferred.resolve();
+  }
+  else {
+    var errorObj = new ErrorObj(401,
+                                'a0027',
+                                __filename,
+                                'signIn',
+                                'authentication failed'
+                              );
+    deferred.reject(errorObj);
+  }
+
+  return deferred.promise;
+}
+
+AccessControl.prototype.startSession = (userObj, headers, clientInfo) => {
+  var deferred = Q.defer();
+
+  getSessionToken()
+  .then((tkn) => {
+    var rightNow = new Date();
+    var sessionObj = {
+        'object_type': 'session',
+        'token': tkn,
+        'username': userObj.username ? userObj.username : userObj.email,
+        'user_id': userObj.id,
+        'started_at': rightNow,
+        'client_info': clientInfo || null,
+        'last_touch': rightNow
+    };
+    return [tkn, dataAccess.saveEntity('session', sessionObj)];
+  })
+  .spread(function(tkn, newSess) {
+    return [tkn, dataAccess.addRelationship(userObj, newSess, null)];
+  })
+  .spread(function(tkn, rel_res) {
+      return [tkn, AccessControl.prototype.validateTokenAndContinue(headers[settings.data.token_header])];
+  })
+  .spread(function(tkn, validTokenRes) {
+      var sess = null;
+      if (validTokenRes.is_valid === true && validTokenRes.session.is_anonymous === true && validTokenRes.session.username === 'anonymous') {
+          sess = validTokenRes.session;
+          sess.username = username;
+          return [tkn, true, dataAccess.saveEntity('session', sess)];
+      }
+      else {
+          return [tkn, false];
+      }
+  })
+  .spread(function(tkn, isNewAnonSess, sess) {
+      if (isNewAnonSess) {
+          return [tkn, dataAccess.addRelationship(userObj, sess)];
+      }
+      else {
+          return [tkn];
+      }
+  })
+  .spread(function(tkn) {
+      var returnObj = {};
+      returnObj[settings.data.token_header] = tkn;
+      var uiKeys = Object.keys(userObj);
+      for (var uiIdx = 0; uiIdx < uiKeys.length; uiIdx++) {
+          returnObj[uiKeys[uiIdx]] = userObj[uiKeys[uiIdx]];
+      }
+      delete returnObj.password;
+      delete returnObj.salt;
+      delete returnObj.id;
+      delete returnObj.object_type;
+      delete returnObj.created_at;
+      delete returnObj.updated_at;
+      delete returnObj.forgot_password_tokens;
+      delete returnObj.is_active;
+
+      // ADD EVENT TO SESSION
+      var resolveObj = returnObj;
+      deferred.resolve(resolveObj);
+  })
+  .fail((err) => {
+    if(err && typeof(err.AddToError) === 'function') {
+      deferred.reject(err.AddToError(__filename, 'startSession'));
+    }
+    else {
+      var errorObj = new ErrorObj(500,
+                                  'ac0200',
+                                  __filename,
+                                  'startSession',
+                                  'error starting session',
+                                  'There was a problem with your request. Please try again.',
+                                  err
+                                );
+      deferred.reject(errorObj);
+    }
+  })
+
+  return deferred.promise;
 }
 
 AccessControl.prototype.reload = function () {
@@ -150,7 +453,6 @@ AccessControl.prototype.save = function (doNetworkReload) {
 
 	return deferred.promise;
 };
-
 
 AccessControl.prototype.validateToken = function (tkn, callback) {
 	var deferred = Q.defer();
@@ -315,7 +617,6 @@ AccessControl.prototype.validateBasicAuthAndContinue = function(authHeader, call
   return deferred.promise;
 }
 
-
 AccessControl.prototype.validateTokenAndContinue = function (tkn, callback) {
 	var deferred = Q.defer();
 
@@ -464,5 +765,58 @@ AccessControl.prototype.roleExists = function (roleName, callback) {
 	deferred.promise.nodeify(callback);
 	return deferred.promise;
 };
+
+
+function getSessionToken() {
+  var deferred = Q.defer();
+
+  // DO A COLLISION CHECK.  THIS IS PROBABLY OVERKILL SINCE OUR TOTAL POOL IS 256^48
+  // BUT WE REALLY DON'T WANT TWO SESSIONS WITH THE SAME TOKEN
+  dataAccess.findAll('session')
+  .then(function(find_results) {
+      var tokenIsGood = false;
+      var token;
+      while (!tokenIsGood) {
+          token = crypto.randomBytes(48).toString('hex');
+
+          var sessions = find_results.filter(function(inSysObj) {
+              return (inSysObj.object_type === 'session' && inSysObj.token === token);
+          });
+
+          if (sessions === null || sessions.length === 0) {
+              tokenIsGood = true;
+          }
+          else {
+              tokenIsGood = false;
+          }
+      }
+
+      deferred.resolve(token);
+  })
+  .fail(function(err) {
+      if (err !== undefined && err !== null && typeof (err.AddToError) == 'function') {
+          if (err.message === 'no results found') {
+              var token = crypto.randomBytes(48).toString('hex');
+              deferred.resolve(token);
+          }
+          else {
+              deferred.reject(err.AddToError(__filename, 'getToken'));
+          }
+      }
+      else {
+          var errorObj = new ErrorObj(500,
+              'ac1000',
+              __filename,
+              'getToken',
+              'error getting token',
+              'Error getting token',
+              err
+          );
+          deferred.reject(errorObj);
+      }
+  });
+
+  return deferred.promise;
+}
 
 exports.AccessControl = AccessControl;

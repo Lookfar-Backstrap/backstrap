@@ -91,7 +91,7 @@
                         {
                             "name": "password",
                             "type": "string",
-                            "isRequired": true,
+                            "isRequired": false,
                             "description": null
                         },
                         {
@@ -99,6 +99,12 @@
                             "type": "string",
                             "isRequired": false,
                             "description": "Any additional info about this log in (from browser, from app, etc)"
+                        },
+                        {
+                            "name": "token",
+                            "type": "string",
+                            "isRequired": false,
+                            "description": "token from external identity provider"
                         }
                     ],
                     "isUserCreated": false

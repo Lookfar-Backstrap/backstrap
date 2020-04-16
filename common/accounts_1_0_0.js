@@ -13,7 +13,7 @@ var models;
 var Q = require('q');
 var crypto = require('crypto');
 var request = require('request');
-
+var jwt = require('../jwt.js');
 
 var Accounts = function(db, utils, ac, sr, st, m) {
     dataAccess = db;
@@ -1068,163 +1068,14 @@ Accounts.prototype.post = {
         var deferred = Q.defer();
         var body = req.body;
 
-        try {
-            var username = (req.body.username)== null ? req.body.email.toLowerCase() : req.body.username.toLowerCase();
-        }
-        catch (err) {
-            var errorObj = new ErrorObj(400,
-                'a00001',
-                __filename,
-                'signIn',
-                'Please include username or email to sign in.'
-            );
-            deferred.reject(errorObj);
-            deferred.promise.nodeify(callback);
-            return deferred.promise;
-        }
-        var password = body.password;
-        var clientInfo = body.clientInfo;
-
-
-        getUser(req)
-        .then(function(userObj) {
-            // IF USER IS LOCKED, BAIL OUT
-            if (userObj.is_locked) {
-                var errorObj = new ErrorObj(403,
-                    'a2004',
-                    __filename,
-                    'signin',
-                    'Account is locked',
-                    'Unauthorized',
-                    null
-                );
-                deferred.reject(errorObj);
-
-                deferred.promise.nodeify(callback);
-                return deferred.promise;
-            }
-            // GOT A USER, MAKE SURE THERE IS A STORED SALT
-            var salt = userObj.salt;
-            if (salt === null) {
-                var errorObj = new ErrorObj(500,
-                    'a0025',
-                    __filename,
-                    'signIn',
-                    'error retrieving salt for this user'
-                );
-                deferred.reject(errorObj);
-                deferred.promise.nodeify(callback);
-                return deferred.promise;
-            }
-            var stored_password = userObj.password;
-            if (stored_password === null) {
-                var errorObj = new ErrorObj(500,
-                    'a0026',
-                    __filename,
-                    'signIn',
-                    'error retrieving password for this user'
-                );
-                deferred.reject(errorObj);
-                deferred.promise.nodeify(callback);
-                return deferred.promise;
-            }
-
-            // SALT AND HASH PASSWORD
-            var saltedPassword = password + userObj.salt;
-            var hashedPassword = crypto.createHash('sha256').update(saltedPassword).digest('hex');
-
-            // CHECK IF HASHES MATCH
-            if (hashedPassword === stored_password) {
-                return [userObj, getToken()];
-            }
-            else {
-                var errorObj = new ErrorObj(401,
-                    'a0027',
-                    __filename,
-                    'signIn',
-                    'authentication failed'
-                );
-                deferred.reject(errorObj);
-            }
+        accessControl.signIn(body, req.headers)
+        .then((res) => {
+          deferred.resolve(res);
         })
-        .spread(function(userObj, tkn) {
-            var rightNow = new Date();
-            var sessionObj = {
-                'object_type': 'session',
-                'token': tkn,
-                'username': username,
-                'user_id': userObj.id,
-                'started_at': rightNow,
-                'client_info': clientInfo,
-                'last_touch': rightNow
-            };
-            return [tkn, userObj, dataAccess.saveEntity('session', sessionObj)];
+        .fail((err) => {
+          deferred.reject(err.AddToError(__filename, 'signIn'));
         })
-        .spread(function(tkn, userObj, newSess) {
-            return [tkn, userObj, dataAccess.addRelationship(userObj, newSess, null)];
-        })
-        .spread(function(tkn, userObj, rel_res) {
-            return [tkn, userObj, accessControl.validateTokenAndContinue(req.headers[settings.data.token_header])];
-        })
-        .spread(function(tkn, userObj, validTokenRes) {
-            var sess = null;
-            if (validTokenRes.is_valid === true && validTokenRes.session.is_anonymous === true && validTokenRes.session.username === 'anonymous') {
-                sess = validTokenRes.session;
-                sess.username = username;
-                return [tkn, userObj, true, dataAccess.saveEntity('session', sess)];
-            }
-            else {
-                return [tkn, userObj, false];
-            }
-        })
-        .spread(function(tkn, userObj, isNewAnonSess, sess) {
-            if (isNewAnonSess) {
-                return [tkn, userObj, dataAccess.addRelationship(userObj, sess)];
-            }
-            else {
-                return [tkn, userObj];
-            }
-        })
-        .spread(function(tkn, userObj) {
-            var returnObj = {};
-            returnObj[settings.data.token_header] = tkn;
-            var uiKeys = Object.keys(userObj);
-            for (var uiIdx = 0; uiIdx < uiKeys.length; uiIdx++) {
-                returnObj[uiKeys[uiIdx]] = userObj[uiKeys[uiIdx]];
-            }
-            delete returnObj.password;
-            delete returnObj.salt;
-            delete returnObj.id;
-            delete returnObj.object_type;
-            delete returnObj.created_at;
-            delete returnObj.updated_at;
-            delete returnObj.forgot_password_tokens;
-            delete returnObj.is_active;
-
-            // ADD EVENT TO SESSION
-            var resolveObj = returnObj;
-            deferred.resolve(resolveObj);
-        })
-        .fail(function(err) {
-            if (err !== undefined && err !== null && typeof (err.AddToError) == 'function') {
-                err.setMessages('authentication failed', 'authentication failed');
-                err.setStatus(401);
-                deferred.reject(err.AddToError(__filename, 'signIn'))
-            }
-            else {
-                var errorObj = new ErrorObj(401,
-                    'a0028',
-                    __filename,
-                    'signIn',
-                    'authentication failed',
-                    'authentication failed',
-                    err
-                );
-                deferred.reject(errorObj);
-            }
-        });
         
-
         deferred.promise.nodeify(callback);
         return deferred.promise;
     },
