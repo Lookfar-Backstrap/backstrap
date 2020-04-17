@@ -191,7 +191,14 @@ AccessControl.prototype.signIn = (params, apiToken) => {
           }
         })
         .fail((usrErr) => {
-          inner_deferred.reject(usrErr);
+          var errorObj = new ErrorObj(401,
+                                      'ac0105',
+                                      __filename,
+                                      'signin',
+                                      'unauthorized',
+                                      'invalid credentials'
+                                    );
+          inner_deferred.reject(errorObj);
         })
       }
       else {
@@ -255,7 +262,7 @@ AccessControl.prototype.signIn = (params, apiToken) => {
       }
       else {
         // INSUFFICIENT CREDENTIALS
-        var errorObj = new ErrorObj(500,
+        var errorObj = new ErrorObj(401,
                                     'ac0103',
                                     __filename,
                                     'signin',
@@ -326,8 +333,7 @@ AccessControl.prototype.signIn = (params, apiToken) => {
                                 __filename,
                                 'signin',
                                 'unauthorized',
-                                'invalid credentials',
-                                err
+                                'invalid credentials'
                               );
     deferred.reject(errorObj);
   });
