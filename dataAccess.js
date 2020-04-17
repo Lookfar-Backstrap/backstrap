@@ -3010,6 +3010,48 @@ DataAccess.prototype.getUserByForgotPasswordToken = function (tkn, callback) {
 	return deferred.promise;
 }
 
+// RETURN THE USER ENTITY BASED ON A FORGOT PASSWORD TOKEN
+DataAccess.prototype.getUserByExternalIdentityId = function (exid, callback) {
+	var deferred = Q.defer();
+	var qry_params = [exid];
+	var qry = "SELECT bsuser.data FROM bsuser WHERE data->'external_identity_id' ? $1";
+	DataAccess.prototype.ExecutePostgresQuery(qry, qry_params, null)
+		.then(function (connection) {
+			if (connection.results.length === 0) {
+        var errorObj = new ErrorObj(500,
+          'da0260',
+          __filename,
+          'getUserByExternalIdentityId',
+          'no results',
+          'There was a problem finding this user. Please try again.',
+          null
+        );
+        deferred.reject(errorObj);
+      }
+      else if (connection.results.length === 1) {
+        deferred.resolve(connection.results[0]);
+      }
+      else {
+        console.log('found multiple users');
+        var errorObj = new ErrorObj(500,
+          'da0261',
+          __filename,
+          'getUserByExternalIdentityId',
+          'multiple results',
+          'There was a problem finding this user. Please try again',
+          null
+        );
+        deferred.reject(errorObj);
+      }
+		})
+		.fail(function (err) {
+			deferred.reject(err.AddToError(__filename, 'getUserByExternalIdentityId'));
+		});
+
+	deferred.promise.nodeify(callback);
+	return deferred.promise;
+}
+
 //Pass obj type and a list of that type
 DataAccess.prototype.BulkInsert = function (objType, objList, callback) {
 	var objCount = objList.length;

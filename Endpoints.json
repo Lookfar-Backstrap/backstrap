@@ -75,6 +75,7 @@
                     "call": "signIn",
                     "desc": "Sign in using system credentials",
                     "authRequired": false,
+                    "apiBlueprint": true,
                     "args": [
                         {
                             "name": "username",
@@ -91,7 +92,7 @@
                         {
                             "name": "password",
                             "type": "string",
-                            "isRequired": true,
+                            "isRequired": false,
                             "description": null
                         },
                         {
@@ -99,6 +100,12 @@
                             "type": "string",
                             "isRequired": false,
                             "description": "Any additional info about this log in (from browser, from app, etc)"
+                        },
+                        {
+                            "name": "token",
+                            "type": "string",
+                            "isRequired": false,
+                            "description": "token from external identity provider"
                         }
                     ],
                     "isUserCreated": false
@@ -108,17 +115,18 @@
                     "call": "signUp",
                     "desc": "Sign up for new system credentials",
                     "authRequired": false,
+                    "apiBlueprint": true,
                     "args": [
                         {
                             "name": "username",
                             "type": "string",
-                            "isRequired": true,
+                            "isRequired": false,
                             "description": null
                         },
                         {
                             "name": "password",
                             "type": "string",
-                            "isRequired": true,
+                            "isRequired": false,
                             "description": null
                         },
                         {
@@ -126,6 +134,12 @@
                             "type": "string",
                             "isRequired": true,
                             "description": "Used for Forgot Password and Welcome Email"
+                        },
+                        {
+                            "name": "external_identity_id",
+                            "type": "string",
+                            "isRequired": false,
+                            "description": "Identifier given by an external identity provider"
                         },
                         {
                             "name": "first",
@@ -572,6 +586,21 @@
             "name": "admin",
             "version": "1.0.0",
             "methods": [
+                {
+                    "verb": "GET",
+                    "call": "apiBlueprint",
+                    "desc": "Get valid apib string of _ext and flagged common endpoints",
+                    "authRequired": false,
+                    "args": [
+                        {
+                            "name": "html",
+                            "type": "string",
+                            "isRequired": false,
+                            "description": "return html page of documentation"
+                        }
+                    ],
+                    "isUserCreated": false
+                },
                 {
                     "verb": "GET",
                     "call": "user",

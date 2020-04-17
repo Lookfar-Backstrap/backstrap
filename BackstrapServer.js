@@ -108,7 +108,7 @@ settings.init(config.s3.bucket, 'Settings.json', useRemoteSettings)
 	})
 	.then(function (acl_res) {
 		console.log('AccessControl initialized');
-		mainController = new Controller(dataAccess, utilities, accessControl, serviceRegistration, settings, models);
+		mainController = new Controller(dataAccess, utilities, accessControl, serviceRegistration, settings, models, endpoints.data);
 		console.log('Controller initialized');
 		// GENERATE ENDPOINTS FROM MODELS
 		return endpoints.generateFromModels(models.data.models, false);

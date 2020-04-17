@@ -4,17 +4,19 @@ var accessControl;
 var serviceRegistration;
 var settings;
 var models;
+var endpoints;
 
 var fs = require('fs');
 var Q = require('q');
 
-var Controller = function(da, utils, ac, sr, st, m) {
+var Controller = function (da, utils, ac, sr, st, m, e) {
 	dataAccess = da;
 	utilities = utils;
 	accessControl = ac;
 	serviceRegistration = sr;
 	settings = st;
 	models = m;
+	endpoints = e;
 };
 
 Controller.prototype.resolveServiceCall = function (serviceCallDescriptor, req, callback) {
@@ -217,7 +219,7 @@ exports.getVersionOfWebService = function getVersionOfWebService(areaName, contr
   try {
     var serviceCallsPath = servicesDir + baseServiceName + '_' + inputVersionString + '.js';
     var ServiceCalls = require(serviceCallsPath)[baseServiceName];
-    var versionOfWS = new ServiceCalls(dataAccess, utilities, accessControl, serviceRegistration, settings, models);
+    var versionOfWS = new ServiceCalls(dataAccess, utilities, accessControl, serviceRegistration, settings, models, endpoints);
     return versionOfWS;
   }
   catch(e) {
