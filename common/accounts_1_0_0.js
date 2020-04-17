@@ -1068,7 +1068,8 @@ Accounts.prototype.post = {
         var deferred = Q.defer();
         var body = req.body;
 
-        accessControl.signIn(body, req.headers)
+        var apiToken = req.headers[settings.data.token_header] || null;
+        accessControl.signIn(body, apiToken)
         .then((res) => {
           deferred.resolve(res);
         })
@@ -1081,101 +1082,28 @@ Accounts.prototype.post = {
     },
     signUp: function(req, callback) {
         var deferred = Q.defer();
-
-        var username = req.body.username == null ? req.body.email.toLowerCase() : req.body.username.toLowerCase();
-        var password = req.body.password;
-        var first = req.body.first == null ? '' : req.body.first;
-        var last = req.body.last == null ? '' : req.body.last;
-        var roles = ['default-user'];
-        var email = req.body.email;
-
-        var validEmailRegex = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
-        if (!validEmailRegex.test(email)) {
-            var errorObj = new ErrorObj(500,
-                'a0029',
-                __filename,
-                'signUp',
-                'invalid email address'
-            );
-            deferred.reject(errorObj);
-            deferred.promise.nodeify(callback);
-            return deferred.promise;
-        }
-
-        utilities.validateEmail(email)
-            .then(function() {
-                return utilities.validateUsername(username);
-            })
-            .then(function() {
-                var cryptoCall = Q.denodeify(crypto.randomBytes);
-                return cryptoCall(48);
-            })
-            .then(function(buf) {
-                var salt = buf.toString('hex');
-                var saltedPassword = password + salt;
-                var hashedPassword = crypto.createHash('sha256').update(saltedPassword).digest('hex');
-
-                var userObj = {
-                    'object_type': 'bsuser',
-                    'account_type': 'native',
-                    'username': username,
-                    'first': first,
-                    'last': last,
-                    'email': email,
-                    'salt': salt,
-                    'password': hashedPassword,
-                    'roles': roles,
-                    'is_active': true,
-                    'is_locked': false
-                };
-                return dataAccess.saveEntity('bsuser', userObj);
-            })
-            .then(function(userObj) {
-                return [userObj, accessControl.validateTokenAndContinue(req.headers[settings.data.token_header])];
-            })
-            .spread(function(userObj, validTokenRes) {
-                var sess;
-                if (validTokenRes.is_valid === true && validTokenRes.session.is_anonymous === true && validTokenRes.session.username === 'anonymous') {
-                    sess = validTokenRes.session;
-                    sess.username = username;
-                    return [userObj, true, dataAccess.saveEntity('session', sess)];
-                }
-                else {
-                    return [userObj, false];
-                }
-            })
-            .spread(function(userObj, isNewAnonSess, sess) {
-                if (isNewAnonSess) {
-                    return [userObj, dataAccess.addRelationship(sess, userObj)];
-                }
-                else {
-                    return [userObj];
-                }
-            })
-            .spread(function(userObj) {
-                delete userObj.password;
-                delete userObj.salt;
-
-                // ADD EVENT TO SESSION
-                var resolveObj = userObj;
-                deferred.resolve(resolveObj);
-            })
-            .fail(function(err) {
-                if (err !== undefined && err !== null && typeof (err.AddToError) == 'function') {
-                    deferred.reject(err.AddToError(__filename, 'signUp'));
-                }
-                else {
-                    var errorObj = new ErrorObj(500,
-                        'a0030',
-                        __filename,
-                        'signUp',
-                        'error signing up',
-                        'Error',
-                        err
-                    );
-                    deferred.reject(errorObj);
-                }
-            });
+        var apiToken = req.headers[settings.data.token_header] || null;
+        accessControl.createUser('standard', req.body, apiToken)
+        .then((usr) => {
+          delete usr.password;
+          delete usr.salt;
+          delete usr.forgot_password_tokens;
+          delete usr.object_type;
+          deferred.resolve(usr);
+        })
+        .fail((err) => {
+          typeof(err.AddToError) === 'function' ?
+            deferred.reject(err.AddToError(__filename, 'signUp'))
+          :
+            deferred.reject(new ErrorObj(500,
+                                        'a0100',
+                                        __filename,
+                                        'signUp',
+                                        'create user error',
+                                        'There was a problem creating an account.  Please try again.',
+                                        err
+                                        ));
+        });
 
         deferred.promise.nodeify(callback);
         return deferred.promise;
@@ -1184,71 +1112,26 @@ Accounts.prototype.post = {
     apiUser: function(req, callback) {
       var deferred = Q.defer();
 
-      //var username = req.body.username == null ? req.body.email.toLowerCase() : req.body.username.toLowerCase();
-      //var password = req.body.password;
-      var first = req.body.first == null ? '' : req.body.first;
-      var last = req.body.last == null ? '' : req.body.last;
-      var roles = ['default-user'];
-      var email = req.body.email;
-
-      var validEmailRegex = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
-      if (!validEmailRegex.test(email)) {
-          var errorObj = new ErrorObj(500,
-              'a0029',
-              __filename,
-              'signUp',
-              'invalid email address'
-          );
-          deferred.reject(errorObj);
-          deferred.promise.nodeify(callback);
-          return deferred.promise;
-      }
-
-      utilities.validateEmail(email)
-      .then(function() {
-          return generateApiUserCreds();
+      accessControl.createUser('api', req.body)
+      .then((usr) => {
+        delete usr.password;
+        delete usr.salt;
+        delete usr.forgot_password_tokens;
+        delete usr.object_type;
+        deferred.resolve(usr);
       })
-      .then(function(creds) {
-          var saltedSecret = creds.clientSecret + creds.salt;
-          var hashedSecret = crypto.createHash('sha256').update(saltedSecret).digest('hex');
-
-          var userObj = {
-              'object_type': 'bsuser',
-              'account_type': 'api',
-              'client_id': creds.clientId,
-              'first': first,
-              'last': last,
-              'email': email,
-              'salt': creds.salt,
-              'client_secret': hashedSecret,
-              'roles': roles,
-              'is_active': true,
-              'is_locked': false
-          };
-          return [creds.clientSecret, dataAccess.saveEntity('bsuser', userObj)];
-      })
-      .spread(function(clientSecret, userObj) {
-          delete userObj.id;
-          delete userObj.salt;
-          userObj.client_secret = clientSecret;
-
-          deferred.resolve(userObj);
-      })
-      .fail(function(err) {
-          if (err !== undefined && err !== null && typeof (err.AddToError) == 'function') {
-              deferred.reject(err.AddToError(__filename, 'apiUser'));
-          }
-          else {
-              var errorObj = new ErrorObj(500,
-                  'a1051',
-                  __filename,
-                  'POST apiUser',
-                  'error signing up api user',
-                  'Error creating new api user',
-                  err
-              );
-              deferred.reject(errorObj);
-          }
+      .fail((err) => {
+        typeof(err.AddToError) === 'function' ?
+          deferred.reject(err.AddToError(__filename, 'signUp'))
+        :
+          deferred.reject(new ErrorObj(500,
+                                      'a0100',
+                                      __filename,
+                                      'signUp',
+                                      'create user error',
+                                      'There was a problem creating an account.  Please try again.',
+                                      err
+                                      ));
       });
 
       deferred.promise.nodeify(callback);
@@ -2048,38 +1931,6 @@ function splitParams(paramString) {
 	}
 
 	return params;
-}
-
-function generateApiUserCreds() {
-  var deferred = Q.defer();
-
-  var cryptoCall = Q.denodeify(crypto.randomBytes);
-  cryptoCall(12)
-  .then((buf) => {
-    let clientId = buf.toString('hex');
-    return [clientId, cryptoCall(24)];
-  })
-  .spread((clientId, buf) => {
-    let clientSecret = buf.toString('hex');
-    return [clientId, clientSecret, cryptoCall(48)];
-  })
-  .spread((clientId, clientSecret, buf) => {
-    let salt = buf.toString('hex');
-    deferred.resolve({clientId: clientId, clientSecret: clientSecret, salt: salt});
-  })
-  .fail((err) => {
-    var errorObj = new ErrorObj(500,
-                              'a1050',
-                              __filename,
-                              'generateApiUserCreds',
-                              'error generating credentials for api user',
-                              'Error generating credentials for api user',
-                              err
-                              );
-    deferred.reject(errorObj);
-  });
-
-  return deferred.promise;
 }
 
 exports.accounts = Accounts;

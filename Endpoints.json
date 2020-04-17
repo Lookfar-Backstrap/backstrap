@@ -118,13 +118,13 @@
                         {
                             "name": "username",
                             "type": "string",
-                            "isRequired": true,
+                            "isRequired": false,
                             "description": null
                         },
                         {
                             "name": "password",
                             "type": "string",
-                            "isRequired": true,
+                            "isRequired": false,
                             "description": null
                         },
                         {
@@ -132,6 +132,12 @@
                             "type": "string",
                             "isRequired": true,
                             "description": "Used for Forgot Password and Welcome Email"
+                        },
+                        {
+                            "name": "external_identity_id",
+                            "type": "string",
+                            "isRequired": false,
+                            "description": "Identifier given by an external identity provider"
                         },
                         {
                             "name": "first",
