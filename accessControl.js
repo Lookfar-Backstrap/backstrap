@@ -150,13 +150,32 @@ AccessControl.prototype.signIn = (params, apiToken) => {
     // GET THE USER FROM OUR DB
     let inner_deferred = Q.defer();
 
+    // WE HAVE A TOKEN
+    if(token) {
+      let keyUrl = settings.data.identity.key_url || null;
+      let kid = settings.data.identity.kid || null;
+      jwt.getKey(keyUrl, kid)
+      .then((key) => {
+        return jwt.verifyToken(token, key);
+      })
+      .then((decodedToken) => {
+        let externalId = decodedToken.sub;
+        return dataAccess.getUserByExternalIdentityId(externalId);
+      })
+      .then((usr) => {
+        inner_deferred.resolve(usr);
+      })
+      .fail((jwtErr) => {
+        inner_deferred.reject(jwtErr.AddToError(__filename, 'signin'));
+      });
+    }
     // WE HAVE USERNAME/PASSWORD
-    if((username || email) && password) {
+    else if((username || email) && password) {
       let identifier = username ? username : email;
       if(identifier) {
         dataAccess.getUserByUserName(identifier)
         .then((usr) => {
-          // ONLY ADMINS AND SUPERUSERS CAN LOG IN WITH USER/PASSWORD IN NON-NATIVE ACCOUNTS
+          // ONLY ADMINS AND SUPERUSERS CAN LOG IN WITH USER/PASSWORD IN NON-NATIVE ACCOUNTS (API USERS DON'T SIGN IN)
           if(['native'].includes(usr.account_type) || usr.roles.includes('super-user') || usr.roles.includes('admin-user')) {
             inner_deferred.resolve(usr);
           }
@@ -186,25 +205,6 @@ AccessControl.prototype.signIn = (params, apiToken) => {
                                   );
         inner_deferred.reject(errorObj);
       }
-    }
-    // WE HAVE A TOKEN
-    else if(token) {
-      let keyUrl = settings.data.identity.key_url || null;
-      let kid = settings.data.identity.kid || null;
-      jwt.getKey(keyUrl, kid)
-      .then((key) => {
-        return jwt.verifyToken(token, key);
-      })
-      .then((decodedToken) => {
-        let externalId = decodedToken.sub;
-        return dataAccess.getUserByExternalIdentityId(externalId);
-      })
-      .then((usr) => {
-        inner_deferred.resolve(usr);
-      })
-      .fail((jwtErr) => {
-        inner_deferred.reject(jwtErr.AddToError(__filename, 'signin'));
-      });
     }
     else {
       var errorObj = new ErrorObj(401,
@@ -242,8 +242,8 @@ AccessControl.prototype.signIn = (params, apiToken) => {
       if(token) {
         inner_deferred.resolve(userObj)
       }
-      // WE'RE USING EXTERNAL SIGNIN, BUT THIS IS AN ADMIN OR SUPERUSER USING USERNAME/PASSWORD
-      else if((userObj.roles.includes('super-user') || userObj.roles.includes('admin-user')) && ((username || email) && password)) {
+      // WE'RE USING EXTERNAL SIGNIN, BUT THIS IS A NATIVE ACCOUNT OR AN ADMIN/SUPERUSER USING USERNAME/PASSWORD
+      else if((userObj.account_type === 'native' || userObj.roles.includes('super-user') || userObj.roles.includes('admin-user')) && ((username || email) && password)) {
         AccessControl.prototype.checkCredentials(password, userObj)
         .then(() => {
           inner_deferred.resolve(userObj);
