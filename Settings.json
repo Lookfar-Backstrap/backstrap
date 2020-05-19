@@ -18,8 +18,14 @@
   },
   "identity": {
     "provider": "native",
-    "key_url": null,
-    "kid": null
+    "domain": "",
+    "client_id": "",
+    "client_secret": "",
+    "audience": "",
+    "key_url": "",
+    "kid": "",
+    "mgmt_client_id": "",
+    "mgmt_client_secret": ""
   },
 	"oauth": {
 		"facebook": {
