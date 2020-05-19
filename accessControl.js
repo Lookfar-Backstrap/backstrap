@@ -16,6 +16,7 @@ var data = [];
 var settings;
 var dataAccess;
 var utilities;
+var authSigningKey;
 
 const jwt = require('./jwt.js');
 
@@ -34,7 +35,7 @@ var AccessControl = function (util, s, d) {
   settings = s;
   dataAccess = d;
 
-	this.extension = new AccessControlExtension(this, util, s);
+  this.extension = new AccessControlExtension(this, util, s);
 };
 
 AccessControl.prototype.init = function(b, f, rs) {
@@ -46,23 +47,78 @@ AccessControl.prototype.init = function(b, f, rs) {
 	remoteSettings = rs;
 
 	if (remoteSettings == null || remoteSettings === false) {
+        try {
+            securityObj = require('../../Security.json');
+            securityWriteLocation = './Security.json';
+        }
+        catch(e) {
+            securityObj = require('./Security.json');
+            securityWriteLocation = './node_modules/backstrap-server/Security.json';
+        }
+
 		try {
-			securityObj = require('../../Security.json');
-			securityWriteLocation = './Security.json';
+      if(settings.data.identity && settings.data.identity.provider && settings.data.identity.provider.toLowerCase() === 'auth0') {
+        let keyUrl = settings.data.identity.key_url || null;
+        let kid = settings.data.identity.kid || null;
+        jwt.getKey(keyUrl, kid)
+        .then((key) => {
+          authSigningKey = key;
+          deferred.resolve(true);
+        })
+        .fail((keyErr) => {
+          let errorObj = new ErrorObj(500,
+                                      'ac0020',
+                                      __filename,
+                                      'init',
+                                      'problem getting signing key from auth0',
+                                      'Initialization Failure.  Please contact your administrator.',
+                                      keyErr);
+          deferred.reject(errorObj);
+        });
+      }
+      else {
+        deferred.resolve(true);
+      }
 		}
-		catch(e) {
-      securityObj = require('./Security.json');
-      securityWriteLocation = './node_modules/backstrap-server/Security.json';
+		catch (e) {
+			var errorObj = new ErrorObj(403,
+				'ac0001',
+				__filename,
+				'init',
+				'unauthorized',
+				'You are not authorized to access this endpoint',
+				null);
+			deferred.reject(errorObj);
 		}
-		AccessControl.prototype.data = securityObj;
-		deferred.resolve(true);
 	}
 	else {
 		s3.getObject({Bucket: bucket, Key: file}, function(err, res) {
 			if(!err) {
 				securityObj = JSON.parse(res.Body.toString());
 				AccessControl.prototype.data = securityObj;
-				deferred.resolve(true);
+        
+        if(settings.data.identity && settings.data.identity.provider && settings.data.identity.provider.toLowerCase() === 'auth0') {
+          let keyUrl = settings.data.identity.key_url || null;
+          let kid = settings.data.identity.kid || null;
+          jwt.getKey(keyUrl, kid)
+          .then((key) => {
+            authSigningKey = key;
+            deferred.resolve(true);
+          })
+          .fail((keyErr) => {
+            let errorObj = new ErrorObj(500,
+                                        'ac0021',
+                                        __filename,
+                                        'init',
+                                        'problem getting signing key from auth0',
+                                        'Initialization Failure.  Please contact your administrator.',
+                                        keyErr);
+            deferred.reject(errorObj);
+          });
+        }
+        else {
+          deferred.resolve(true);
+        }
 			}
 			else {
 				var errorObj = new ErrorObj(500,
@@ -108,6 +164,9 @@ AccessControl.prototype.createUser = function(userType, params, apiToken) {
   switch(userType) {
     case 'api':
       createUserCmd = createAPIUser(email, first, last, roles);
+      break;
+    case 'external-api':
+      createUserCmd = createExternalAPIUser(email, exid, first, last, roles);
       break;
     default:
       createUserCmd = createStandardUser(username, email, password, exid, first, last, roles, apiToken);
@@ -161,7 +220,7 @@ AccessControl.prototype.signIn = (params, apiToken) => {
       })
       .then((decodedToken) => {
         let externalId = decodedToken.sub;
-        return dataAccess.getUserByExternalIdentityId(externalId);
+        return dataAccess.getUserByExternalIdentityId(externalId, ['native','external']);
       })
       .then((usr) => {
         inner_deferred.resolve(usr);
@@ -295,7 +354,7 @@ AccessControl.prototype.signIn = (params, apiToken) => {
     return [userObj, newSess.token, dataAccess.addRelationship(userObj, newSess, null)];
   })
   .spread((userObj, tkn, rel_res) => {
-      return [userObj, tkn, AccessControl.prototype.validateTokenAndContinue(apiToken)];
+      return [userObj, tkn, AccessControl.prototype.validateToken(apiToken, true)];
   })
   .spread((userObj, tkn, validTokenRes) => {
       var sess = null;
@@ -524,17 +583,25 @@ AccessControl.prototype.save = function(doNetworkReload) {
 	return deferred.promise;
 };
 
-AccessControl.prototype.validateToken = function (tkn, callback) {
+// ----------------------------------------------------------------
+// SESSION TOKENS
+// ----------------------------------------------------------------
+AccessControl.prototype.validateToken = function (tkn, continueWhenInvalid, callback) {
 	var deferred = Q.defer();
 
 	if (tkn === undefined || tkn === null) {
-		var errorObj = new ErrorObj(401,
-			'ac0005',
-			__filename,
-			'validateToken',
-			'no token provided'
-		);
-		deferred.reject(errorObj);
+    if(continueWhenInvalid) {
+      deferred.resolve({is_valid: false});
+    }
+    else {
+      var errorObj = new ErrorObj(401,
+        'ac0005',
+        __filename,
+        'validateToken',
+        'no token provided'
+      );
+      deferred.reject(errorObj);
+    }
 
 		deferred.promise.nodeify(callback);
 		return deferred.promise;
@@ -545,21 +612,26 @@ AccessControl.prototype.validateToken = function (tkn, callback) {
     deferred.resolve({is_valid:true, session:find_results});
   })
   .fail(function (err) {
-    if (err !== undefined && err !== null && typeof (err.AddToError) === 'function') {
-      err.setStatus(401);
-      err.setMessages('could not find session for this token', 'unauthorized');
-      deferred.reject(err.AddToError(__filename, 'validateToken', 'could not find session for this token'));
+    if(continueWhenInvalid) {
+      deferred.resolve({is_valid: false});
     }
     else {
-      var errorObj = new ErrorObj(401,
-        'ac1004',
-        __filename,
-        'validateToken',
-        'could not find session for this token',
-        'unauthorized',
-        err
-      );
-      deferred.reject(errorObj);
+      if (err !== undefined && err !== null && typeof (err.AddToError) === 'function') {
+        err.setStatus(401);
+        err.setMessages('could not find session for this token', 'unauthorized');
+        deferred.reject(err.AddToError(__filename, 'validateToken', 'could not find session for this token'));
+      }
+      else {
+        var errorObj = new ErrorObj(401,
+          'ac1004',
+          __filename,
+          'validateToken',
+          'could not find session for this token',
+          'unauthorized',
+          err
+        );
+        deferred.reject(errorObj);
+      }
     }
   });
 
@@ -567,7 +639,12 @@ AccessControl.prototype.validateToken = function (tkn, callback) {
 	return deferred.promise;
 };
 
-AccessControl.prototype.validateBasicAuth = function(authHeader, callback) {
+
+
+// ----------------------------------------------------------------
+// BASIC AUTH
+// ----------------------------------------------------------------
+AccessControl.prototype.validateBasicAuth = function(authHeader, continueWhenInvalid, callback) {
   var deferred = Q.defer();
 
   let [authType, authToken] = authHeader.split(' ');
@@ -584,44 +661,80 @@ AccessControl.prototype.validateBasicAuth = function(authHeader, callback) {
             deferred.resolve({is_valid: true, client_id: clientId});
           }
           else {
-            let errorObj = new ErrorObj(401,
-                                        'ac1009',
-                                        __filename,
-                                        'validateBasicAuth',
-                                        'Authentication Error',
-                                        'unauthorized',
-                                        null
-                                      );
-            deferred.reject(errorObj);
+            if(continueWhenInvalid) {
+              deferred.resolve({is_valid: false});
+            }
+            else {
+              let errorObj = new ErrorObj(401,
+                                          'ac1009',
+                                          __filename,
+                                          'validateBasicAuth',
+                                          'Authentication Error',
+                                          'unauthorized',
+                                          null
+                                        );
+              deferred.reject(errorObj);
+            }
           }
         }
         else {
+          if(continueWhenInvalid) {
+            deferred.resolve({is_valid: false});
+          }
+          else {
+            let errorObj = new ErrorObj(401,
+              'ac1008',
+              __filename,
+              'validateBasicAuth',
+              'User is locked',
+              'unauthorized',
+              null
+            );
+            deferred.reject(errorObj);
+          }
+        }
+      })
+      .fail((usrErr) => {
+        if(continueWhenInvalid) {
+          deferred.resolve({is_valid: false});
+        }
+        else {
           let errorObj = new ErrorObj(401,
-            'ac1008',
+            'ac1007',
             __filename,
             'validateBasicAuth',
-            'User is locked',
+            'Authentication Error',
             'unauthorized',
             null
           );
           deferred.reject(errorObj);
         }
       })
-      .fail((usrErr) => {
+    }
+    else {
+      if(continueWhenInvalid) {
+        deferred.resolve({is_valid: false});
+      }
+      else {
         let errorObj = new ErrorObj(401,
-          'ac1007',
+          'ac1006',
           __filename,
           'validateBasicAuth',
-          'Authentication Error',
+          'Malformed basic auth',
           'unauthorized',
           null
         );
         deferred.reject(errorObj);
-      })
+      }
+    }
+  }
+  else {
+    if(continueWhenInvalid) {
+      deferred.resolve({is_valid: false});
     }
     else {
       let errorObj = new ErrorObj(401,
-        'ac1006',
+        'ac1005',
         __filename,
         'validateBasicAuth',
         'Malformed basic auth',
@@ -631,82 +744,89 @@ AccessControl.prototype.validateBasicAuth = function(authHeader, callback) {
       deferred.reject(errorObj);
     }
   }
-  else {
-    let errorObj = new ErrorObj(401,
-      'ac1005',
-      __filename,
-      'validateBasicAuth',
-      'Malformed basic auth',
-      'unauthorized',
-      null
-    );
-    deferred.reject(errorObj);
-  }
 
   deferred.promise.nodeify(callback);
   return deferred.promise;
 }
 
-AccessControl.prototype.validateBasicAuthAndContinue = function(authHeader, callback) {
+
+// ----------------------------------------------------------------
+// JWT
+// ----------------------------------------------------------------
+AccessControl.prototype.validateJwt = function(authHeader, continueWhenInvalid, callback) {
   var deferred = Q.defer();
 
   let [authType, authToken] = authHeader.split(' ');
-  if(authType.toLowerCase() === 'basic') {
-    let [clientId, clientSecret] = new Buffer(authToken, 'base64').toString().split(':');
-    if(clientId && clientSecret) {
-      dataAccess.find('bsuser', {client_id: clientId})
-      .then((usr) => {
-        if(!usr.is_locked) {
-          let saltedSecret = clientSecret + usr.salt;
-          let hashedClientSecret = crypto.createHash('sha256').update(saltedSecret).digest('hex');
-          if(hashedClientSecret === usr.client_secret) {
-            // VALID
-            deferred.resolve({is_valid: true, client_id: clientId});
-          }
-          else {
-            deferred.resolve({is_valid: false});
-          }
-        }
-        else {
+  if(authType.toLowerCase() === 'bearer') {
+    jwt.verifyToken(authToken, authSigningKey)
+    .then((decodedToken) => {
+      let externalId = decodedToken.sub;
+      return dataAccess.getUserByExternalIdentityId(externalId, ['external-api']);
+    })
+    .then((usr) => {
+      if(usr.is_locked !== true) {
+        deferred.resolve({is_valid: true, user: usr});
+      }
+      else {
+        if(continueWhenInvalid) {
           deferred.resolve({is_valid: false});
         }
-      })
-      .fail((usrErr) => {
+        else {
+          let errorObj = new ErrorObj(401,
+            'ac1108',
+            __filename,
+            'validateJwt',
+            'User is locked',
+            'unauthorized',
+            null
+          );
+          deferred.reject(errorObj);
+        }
+      }
+    })
+    .fail((err) => {
+      if(continueWhenInvalid) {
         deferred.resolve({is_valid: false});
-      })
-    }
-    else {
-      deferred.resolve({is_valid: false});
-    }
+      }
+      else {
+        let errorObj = new ErrorObj(401,
+          'ac1107',
+          __filename,
+          'validateJwt',
+          'Authentication Error',
+          'unauthorized',
+          err
+        );
+        deferred.reject(errorObj);
+      }
+    })
   }
   else {
-    deferred.resolve({is_valid: false});
+    if(continueWhenInvalid) {
+      deferred.resolve({is_valid: false});
+    }
+    else {
+      let errorObj = new ErrorObj(401,
+        'ac1105',
+        __filename,
+        'validateJwt',
+        'Malformed bearer auth',
+        'unauthorized',
+        null
+      );
+      deferred.reject(errorObj);
+    }
   }
 
   deferred.promise.nodeify(callback);
   return deferred.promise;
 }
 
-AccessControl.prototype.validateTokenAndContinue = function (tkn, callback) {
-	var deferred = Q.defer();
 
-	if (tkn == null) {
-		deferred.resolve({ 'is_valid': false });
-	}
-	else {
-		dataAccess.findOne('session', { 'object_type': 'session', 'token': tkn })
-		.then(function (find_results) {
-			deferred.resolve({ 'is_valid': true, 'session': find_results });
-		})
-		.fail(function (err) {
-			deferred.resolve({ 'is_valid': false });
-		});
-	}
 
-	deferred.promise.nodeify(callback);
-	return deferred.promise;
-};
-
+// ----------------------------------------------------------------
+// CHECK ROLES & PERMISSIONS
+// ----------------------------------------------------------------
 AccessControl.prototype.verifyAccess = function (req, serviceCall, callback) {
 	var deferred = Q.defer();
   var userObj = req.this_user;
@@ -904,14 +1024,14 @@ function createStandardUser(username, email, password = null, exid = null, first
                                             __filename,
                                             'createStandardUser',
                                             'insufficient data to create user',
-                                            'You must provide username/email & password or an external identity provider identifier',
+                                            'You must provide username/email & password or an external identity provider id',
                                             null));
       }
 
       return inner_deferred.promise;
   })
   .then(function(userObj) {
-    return [userObj, AccessControl.prototype.validateTokenAndContinue(apiToken)];
+    return [userObj, AccessControl.prototype.validateToken(apiToken, true)];
   })
   .spread(function(userObj, validTokenRes) {
       var sess;
@@ -942,13 +1062,13 @@ function createStandardUser(username, email, password = null, exid = null, first
   })
   .fail(function(err) {
       if (err !== undefined && err !== null && typeof (err.AddToError) == 'function') {
-          deferred.reject(err.AddToError(__filename, 'signUp'));
+          deferred.reject(err.AddToError(__filename, 'createStandardUser'));
       }
       else {
           var errorObj = new ErrorObj(500,
               'ac0330',
               __filename,
-              'createUser',
+              'createStandardUser',
               'error signing up',
               'Error',
               err
@@ -1110,6 +1230,98 @@ function generateApiUserCreds() {
                               err
                               );
     deferred.reject(errorObj);
+  });
+
+  return deferred.promise;
+}
+
+function createExternalAPIUser(email, exid, first, last, roles) {
+  var deferred = Q.defer();
+  
+  roles = roles || ['default-user'];
+  first = first || '';
+  last = last || '';
+  email = email || null;
+  exud = exid || null;
+
+  var validEmailRegex = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
+  if (!validEmailRegex.test(email)) {
+      var errorObj = new ErrorObj(500,
+          'ac0431',
+          __filename,
+          'createExternalAPIUser',
+          'invalid email address'
+      );
+      deferred.reject(errorObj);
+      deferred.promise.nodeify(callback);
+      return deferred.promise;
+  }
+  if(exid == null) {
+    var errorObj = new ErrorObj(500,
+                                'ac0433',
+                                __filename,
+                                'createExternalAPIUser',
+                                'no external identifier'
+                              );
+    deferred.reject(errorObj);
+    deferred.promise.nodeify(callback);
+    return deferred.promise;
+  }
+
+  utilities.validateEmail(email)
+  .then(function() {
+    let qry = "SELECT data from bsuser where data->>'external_identity_id' = $1";
+    let params = [exid];
+    return dataAccess.runSql(qry, params);
+  })
+  .then((usrRes) => {
+    if(usrRes.length == 0) {
+      var userObj = {
+          'object_type': 'bsuser',
+          'account_type': 'external-api',
+          'first': first,
+          'last': last,
+          'email': email,
+          'roles': roles,
+          'external_identity_id': exid,
+          'is_active': true,
+          'is_locked': false
+      };
+      return dataAccess.saveEntity('bsuser', userObj);
+    }
+    else {
+      var errorObj = new ErrorObj(500,
+                                    'ac0435',
+                                    __filename,
+                                    'createExternalUser',
+                                    'a user already exists with that external id',
+                                    'This external identifier is assigned to another user',
+                                    null
+                                  );
+      deferred.reject(errorObj);
+      deferred.promise.nodeify(callback);
+      return deferred.promise;
+    }
+  })
+  .then(function(userObj) {
+      delete userObj.id;
+      deferred.resolve(userObj);
+  })
+  .fail(function(err) {
+      if (err !== undefined && err !== null && typeof (err.AddToError) == 'function') {
+          deferred.reject(err.AddToError(__filename, 'createExternalUser'));
+      }
+      else {
+          var errorObj = new ErrorObj(500,
+              'ac0432',
+              __filename,
+              'createExternalUser',
+              'error signing up external user',
+              'Error creating new api user',
+              err
+          );
+          deferred.reject(errorObj);
+      }
   });
 
   return deferred.promise;

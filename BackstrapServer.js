@@ -301,23 +301,40 @@ function requestPipeline(req, res, verb) {
 
   serviceRegistration.serviceCallExists(serviceCall, area, controller, verb, version)
   .then(function (sc) {
-    // IF THERE IS A BACKSTRAP STYLE AUTH HEADER OR NEITHER A BACKSTRAP AUTH HEADER NOR BASIC AUTH HEADER 
+    let continueWhenInvalid = false;
+    if (!sc.authRequired) {
+      continueWhenInvalid = true;
+    }
+
+    // IF THERE IS A BACKSTRAP STYLE AUTH HEADER OR NEITHER A BACKSTRAP AUTH HEADER NOR BASIC/BEARER AUTH HEADER 
     if(req.headers[settings.data.token_header] != null || 
         (req.headers[settings.data.token_header] == null && req.headers['authorization'] == null)) {
-      if (sc.authRequired) {
-        return [sc, accessControl.validateToken(req.headers[settings.data.token_header])];
-      }
-      else {
-        return [sc, accessControl.validateTokenAndContinue(req.headers[settings.data.token_header])];
-      }
+      return [sc, accessControl.validateToken(req.headers[settings.data.token_header], continueWhenInvalid)];
     }
-    // OTHERWISE THERE MUST BE A BASIC AUTH HEADER
+    // OTHERWISE THIS IS BASIC OR BEARER AUTH
+    // BASIC AUTH IS BACKSTRAP NATIVE API USERS
+    // BEARER AUTH USES JWTs FROM EXTERNAL IDENTITY PROVIDERS
     else {
-      if(sc.authRequired) {
-        return [sc, accessControl.validateBasicAuth(req.headers['authorization'])];
+      [authType] = req.headers['authorization'].split(' ');
+      if(authType.toLowerCase() === 'basic') {
+        return [sc, accessControl.validateBasicAuth(req.headers['authorization'], continueWhenInvalid)];
+      }
+      else if(authType.toLowerCase() === 'bearer') {
+        return [sc, accessControl.validateJwt(req.headers['authorization'], continueWhenInvalid)];
       }
       else {
-        return [sc, accessControl.validateBasicAuthAndContinue(req.headers['authorization'])];;
+        if(continueWhenInvalid) {
+          return [sc, Q({is_valid: false})];
+        }
+        else {
+          return [sc, Q.reject(new ErrorObj(403,
+                                            'bs0001',
+                                            __filename,
+                                            'requestPipeline',
+                                            'bad auth type',
+                                            'Unauthorized',
+                                           null))];
+        }
       }
     }
   })
@@ -326,7 +343,7 @@ function requestPipeline(req, res, verb) {
     
     if(validTokenResponse.is_valid === true) {
 
-      // SEE IF THIS IS BACKSTRAP STYLE AUTH OR BASIC AUTH
+      // SEE IF THIS IS BACKSTRAP STYLE AUTH OR BASIC/BEARER AUTH
       if(validTokenResponse.hasOwnProperty('session')) {
         if(settings.data.access_logging === true) accessLogEvent.session_id = validTokenResponse.session.id;
 
@@ -337,6 +354,7 @@ function requestPipeline(req, res, verb) {
         .fail(function(usr_err) {
           if(sc.authRequired) {
             var errorObj = new ErrorObj(403,
+                                        'bs0002',
                                         __filename,
                                         'requestPipeline',
                                         'unauthorized',
@@ -349,6 +367,9 @@ function requestPipeline(req, res, verb) {
           }
         });
       }
+      else if(validTokenResponse.hasOwnProperty('user')) {
+        inner_deferred.resolve(validTokenResponse.user);
+      }
       else {
         if(settings.data.access_logging === true) accessLogEvent.client_id = validTokenResponse.client_id;
 
@@ -359,6 +380,7 @@ function requestPipeline(req, res, verb) {
         .fail(function(usr_err) {
           if(sc.authRequired) {
             var errorObj = new ErrorObj(403,
+                                        'bs0003',
                                         __filename,
                                         'requestPipeline',
                                         'unauthorized',
@@ -413,7 +435,18 @@ function requestPipeline(req, res, verb) {
       accessLog.write(logEntry);
     }
 
-    res.status(200).send(results);
+    if(results.express_download === true){
+      if(results.download_name){
+        res.status(200).download(results.download_path, results.download_name);
+      }
+      else {
+        res.status(200).download(results.download_path);
+      }
+    }
+    else {
+      res.status(200).send(results);
+    }
+    
   })
   .fail(function (err) {
     if (err.http_status == null) {
