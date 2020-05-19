@@ -428,7 +428,18 @@ function requestPipeline(req, res, verb) {
       accessLog.write(logEntry);
     }
 
-    res.status(200).send(results);
+    if(results.express_download === true){
+      if(results.download_name){
+        res.status(200).download(results.download_path, results.download_name);
+      }
+      else {
+        res.status(200).download(results.download_path);
+      }
+    }
+    else {
+      res.status(200).send(results);
+    }
+    
   })
   .fail(function (err) {
     if (err.http_status == null) {
