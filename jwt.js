@@ -12,7 +12,7 @@ module.exports = {
         deferred.resolve(decoded);
       }
       else {
-        let errorObj = new errorObj(500,
+        let errorObj = new ErrorObj(500,
                                     'jwt0001',
                                     __filename,
                                     'verifyToken',
@@ -32,9 +32,21 @@ module.exports = {
       jwksUri: url
     });
 
-    client.getSigningKey(null, function(err, key) {
-      var signingKey = key.publicKey || key.rsaPublicKey;
-      deferred.resolve(signingKey);
+    client.getSigningKey(kid, function(err, key) {
+      if(!err) {
+        var signingKey = key.publicKey || key.rsaPublicKey;
+        deferred.resolve(signingKey);
+      }
+      else {
+        let errorObj = new ErrorObj(500,
+                                    'jwt0002',
+                                    __filename,
+                                    'getKey',
+                                    'problem obtaining signing key for auth',
+                                    'There was a proble mverifying user\'s identity',
+                                    err);
+        deferred.reject(errorObj);
+      }
     });
 
     return deferred.promise;
