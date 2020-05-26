@@ -702,6 +702,50 @@ module.exports = DataAccessExtension;
 In this way, you will be able to call from any controller `dataAccess.extension.myCustomSqlMethod('mazda', '3', 'black')`.  This is the exact same process for dataAccess_ext.js, accessControl_ext.js, and utilities_ext.js.  The functions you define in them will be available at dataAccess.extension, accessControl.extension, and utilities.extension in all controllers.
 
 
+## Using Data Services Directory
+To enable a services directory in your project, add the following line to your Settings.json file:
+```
+data_service_directory: ./path/to/directory
+```
+
+On startup, Backstrap Server will attempt to instantiate each file in that directory, so it is important these files are named appropriately and contain a proper constructor.  Your service files should look like the following.
+
+```
+var Q = require('q');
+var dataAccess;       // GLOBAL HANDLE TO dataAccess.js TO GET ACCESS TO MAIN DATA FUNCTIONS
+var utilities;        // HANDLE TO utilities.js 
+
+// THE CONSTRUCTOR INJECTS dataAccess & utilties.
+// ASSIGN THEM TO THE GLOBAL VARS ABOVE
+var testService = function(da, util) {
+  dataAccess = da;
+  utilities = util;
+}
+
+// ADD TO THE PROTOTYPE WITH YOUR MODEL-SPECIFIC FUNCTIONS.
+// THEY WILL BE AVAILABLE IN YOUR CONTROLLERS AT dataAccess.MY_FILE_NAME.MY_FUNCTION_NAME,
+// IN THIS CASE dataAccess.testService.test()
+testService.prototype.test = () => {
+  var deferred = Q.defer();
+
+  dataAccess.runSql('SELECT * FROM bsuser', [])
+  .then((res) => {
+    deferred.resolve(res);
+  })
+  .fail((err) => {
+    deferred.reject(err);
+  });
+
+  return deferred.promise;
+}
+
+// EXPORTS PROPERTY MUST MATCH FILE NAME EXACTLY
+// INCLUDING CAPITALIZATION
+exports.testService = testService;
+```
+
+If setup correctly, your methods will be available in `dataAccess.MY_SERVICE_FILE.MY_FUNCTION()`.  Otherwise, initialization will fail.
+
 
 ## Using the ORM
 Backstrap Server comes with an onboard ORM built for maximum flexibility.  You can define model with an arbitrary number of properties using types:
