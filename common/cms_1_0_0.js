@@ -9,11 +9,14 @@ var serviceRegistration;
 var settings;
 var models;
 
+const path = require('path');
+const rootDir = path.dirname(require.main.filename);
+
 var schemaController = require('../schema.js');
 
 //Settings File, contains DB params
 var nodeEnv = process.env.NODE_ENV || 'local';
-var settingsFile = '../../../config/config.' + nodeEnv + '.js';
+var settingsFile = rootDir+'/config/config.' + nodeEnv + '.js';
 var config;
 try {
 	config = require(settingsFile);

@@ -28,6 +28,8 @@ var AccessControl = require('./accessControl').AccessControl;
 var Models = require('./models.js').Models;
 var schemaControl = require('./schema.js');
 
+const rootDir = path.dirname(require.main.filename);
+
 // ---------------------------------
 // SETUP EXPRESS
 // ---------------------------------
@@ -46,7 +48,7 @@ app.use(cors());
 
 //Settings File, contains DB params
 var nodeEnv = process.env.NODE_ENV || 'local';
-var configFile = '../../config/config.' + nodeEnv + '.js';
+var configFile = rootDir+'/config/config.' + nodeEnv + '.js';
 var config;
 try {
 	config = require(configFile);
@@ -97,7 +99,7 @@ settings.init(config.s3.bucket, 'Settings.json', useRemoteSettings)
 	.then(function (model_res) {
 		console.log('Endpoints initialized');
 
-		dataAccess = new DataAccess(config, models.data.models, utilities);
+		dataAccess = new DataAccess(config, models.data.models, utilities, settings);
 		console.log('DataAccess initialized');
 		//NOW SET THE DATA ACCESS VAR IN UTILITIES
 		utilities.setDataAccess(dataAccess);
@@ -136,8 +138,8 @@ settings.init(config.s3.bucket, 'Settings.json', useRemoteSettings)
 		// STARTUP THE SESSION INVALIDATION -- CHECK EVERY X MINUTES
 		var timeoutInMintues = settings.data.timeout;
 		var invalidSessionTimer = setInterval(function () { checkForInvalidSessions(dataAccess, settings) }, settings.data.timeout_check * 60000);
-    
 
+    
 		// ========================================================
 		// SETUP ROUTE HANDLERS
 		// ========================================================

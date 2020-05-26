@@ -10,6 +10,9 @@ var remoteSettings = null;
 var port = null;
 var settingsWriteLocation;
 
+const path = require('path');
+const rootDir = path.dirname(require.main.filename);
+
 var Settings = function() {
 	s3 = new AWS.S3();
 };
@@ -24,7 +27,7 @@ Settings.prototype.init = function(b, f, rs) {
 	if(remoteSettings === undefined || remoteSettings === null || remoteSettings === false) {
 		var sd;
 		try {
-			sd = require('../../Settings.json');
+			sd = require(rootDir+'/Settings.json');
 			settingsWriteLocation = './Settings.json';
 		}
 		catch(e) {

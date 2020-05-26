@@ -20,9 +20,13 @@ var authSigningKey;
 
 const jwt = require('./jwt.js');
 
+const path = require('path');
+const rootDir = path.dirname(require.main.filename);
+
 var AccessControlExtension;
 try {
-	AccessControlExtension = require('../../accessControl_ext.js');
+
+	AccessControlExtension = require(rootDir+'/accessControl_ext.js');
 }
 catch(e) {
 	AccessControlExtension = require('./accessControl_ext.js');
@@ -48,7 +52,7 @@ AccessControl.prototype.init = function(b, f, rs) {
 
 	if (remoteSettings == null || remoteSettings === false) {
         try {
-            securityObj = require('../../Security.json');
+            securityObj = require(rootDir+'/Security.json');
             securityWriteLocation = './Security.json';
         }
         catch(e) {

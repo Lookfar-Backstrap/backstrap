@@ -16,6 +16,9 @@ var settings;
 
 var endpointExtLocation;
 
+const path = require('path');
+const rootDir = path.dirname(require.main.filename);
+
 var Endpoints = function(s) {
 	s3 = new AWS.S3();
 	settings = s;
@@ -35,7 +38,7 @@ Endpoints.prototype.init = function(b, f, rs) {
 			// FOR EACH CUSTOM ENDPOINT SPECIFIED IN USER DEFINED ENDPOINTS FILE
 			// UPDATE OR ADD TO endpointData AS APPLICABLE
 			try {
-				customEndpointData = require('../../Endpoints_ext.json');
+				customEndpointData = require(rootDir+'/Endpoints_ext.json');
 				endpointExtLocation = './Endpoints_ext.json';
 			}
 			catch(e) {

@@ -12,9 +12,11 @@ var crypto = require('crypto');
 var mailTransport;
 var mkdirp = require('mkdirp');
 var async = require('async');
+
+const rootDir = path.dirname(require.main.filename);
 var UtilitiesExtension;
 try {
-	UtilitiesExtension = require('../../utilities_ext.js');
+	UtilitiesExtension = require(rootDir+'/utilities_ext.js');
 }
 catch(e) {
 	UtilitiesExtension = require('./utilities_ext.js');

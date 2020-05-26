@@ -9,6 +9,9 @@ var endpoints;
 var fs = require('fs');
 var Q = require('q');
 
+const path = require('path');
+const rootDir = path.dirname(require.main.filename);
+
 var Controller = function (da, utils, ac, sr, st, m, e) {
 	dataAccess = da;
 	utilities = utils;
@@ -197,7 +200,7 @@ exports.getVersionOfWebService = function getVersionOfWebService(areaName, contr
 	}
 	else {
 		rootServicesDir = './' + areaName + '/';
-		servicesDir = '../../'+ areaName +'/';
+		servicesDir = rootDir+'/'+ areaName +'/';
 	}
 	var services = fs.readdirSync(rootServicesDir);
 	var baseServiceName = null;

@@ -33,10 +33,14 @@ const { Pool, Client } = require('pg')
 var crypto = require('crypto');
 var Q = require('q');
 var async = require('async');
+var fs = require('fs');
+
+const path = require('path');
+const rootDir = path.dirname(require.main.filename);
 
 var DataAccessExtension;
 try {
-  DataAccessExtension = require('../../dataAccess_ext.js');
+  DataAccessExtension = require(rootDir+'/dataAccess_ext.js');
 }
 catch(e) {
   DataAccessExtension = require('./dataAccess_ext.js');
@@ -82,7 +86,7 @@ var immutableKeys = ['id', 'object_type', 'is_active', 'created_at', 'updated_at
 // file, and setup backstrapSql.  Fill out the relationshipMap 
 // and the typeToCollectionMap
 // ------------------------------------------------------------------
-var DataAccess = function (dbConfig, mdls, util) {
+var DataAccess = function (dbConfig, mdls, util, settings) {
 	utilities = util;
 
 	//INSTANTIATE THE PG pool CONSTANT
@@ -95,7 +99,30 @@ var DataAccess = function (dbConfig, mdls, util) {
 		max: 1000
 	});
 
-	this.extension = new DataAccessExtension(this, mdls);
+  this.extension = new DataAccessExtension(this, mdls);
+  
+  // IF THERE IS A SERVICES DIRECTORY SPECIFIED IN Settings.json
+  // RUN THROUGH IT AND INSTANTIATE EACH SERVICE FILE
+  if(settings.data.data_service_directory != null) {
+    let serviceDir = rootDir;
+    if(settings.data.data_service_directory.substring(0,1) !== '/')  serviceDir += '/';
+    serviceDir += settings.data.data_service_directory;
+    let services = fs.readdirSync(serviceDir);
+    services.forEach((serviceFile) => {
+      // DON'T OVERWRITE dataAccess.extension
+      if(serviceFile.toLowerCase() !== 'extension') {
+        let fileNoExt = serviceFile.replace('.js', '');
+        try {
+          let Service = require(serviceDir+'/'+serviceFile)[fileNoExt];
+          this[fileNoExt] = new Service(this, util);
+        }
+        catch(e) {
+          throw e;
+        }
+      }
+    });
+  }
+  
 
 	models = mdls;
 	backstrapSql = new BackstrapSql(models);

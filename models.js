@@ -8,6 +8,9 @@ var remoteSettings = null;
 var settings;
 var modelWriteLocation;
 
+const path = require('path');
+const rootDir = path.dirname(require.main.filename);
+
 var Models = function(s) {
 	s3 = new AWS.S3();
 	settings = s;
@@ -21,7 +24,7 @@ Models.prototype.init = function(b, f, rs) {
 	remoteSettings = rs;
 	if(remoteSettings == null || remoteSettings === false) {
 		try {
-			md = require('../../Models.json');
+			md = require(rootDir+'/Models.json');
 			modelWriteLocation = './Models.json';
 		}
 		catch(e) {
