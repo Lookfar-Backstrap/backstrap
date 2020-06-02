@@ -51,14 +51,15 @@ AccessControl.prototype.init = function(b, f, rs) {
 	remoteSettings = rs;
 
 	if (remoteSettings == null || remoteSettings === false) {
-        try {
-            securityObj = require(rootDir+'/Security.json');
-            securityWriteLocation = './Security.json';
-        }
-        catch(e) {
-            securityObj = require('./Security.json');
-            securityWriteLocation = './node_modules/backstrap-server/Security.json';
-        }
+    try {
+        securityObj = require(rootDir+'/Security.json');
+        AccessControl.prototype.data = securityObj;
+        securityWriteLocation = './Security.json';
+    }
+    catch(e) {
+        securityObj = require('./Security.json');
+        securityWriteLocation = './node_modules/backstrap-server/Security.json';
+    }
 
 		try {
       if(settings.data.identity && settings.data.identity.provider && settings.data.identity.provider.toLowerCase() === 'auth0') {
