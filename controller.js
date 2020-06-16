@@ -226,11 +226,16 @@ exports.getVersionOfWebService = function getVersionOfWebService(areaName, contr
     return versionOfWS;
   }
   catch(e) {
-    let logEntry = e+'\n';
-    errorLog.write(logEntry);
+    let errorObj = new ErrorObj(500,
+			'c1006',
+			__filename,
+			'getVersionOfWebService',
+			'error loading web service file',
+			'There was a problem with your request.  Please try again.',
+			e
+    );
+    utilities.writeErrorToLog(errorObj);
   }
 }
 
 exports.Controller = Controller;
-
-
