@@ -86,7 +86,7 @@ var DataAccess = function (dbConfig, mdls, util, settings) {
 		database: dbConfig.db.name,
 		password: dbConfig.db.pass,
 		port: dbConfig.db.port,
-		max: 1000
+		max: dbConfig.db.max_connections || 1000
 	});
 
   this.extension = new DataAccessExtension(this, mdls);

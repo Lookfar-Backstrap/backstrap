@@ -144,7 +144,6 @@ AccessControl.prototype.createUser = function(userType, params, apiToken) {
         'invalid email address'
     );
     deferred.reject(errorObj);
-    deferred.promise.nodeify(callback);
     return deferred.promise;
   }
 
