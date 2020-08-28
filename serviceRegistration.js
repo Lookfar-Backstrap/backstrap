@@ -609,6 +609,9 @@ ServiceRegistration.prototype.validateArguments = function(call, area, controlle
 						}
 					}
 					else if(arg.type==='boolean') {
+            if(verb.toLowerCase() === 'get') {
+              inputArgs[arg.name] = inputArgs[arg.name].toLowerCase() == 'true' ? true : false;
+            }
 						if(typeof(inputArgs[arg.name])!=='boolean') {
 							isValid = false;
 							invalidArgs.push(arg.name);
