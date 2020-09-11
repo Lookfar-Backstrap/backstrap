@@ -99,7 +99,7 @@ var DataAccess = function (dbConfig, mdls, util, settings) {
 		max: dbConfig.db.max_connections || 1000
 	});
 
-  this.extension = new DataAccessExtension(this, mdls);
+  this.extension = new DataAccessExtension(this, dbConfig, mdls);
   
   // IF THERE IS A SERVICES DIRECTORY SPECIFIED IN Settings.json
   // RUN THROUGH IT AND INSTANTIATE EACH SERVICE FILE
