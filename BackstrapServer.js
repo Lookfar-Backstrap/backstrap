@@ -35,13 +35,16 @@ var app = express();
 app.set('views', path.join(__dirname, 'views'));	// MAP views TO FOLDER STRUCTURE
 app.set('view engine', 'jade');						// USE JADE FOR TEMPLATING
 
-app.use(bodyParser.json({ limit: '50mb' }));		// THIS IS A HIGH LIMIT SINCE BACKSTRAP ALLOWS BASE64 ENCODED FILE UPLOAD
+const requestSizeLimit = (process.env.MAX_REQUEST_SIZE && !isNaN(process.env.MAX_REQUEST_SIZE) && Number(process.env.MAX_REQUEST_SIZE > 0)) ? process.env.MAX_REQUEST_SIZE+'mb' : '50mb';
+app.use(bodyParser.json({ limit: requestSizeLimit }));		// THIS IS A HIGH DEFAULT LIMIT SINCE BACKSTRAP ALLOWS BASE64 ENCODED FILE UPLOAD
 app.use(bodyParser.urlencoded({ extended: true }));			// DETERMINE IF THIS IS HTML OR JSON REQUEST
 app.use(express.static(path.join(__dirname, 'public')));	// MAP STATIC PAGE CALLS TO public FOLDER
 app.use(cors());
 
-// process.on('warning', e => console.warn(e.stack));       // USEFUL IN DEBUGGING
-// process.on('unhandledRejection', r => console.log(r));   // USEFUL IN DEBUGGING
+if(process.env.DEBUG_MODE != null && (process.env.DEBUG_MODE === true || process.env.DEBUG_MODE.toString().toLowerCase() === 'true')) {
+  process.on('warning', e => console.warn(e.stack));       // USEFUL IN DEBUGGING
+  process.on('unhandledRejection', r => console.log(r));   // USEFUL IN DEBUGGING
+}
 
 
 //Settings File, contains DB params
