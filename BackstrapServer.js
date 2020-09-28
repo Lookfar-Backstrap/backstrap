@@ -225,7 +225,7 @@ settings.init(config.s3.bucket, 'Settings.json', useRemoteSettings)
 		// -----------------------------------
 		// LAUNCH THE SERVER
 		// -----------------------------------
-		http.createServer(app).listen(app.get('port'), function () {
+		const server = http.createServer(app).listen(app.get('port'), function () {
 			console.log('----------------------------------------------');
 			console.log('----------------------------------------------');
 			console.log('Express server listening on port ' + app.get('port'));
@@ -240,7 +240,10 @@ settings.init(config.s3.bucket, 'Settings.json', useRemoteSettings)
 					console.error('Problem registering ip');
 				});
 			}
-		});
+    });
+    
+    if(settings.data.keep_alive_timeout != null) server.keepAliveTimeout = parseInt(settings.data.keep_alive_timeout);
+    if(settings.data.headers_timeout != null) server.headersTimeout = parseInt(settings.data.headers_timeout);
 	})
 	.fail(function (err) {
 		console.log('Initialization Failure');
