@@ -242,6 +242,7 @@ settings.init(config.s3.bucket, 'Settings.json', useRemoteSettings)
 			}
     });
     
+    if(settings.data.server_timeout != null) server.timeout = parseInt(settings.data.server_timeout);
     if(settings.data.keep_alive_timeout != null) server.keepAliveTimeout = parseInt(settings.data.keep_alive_timeout);
     if(settings.data.headers_timeout != null) server.headersTimeout = parseInt(settings.data.headers_timeout);
 	})
