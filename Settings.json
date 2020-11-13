@@ -12,8 +12,9 @@
 	"mail_options": {
 		"account": "YOUR EMAIL",
 		"service": "sendgrid",
-		"user": "YOUR USER",
-		"pass": "YOUR PASSWORD",
+		"user": "apikey",
+    "pass": "YOUR PASSWORD",
+    "api_key": "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",
 		"template_directory": "./templates/"
   },
   "identity": {

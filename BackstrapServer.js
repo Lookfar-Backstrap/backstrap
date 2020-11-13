@@ -131,7 +131,15 @@ settings.init(config.s3.bucket, 'Settings.json', useRemoteSettings)
 
 		// STARTUP THE SESSION INVALIDATION -- CHECK EVERY X MINUTES
 		var timeoutInMintues = settings.data.timeout;
-		var invalidSessionTimer = setInterval(function () { checkForInvalidSessions(dataAccess, settings) }, settings.data.timeout_check * 60000);
+    var invalidSessionTimer = setInterval(function () { checkForInvalidSessions(dataAccess, settings) }, settings.data.timeout_check * 60000);
+    
+    utilities.sendMail(['jonnyb@lookfar.com'], 'test email', 'just trying out sendgrid api keys')
+    .then((res) => {
+      console.log(res);
+    })
+    .fail((err) => {
+      console.log(err);
+    })
 
     
 		// ========================================================
