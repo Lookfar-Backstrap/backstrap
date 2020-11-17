@@ -1,18 +1,23 @@
 // ===============================================================================
 // UTILITY FUNCTIONS
 // ===============================================================================
-var dataAccess;
-var settings;
-var Q = require('q');
-var path = require('path');
-var fs = require('fs');
+const Q = require('q');
+const path = require('path');
+const fs = require('fs');
+
 var nodemailer = require('nodemailer');
 var smtpTransport = require('nodemailer-smtp-transport');
-var crypto = require('crypto');
+const nodemailerSendgrid = require('nodemailer-sendgrid');
 var mailTransport;
-var mkdirp = require('mkdirp');
+
+const crypto = require('crypto');
+const mkdirp = require('mkdirp');
+
 var UtilitiesExtension = require('./utilities_ext.js');
 var async = require('async');
+
+var dataAccess;
+var settings;
 
 var eventLog;
 var errorLog;
@@ -32,15 +37,20 @@ var Utilities = function (s) {
     var options = {};
 
     if (mo.service){
+
       // SEND GRID WANTS ONLY THE API KEY IN THE AUTH FIELD IF AVAILABLE
-      if(mo.service.toLowerCase() === 'sendgrid' && mailAuth.api_key) {
-        //delete mailAuth.user;
-        delete mailAuth.pass;
-        options.port = 587;
+      if(mo.service.toLowerCase() === 'sendgrid' && mailAuth.api_key) {if([])
+        mailTransport = nodemailer.createTransport(nodemailerSendgrid({apiKey:mailAuth.api_key}));
       }
-      options = {
-        service: mo.service,
-        auth: mailAuth
+      else {
+        options = {
+          service: mo.service,
+          auth: mailAuth
+        }
+        if(mo.port) options.port = mo.port;
+        if(mo.tls) options.tls = mo.tls
+
+        mailTransport = nodemailer.createTransport(smtpTransport(options));
       }
     }
     else {
@@ -49,12 +59,10 @@ var Utilities = function (s) {
         port: mo.port,
         auth: mailAuth
       }
-    }
-    if (mo.tls) {
-      options['tls'] = mo.tls
-    }
+      if(mo.tls) options.tls = mo.tls;      
 
-    mailTransport = nodemailer.createTransport(smtpTransport(options));
+      mailTransport = nodemailer.createTransport(smtpTransport(options));
+    } 
   }
 };
 
