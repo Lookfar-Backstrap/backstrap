@@ -1,26 +1,23 @@
 // ===============================================================================
 // UTILITY FUNCTIONS
 // ===============================================================================
-var dataAccess;
-var settings;
-var Q = require('q');
-var path = require('path');
-var fs = require('fs');
+const Q = require('q');
+const path = require('path');
+const fs = require('fs');
+
 var nodemailer = require('nodemailer');
 var smtpTransport = require('nodemailer-smtp-transport');
-var crypto = require('crypto');
+const nodemailerSendgrid = require('nodemailer-sendgrid');
 var mailTransport;
-var mkdirp = require('mkdirp');
+
+const crypto = require('crypto');
+const mkdirp = require('mkdirp');
+
+var UtilitiesExtension = require('./utilities_ext.js');
 var async = require('async');
 
-const rootDir = path.dirname(require.main.filename);
-var UtilitiesExtension;
-try {
-	UtilitiesExtension = require(rootDir+'/utilities_ext.js');
-}
-catch(e) {
-	UtilitiesExtension = require('./utilities_ext.js');
-}
+var dataAccess;
+var settings;
 
 var eventLog;
 var errorLog;
@@ -29,31 +26,44 @@ var sessionLog;
 var Utilities = function (s) {
 	settings = s;
 	this.extension = {};
+  
+  let mailAuth = {};
+  let mo = settings.data.mail_options;
+  if(mo) {
+    if(mo.user) mailAuth.user = mo.user;
+    if(mo.pass) mailAuth.pass = mo.pass;
+    if(mo.api_key) mailAuth.api_key = mo.api_key;
+  
+    var options = {};
 
-	if (settings.data.mail_options.service){
-		var options = {
-			service: settings.data.mail_options.service,
-			auth: {
-				user: settings.data.mail_options.user,
-				pass: settings.data.mail_options.pass
-			}
-		}
-	}
-	else {
-		var options = {
-			host: settings.data.mail_options.host,
-			port: settings.data.mail_options.port,
-			auth: {
-				user: settings.data.mail_options.user,
-				pass: settings.data.mail_options.pass
-			}
-		}
-	}
-	if (settings.data.mail_options.tls) {
-		options['tls'] = settings.data.mail_options.tls
-	}
+    if (mo.service){
 
-	mailTransport = nodemailer.createTransport(smtpTransport(options));
+      // SEND GRID WANTS ONLY THE API KEY IN THE AUTH FIELD IF AVAILABLE
+      if(mo.service.toLowerCase() === 'sendgrid' && mailAuth.api_key) {if([])
+        mailTransport = nodemailer.createTransport(nodemailerSendgrid({apiKey:mailAuth.api_key}));
+      }
+      else {
+        options = {
+          service: mo.service,
+          auth: mailAuth
+        }
+        if(mo.port) options.port = mo.port;
+        if(mo.tls) options.tls = mo.tls
+
+        mailTransport = nodemailer.createTransport(smtpTransport(options));
+      }
+    }
+    else {
+      options = {
+        host: mo.host,
+        port: mo.port,
+        auth: mailAuth
+      }
+      if(mo.tls) options.tls = mo.tls;      
+
+      mailTransport = nodemailer.createTransport(smtpTransport(options));
+    } 
+  }
 };
 
 Utilities.prototype.getDataAccess = function(){
