@@ -539,8 +539,7 @@ Utilities.prototype.sendMailTemplate = function(send_to, sbj, template_name, arg
 					from: settings.data.mail_options.account,
 					to: send_to,
 					subject: sbj,
-					text: txtBody,
-					html: null
+					text: txtBody
 				};
 				mailTransport.sendMail(mailOptions, function(email_err, email_res) {
 					if(!email_err) {
@@ -581,7 +580,6 @@ Utilities.prototype.sendMailTemplate = function(send_to, sbj, template_name, arg
 					from: settings.data.mail_options.account,
 					to: send_to,
 					subject: sbj,
-					text: null,
 					html: htmlBody
 				};
 				mailTransport.sendMail(mailOptions, function(email_err, email_res) {
@@ -659,8 +657,7 @@ Utilities.prototype.sendMailTemplate = function(send_to, sbj, template_name, arg
 							from: settings.data.mail_options.account,
 							to: send_to,
 							subject: sbj,
-							text: txtBody,
-							html: null
+							text: txtBody
 						};
 						mailTransport.sendMail(mailOptions, function(email_err, email_res) {
 							if(!email_err) {
@@ -690,7 +687,6 @@ Utilities.prototype.sendMailTemplate = function(send_to, sbj, template_name, arg
 							from: settings.data.mail_options.account,
 							to: send_to,
 							subject: sbj,
-							text: null,
 							html: htmlBody
 						};
 						mailTransport.sendMail(mailOptions, function(email_err, email_res) {
