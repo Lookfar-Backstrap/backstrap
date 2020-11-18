@@ -13,7 +13,15 @@ var mailTransport;
 const crypto = require('crypto');
 const mkdirp = require('mkdirp');
 
-var UtilitiesExtension = require('./utilities_ext.js');
+const rootDir = path.dirname(require.main.filename);
+var UtilitiesExtension;
+try {
+	UtilitiesExtension = require(rootDir+'/utilities_ext.js');
+}
+catch(e) {
+	UtilitiesExtension = require('./utilities_ext.js');
+}
+
 var async = require('async');
 
 var dataAccess;
