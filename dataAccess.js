@@ -335,9 +335,15 @@ DataAccess.prototype.commitTransaction = function (connection, callback) {
 			deferred.reject(errorObj);
 		}
 		else {
-			connection.release();
-			delete connection.transactional;
-      			connection.isReleased = true;
+      delete connection.transactional;
+			try {
+        connection.release();
+      }
+      catch(e) {
+        console.log('Problem releasing connection to db:');
+        console.log(e);
+      }
+      connection.isReleased = true;
 			deferred.resolve(connection.results);
 		}
 	});
@@ -354,9 +360,15 @@ DataAccess.prototype.rollbackTransaction = function (connection, callback) {
 		if(connection.transactional) {
 			connection.client.query('ROLLBACK', (err) => {
 				if (err) {
-
+          // THERE WAS AN ERROR ROLLING BACK TRY TO JUST RELEASE THE CONNECTION
 					if(connection != null) {
-            connection.release();
+            try {
+              connection.release();
+            }
+            catch(e) {
+              console.log('Problem releasing connection to db:');
+              console.log(e);
+            }
             connection.isReleased = true;
 					}
 
@@ -380,7 +392,13 @@ DataAccess.prototype.rollbackTransaction = function (connection, callback) {
 					deferred.reject(errorObj);
 				}
 				else {
-          connection.release();
+          try {
+            connection.release();
+          }
+          catch(e) {
+            console.log('Problem releasing connection to db:');
+            console.log(e);
+          }
           connection.isReleased = true;
 					deferred.resolve({ 'rollback_results': 'success' });
 				}
@@ -390,7 +408,13 @@ DataAccess.prototype.rollbackTransaction = function (connection, callback) {
 		// ON A SINGLE CONNECTION.  CLOSE THE CONNECTION, BUT DON'T WORRY
 		// ABOUT ROLLING BACK.
 		else {
-      connection.release();
+      try {
+        connection.release();
+      }
+      catch(e) {
+        console.log('Problem releasing connection to db:');
+        console.log(e);
+      }
       connection.isReleased = true;
 			deferred.resolve();
 		}
@@ -444,16 +468,31 @@ function releaseConnection(connection) {
 				deferred.resolve();
 			})
 			.fail(function(rollback_err) {
-        connection.release();
+        try {
+          connection.release();
+        }
+        catch(e) {
+          console.log('Problem releasing connection to db:');
+          console.log(e);
+        }
         connection.isReleased = true;
+
 				deferred.resolve();
 			});
 		}
 		else {
       delete connection.transactional;
-      connection.release();
+      
+      try {
+        connection.release();
+      }
+      catch(e) {
+        console.log('Problem releasing connection to db:');
+        console.log(e);
+      }
       connection.isReleased = true;
-			deferred.resolve();
+      
+      deferred.resolve();
 		}
 	}
 	else {
@@ -521,7 +560,13 @@ DataAccess.prototype.ExecutePostgresQuery = function (query, params, connection,
 			// THIS IS A ONE-OFF AND WE MUST SHUT DOWN THE CONNECTION WE MADE
 			// AND FAIL OUT
 			if(connection == null) {
-        db_connection.release();
+        try {
+          db_connection.release();
+        }
+        catch(e) {
+          console.log('Problem releasing connection to db:');
+          console.log(e);
+        }
         db_connection.isReleased = true;
 				var errorObj = new ErrorObj(500,
 											'da0501',
@@ -556,7 +601,13 @@ DataAccess.prototype.ExecutePostgresQuery = function (query, params, connection,
 				}
 				// OTHERWISE, JUST RELEASE THE CONNECTION AND FAIL OUT
 				else {
-          db_connection.release();
+          try {
+            db_connection.release();
+          }
+          catch(e) {
+            console.log('Problem releasing connection to db:');
+            console.log(e);
+          }
           db_connection.isReleased = true;
 					var errorObj = new ErrorObj(500,
 												'da0504',
