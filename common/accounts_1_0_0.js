@@ -1086,7 +1086,10 @@ Accounts.prototype.post = {
         var deferred = Q.defer();
 
         var apiToken = req.headers[settings.data.token_header] || null;
+        // ONLY INITIALIZE A USER WITH 'default-user' ROLE
         if(req.body.roles) req.body.roles = null;
+
+        // CREATE THE USER
         accessControl.createUser('standard', req.body, apiToken)
         .then((usr) => {
           delete usr.password;
@@ -1117,7 +1120,10 @@ Accounts.prototype.post = {
     apiUser: function(req, callback) {
       var deferred = Q.defer();
 
+      // apiUser CAN ONLY INITIALIZE A USER WITH 'default-user' ROLE
       if(req.body.roles) req.body.roles = null;
+
+      // CREATE THE USER
       accessControl.createUser('api', req.body)
       .then((usr) => {
         delete usr.password;
@@ -1155,6 +1161,7 @@ Accounts.prototype.post = {
             validRoles.push(role);
           }
         });
+        if(validRoles.length === 0) validRoles = ['default-user'];
         req.body.roles = validRoles;
       }
       accessControl.createUser('api', req.body, null, req.this_user)
