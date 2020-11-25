@@ -123,7 +123,7 @@ AccessControl.prototype.init = function (b, f, rs) {
 	return deferred.promise;
 }
 
-AccessControl.prototype.createUser = function(userType, params, apiToken) {
+AccessControl.prototype.createUser = function(userType, params, apiToken, thisUser) {
   var deferred = Q.defer();
 
   var username = params.username || params.email;
@@ -135,22 +135,26 @@ AccessControl.prototype.createUser = function(userType, params, apiToken) {
   var exid = params.external_identity_id || null;
 
 
-  var validEmailRegex = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
-  if (email == null || !validEmailRegex.test(email)) {
-    var errorObj = new ErrorObj(500,
-        'ac0329',
-        __filename,
-        'createUser',
-        'invalid email address'
-    );
-    deferred.reject(errorObj);
-    return deferred.promise;
+  if(userType !== 'api' || thisUser == null) {
+    var validEmailRegex = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
+    if (email == null || !validEmailRegex.test(email)) {
+      var errorObj = new ErrorObj(500,
+          'ac0329',
+          __filename,
+          'createUser',
+          'invalid email address'
+      );
+      deferred.reject(errorObj);
+      return deferred.promise;
+    }
   }
 
   var createUserCmd;
   switch(userType) {
     case 'api':
-      createUserCmd = createAPIUser(email, first, last, roles);
+      let uid = null;
+      if(thisUser) uid = thisUser.id;
+      createUserCmd = createAPIUser(email, first, last, roles, uid);
       break;
     case 'external-api':
       createUserCmd = createExternalAPIUser(email, exid, first, last, roles);
@@ -636,7 +640,7 @@ AccessControl.prototype.validateBasicAuth = function(authHeader, continueWhenInv
 
   let [authType, authToken] = authHeader.split(' ');
   if(authType.toLowerCase() === 'basic') {
-    let [clientId, clientSecret] = new Buffer(authToken, 'base64').toString().split(':');
+    let [clientId, clientSecret] = Buffer.from(authToken, 'base64').toString().split(':');
     if(clientId && clientSecret) {
       dataAccess.findOne('bsuser', {client_id: clientId})
       .then((usr) => {
@@ -947,12 +951,13 @@ AccessControl.prototype.roleExists = function (roleName, callback) {
 // =====================================================================
 // UTILITY FUNCTIONS
 // =====================================================================
-function createStandardUser(username, email, password = null, exid = null, first = '', last = '', roles = ['default-user'], apiToken = null) {
+function createStandardUser(username, email, password = null, exid = null, first = '', last = '', roles, apiToken = null) {
   var deferred = Q.defer();
 
   var cryptoCall = Q.denodeify(crypto.randomBytes);
 
   username = username || email;
+  roles = roles || ['default-user'];
 
   utilities.validateEmail(email)
   .then(function() {
@@ -1067,7 +1072,7 @@ function createStandardUser(username, email, password = null, exid = null, first
   return deferred.promise;
 }
 
-function createAPIUser(email, first, last, roles) {
+function createAPIUser(email, first, last, roles, parentAccountId) {
   var deferred = Q.defer();
   
   roles = roles || ['default-user'];
@@ -1075,20 +1080,27 @@ function createAPIUser(email, first, last, roles) {
   last = last || '';
   email = email || null;
 
-  var validEmailRegex = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
-  if (!validEmailRegex.test(email)) {
-      var errorObj = new ErrorObj(500,
-          'ac0331',
-          __filename,
-          'createAPIUser',
-          'invalid email address'
-      );
-      deferred.reject(errorObj);
-      deferred.promise.nodeify(callback);
-      return deferred.promise;
+  let validateEmailOrSkip;
+  if(parentAccountId) {
+    validateEmailOrSkip = Q(null);
   }
-
-  utilities.validateEmail(email)
+  else {
+    var validEmailRegex = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
+    if (!validEmailRegex.test(email)) {
+        var errorObj = new ErrorObj(500,
+            'ac0331',
+            __filename,
+            'createAPIUser',
+            'no parent account & invalid email address'
+        );
+        deferred.reject(errorObj);
+        deferred.promise.nodeify(callback);
+        return deferred.promise;
+    }
+    validateEmailOrSkip = utilities.validateEmail(email);
+  }
+  
+  validateEmailOrSkip
   .then(function() {
       return generateApiUserCreds();
   })
@@ -1102,13 +1114,18 @@ function createAPIUser(email, first, last, roles) {
           'client_id': creds.clientId,
           'first': first,
           'last': last,
-          'email': email,
           'salt': creds.salt,
           'client_secret': hashedSecret,
           'roles': roles,
           'is_active': true,
           'is_locked': false
       };
+      if(parentAccountId) {
+        userObj.parent_account_id = parentAccountId;
+      }
+      else {
+        userObj.email = email;
+      }
       return [creds.clientSecret, dataAccess.saveEntity('bsuser', userObj)];
   })
   .spread(function(clientSecret, userObj) {

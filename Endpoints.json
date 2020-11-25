@@ -166,7 +166,7 @@
                             "name": "email",
                             "type": "string",
                             "isRequired": true,
-                            "description": "Used for Forgot Password and Welcome Email"
+                            "description": ""
                         },
                         {
                             "name": "first",
@@ -179,6 +179,33 @@
                             "type": "string",
                             "isRequired": false,
                             "description": "User's last name"
+                        }
+                    ],
+                    "isUserCreated": false
+                },
+                {
+                    "verb": "POST",
+                    "call": "apiCredentials",
+                    "desc": "Get api credentials for an existing user",
+                    "authRequired": true,
+                    "args": [
+                        {
+                            "name": "first",
+                            "type": "string",
+                            "isRequired": false,
+                            "description": "User's first name"
+                        },
+                        {
+                            "name": "last",
+                            "type": "string",
+                            "isRequired": false,
+                            "description": "User's last name"
+                        },
+                        {
+                            "name": "roles",
+                            "type": "array",
+                            "isRequired": false,
+                            "description": "can include any of owner's roles"
                         }
                     ],
                     "isUserCreated": false

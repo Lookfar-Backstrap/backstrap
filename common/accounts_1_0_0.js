@@ -42,6 +42,7 @@ Accounts.prototype.get = {
         delete userObj.id;
         delete userObj.password;
         delete userObj.salt;
+        delete userObj.client_secret;
         delete userObj.object_type;
         delete userObj.created_at;
         delete userObj.updated_at;
@@ -73,6 +74,7 @@ Accounts.prototype.get = {
             .then(function(userObj) {
                 delete userObj.password;
                 delete userObj.salt;
+                delete userObj.client_secret;
                 delete userObj.object_type;
                 delete userObj.forgot_password_tokens;
 
@@ -1082,11 +1084,14 @@ Accounts.prototype.post = {
     },
     signUp: function(req, callback) {
         var deferred = Q.defer();
+
         var apiToken = req.headers[settings.data.token_header] || null;
+        if(req.body.roles) req.body.roles = null;
         accessControl.createUser('standard', req.body, apiToken)
         .then((usr) => {
           delete usr.password;
           delete usr.salt;
+          delete usr.client_secret;
           delete usr.forgot_password_tokens;
           delete usr.object_type;
           deferred.resolve(usr);
@@ -1112,6 +1117,7 @@ Accounts.prototype.post = {
     apiUser: function(req, callback) {
       var deferred = Q.defer();
 
+      if(req.body.roles) req.body.roles = null;
       accessControl.createUser('api', req.body)
       .then((usr) => {
         delete usr.password;
@@ -1122,12 +1128,51 @@ Accounts.prototype.post = {
       })
       .fail((err) => {
         typeof(err.AddToError) === 'function' ?
-          deferred.reject(err.AddToError(__filename, 'signUp'))
+          deferred.reject(err.AddToError(__filename, 'apiUser'))
         :
           deferred.reject(new ErrorObj(500,
-                                      'a0100',
+                                      'a0102',
                                       __filename,
                                       'signUp',
+                                      'create user error',
+                                      'There was a problem creating an account.  Please try again.',
+                                      err
+                                      ));
+      });
+
+      deferred.promise.nodeify(callback);
+      return deferred.promise;
+    },
+    // CREATE API CREDENTIALS (CLIENT ID & CLIENT SECRET) FOR
+    // AN EXISTING USER
+    apiCredentials: function(req, callback) {
+      var deferred = Q.defer();
+
+      if(req.body.roles) {
+        let validRoles = [];
+        req.body.roles.forEach((role) => {
+          if(req.this_user.roles.includes(role) || role === 'default-user') {
+            validRoles.push(role);
+          }
+        });
+        req.body.roles = validRoles;
+      }
+      accessControl.createUser('api', req.body, null, req.this_user)
+      .then((usr) => {
+        delete usr.password;
+        delete usr.salt;
+        delete usr.forgot_password_tokens;
+        delete usr.object_type;
+        deferred.resolve(usr);
+      })
+      .fail((err) => {
+        typeof(err.AddToError) === 'function' ?
+          deferred.reject(err.AddToError(__filename, 'apiCredentials'))
+        :
+          deferred.reject(new ErrorObj(500,
+                                      'a0102',
+                                      __filename,
+                                      'apiCredentials',
                                       'create user error',
                                       'There was a problem creating an account.  Please try again.',
                                       err
@@ -1790,7 +1835,8 @@ function createSession(userObj, clientInfo) {
 			returnObj[uiKeys[uiIdx]] = userObj[uiKeys[uiIdx]];
 		}
 		delete returnObj.password;
-		delete returnObj.salt;
+    delete returnObj.salt;
+    delete returnObj.client_secret;
 		delete returnObj.forgot_password_tokens;
 
 		deferred.resolve(returnObj);
