@@ -368,7 +368,7 @@ Data.prototype.post = {
                 deferred.reject(errorObj);
             }
             else {
-                s3.putObject({ Bucket: fileDestination, Key: fileName, Body: new Buffer(plainFileData, 'binary') }, function (err, save_res) {
+                s3.putObject({ Bucket: fileDestination, Key: fileName, Body: Buffer.from(plainFileData, 'binary') }, function (err, save_res) {
                     if (!err) {
                         var resolveObj = save_res;
                         deferred.resolve(resolveObj);
