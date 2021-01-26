@@ -435,7 +435,7 @@ function requestPipeline(req, res, verb) {
       accessLog.write(logEntry);
     }
 
-    if(results.express_download === true){
+    if(results && results.express_download === true){
       if(results.download_name){
         res.status(200).download(results.download_path, results.download_name);
       }
