@@ -29,11 +29,13 @@
 // t_ functions using the same connection.
 // ================================================================================
 
-const { Pool, Client } = require('pg')
+const { Pool, Client } = require('pg');
+const QueryStream = require('pg-query-stream');
 var crypto = require('crypto');
 var Q = require('q');
 var async = require('async');
 var fs = require('fs');
+const Stream = require('stream');
 
 var DataAccessExtension = require('./dataAccess_ext.js');
 var backstrapSql = require('./backstrapSql.js').BackstrapSql;
@@ -493,7 +495,7 @@ function releaseConnection(connection) {
 // ================================================================================
 //THIS FUNCTION GLOBALIZES ALL QUERIES (SELECT) AND NON QUERIES (INSERT UPDATE DELETE ETC)
 //CONDITIONALLY CREATES AND DESTROYS CONNECTIONS DEPENDING IF THEY ARE TRANSACTIONAL OR NOT
-DataAccess.prototype.ExecutePostgresQuery = function (query, params, connection, includeRowId, callback) {
+DataAccess.prototype.ExecutePostgresQuery = function (query, params, connection, includeRowId, isStreaming, callback) {
 	var deferred = Q.defer();
 	var pg_query = query;
 	//THE QUERY CONFIG OBJECT DOES NOT WORK IF THERE IS AN EMPTY ARRAY OF PARAMS
@@ -508,87 +510,45 @@ DataAccess.prototype.ExecutePostgresQuery = function (query, params, connection,
 		includeRowId = false;
 	}
 
-
-
 	resolveDbConnection(connection)
 	.then(function(db_connection) {
 
-		// PERFORM THE QUERY
-		db_connection.client.query(pg_query)
-		.then(function(res) {
-			db_connection.results = res.rows;
-			//THE NEW pg 7 NPM PACKAGE RETURNS ROW QUERIES WITH THE KEY data FOR EACH ROW
-			//WE ONLY WANT THE JSON OBJECT VALUE NOT THE KEY
-			if (db_connection.results !== undefined && db_connection.results !== null && db_connection.results.length > 0) {
-				var result = db_connection.results[0];
-				var keys = Object.keys(result);
-				if ((keys.length === 1 && keys[0] === 'data' && includeRowId !== true)
-					|| (keys.length == 2 && keys[0] === 'row_id' && keys[1] === 'data' && includeRowId !== true)) {
-					db_connection.results = db_connection.results.map(r => r.data);
-				}
-			}
+    // PERFORM THE QUERY
+    if(!isStreaming) {
+      db_connection.client.query(pg_query)
+      .then(function(res) {
+        db_connection.results = res.rows;
+        //THE NEW pg 7 NPM PACKAGE RETURNS ROW QUERIES WITH THE KEY data FOR EACH ROW
+        //WE ONLY WANT THE JSON OBJECT VALUE NOT THE KEY
+        if (db_connection.results !== undefined && db_connection.results !== null && db_connection.results.length > 0) {
+          var result = db_connection.results[0];
+          var keys = Object.keys(result);
+          if ((keys.length === 1 && keys[0] === 'data' && includeRowId !== true)
+            || (keys.length == 2 && keys[0] === 'row_id' && keys[1] === 'data' && includeRowId !== true)) {
+            db_connection.results = db_connection.results.map(r => r.data);
+          }
+        }
 
-			// IF THE ARG connection PASSED INTO THE FUNCTION IS null/undefined
-			// THIS IS A ONE-OFF AND WE MUST SHUT DOWN THE CONNECTION WE MADE
-			// BEFORE RETURNING THE RESULTS
-			if(connection == null) {
-				releaseConnection(db_connection)
-				.then(function() {
-					deferred.resolve(db_connection);
-				});
-			}
-			// OTHERWISE THIS IS ONE CALL IN A CHAIN ON A SINGLE CONNECTION
-			// SO WE SHOULD PASS BACK THE CONNECTION WITH RESULTS
-			else {
-				deferred.resolve(db_connection);
-			}
-		})
-		.catch(function(qry_err) {
-			// IF THE ARG connection PASSED INTO THE FUNCTION IS null/undefined
-			// THIS IS A ONE-OFF AND WE MUST SHUT DOWN THE CONNECTION WE MADE
-			// AND FAIL OUT
-			if(connection == null) {
-        try {
-          db_connection.release();
+        // IF THE ARG connection PASSED INTO THE FUNCTION IS null/undefined
+        // THIS IS A ONE-OFF AND WE MUST SHUT DOWN THE CONNECTION WE MADE
+        // BEFORE RETURNING THE RESULTS
+        if(connection == null) {
+          releaseConnection(db_connection)
+          .then(function() {
+            deferred.resolve(db_connection);
+          });
         }
-        catch(e) {
-          console.log('Problem releasing connection to db:');
-          console.log(e);
+        // OTHERWISE THIS IS ONE CALL IN A CHAIN ON A SINGLE CONNECTION
+        // SO WE SHOULD PASS BACK THE CONNECTION WITH RESULTS
+        else {
+          deferred.resolve(db_connection);
         }
-        db_connection.isReleased = true;
-				var errorObj = new ErrorObj(500,
-											'da0501',
-											__filename,
-											'ExecutePostgresQuery',
-											'error querying postgres',
-											'Database error',
-											qry_err
-										);
-				deferred.reject(errorObj);
-			}
-			// OTHERWISE, THIS IS ONE CALL IN A CHAIN ON A SINGLE CONNECTION
-			else {
-				// IF THIS IS PART OF A TRANSACTIONAL SEQUENCE, WE NEED TO ROLL BACK
-				// AND FAIL OUT
-				if(db_connection.transactional) {
-					DataAccess.prototype.rollbackTransaction(db_connection)
-					.then(function(rollback_res) {
-						var errorObj = new ErrorObj(500,
-													'da0502',
-													__filename,
-													'ExecutePostgresQuery',
-													'error querying postgres--transaction rolled back',
-													'Database error',
-													qry_err
-												);
-						deferred.reject(errorObj);
-					})
-					.fail(function(rollback_err) {
-						deferred.reject(rollback_err.AddToError(__filename, 'ExecutePostgresQuery'));
-					});
-				}
-				// OTHERWISE, JUST RELEASE THE CONNECTION AND FAIL OUT
-				else {
+      })
+      .catch(function(qry_err) {
+        // IF THE ARG connection PASSED INTO THE FUNCTION IS null/undefined
+        // THIS IS A ONE-OFF AND WE MUST SHUT DOWN THE CONNECTION WE MADE
+        // AND FAIL OUT
+        if(connection == null) {
           try {
             db_connection.release();
           }
@@ -597,18 +557,110 @@ DataAccess.prototype.ExecutePostgresQuery = function (query, params, connection,
             console.log(e);
           }
           db_connection.isReleased = true;
-					var errorObj = new ErrorObj(500,
-												'da0504',
-												__filename,
-												'ExecutePostgresQuery',
-												'error querying postgres',
-												'Database error',
-												qry_err
-											);
-					deferred.reject(errorObj);
-				}
-			}
-		});
+          var errorObj = new ErrorObj(500,
+                        'da0501',
+                        __filename,
+                        'ExecutePostgresQuery',
+                        'error querying postgres',
+                        'Database error',
+                        qry_err
+                      );
+          deferred.reject(errorObj);
+        }
+        // OTHERWISE, THIS IS ONE CALL IN A CHAIN ON A SINGLE CONNECTION
+        else {
+          // IF THIS IS PART OF A TRANSACTIONAL SEQUENCE, WE NEED TO ROLL BACK
+          // AND FAIL OUT
+          if(db_connection.transactional) {
+            DataAccess.prototype.rollbackTransaction(db_connection)
+            .then(function(rollback_res) {
+              var errorObj = new ErrorObj(500,
+                            'da0502',
+                            __filename,
+                            'ExecutePostgresQuery',
+                            'error querying postgres--transaction rolled back',
+                            'Database error',
+                            qry_err
+                          );
+              deferred.reject(errorObj);
+            })
+            .fail(function(rollback_err) {
+              deferred.reject(rollback_err.AddToError(__filename, 'ExecutePostgresQuery'));
+            });
+          }
+          // OTHERWISE, JUST RELEASE THE CONNECTION AND FAIL OUT
+          else {
+            try {
+              db_connection.release();
+            }
+            catch(e) {
+              console.log('Problem releasing connection to db:');
+              console.log(e);
+            }
+            db_connection.isReleased = true;
+            var errorObj = new ErrorObj(500,
+                          'da0504',
+                          __filename,
+                          'ExecutePostgresQuery',
+                          'error querying postgres',
+                          'Database error',
+                          qry_err
+                        );
+            deferred.reject(errorObj);
+          }
+        }
+      });
+    }
+    else {
+      // STREAMING RESULTS
+      let streamQry;
+      if(typeof(pg_query) === 'object') {
+        streamQry = new QueryStream(pg_query.text, pg_query.values)
+      }
+      else {
+        streamQry = new QueryStream(pg_query);
+      }
+      let stream = db_connection.client.query(streamQry);
+      let outStream = new Stream.Readable();
+      outStream._read = () => {};
+
+      stream.on('data', (chunk) => {
+        outStream.push(JSON.stringify(chunk));
+      });
+
+      stream.on('end', () => {
+        outStream.push(null);
+        try {
+          db_connection.release();
+        }
+        catch(e) {
+          console.log('Problem releasing connection to db:');
+          console.log(e);
+        }
+      });
+
+      stream.on('error', (streamErr) => {
+        if(db_connection.transactional === true) {
+          DataAccess.prototype.rollbackTransaction(db_connection)
+          .finally(function() {
+            outStream.destroy(streamErr);
+          });
+        }
+        else {
+          try {
+            db_connection.release();
+          }
+          catch(e) {
+            console.log('Problem releasing connection to db:');
+            console.log(e);
+          }
+          outStream.destroy(streamErr);
+        }
+      });
+      
+      db_connection.results = outStream;
+      deferred.resolve(db_connection);
+    }
 	})
 	.fail(function(err) {
 		var errorObj = new ErrorObj(500,
@@ -2933,10 +2985,10 @@ DataAccess.prototype.t_joinWhereAndResolve = function (connection, objectType, o
 // These functions handle various common tasks
 // -------------------------------------------------------------------
 // RUN ARBITRARY SQL STATEMENTS
-DataAccess.prototype.runSql = function (sqlStatement, params, connection) {
+DataAccess.prototype.runSql = function (sqlStatement, params, connection, isStreaming) {
 	var deferred = Q.defer();
 	
-	DataAccess.prototype.ExecutePostgresQuery(sqlStatement, params, connection)
+	DataAccess.prototype.ExecutePostgresQuery(sqlStatement, params, connection, null, isStreaming)
 	.then(function (connection) {
 		deferred.resolve(connection.results);
 	})
@@ -2948,8 +3000,8 @@ DataAccess.prototype.runSql = function (sqlStatement, params, connection) {
 }
 
 // RUN ARBITRARY SQL STATEMENTS ON THE DB CONNECTION PASSED IN AS ARGUMENT
-DataAccess.prototype.t_runSql = function (connection, sqlStatement, params) {
-	return DataAccess.prototype.runSql(sqlStatement, params, connection);
+DataAccess.prototype.t_runSql = function (connection, sqlStatement, params, isStreaming) {
+	return DataAccess.prototype.runSql(sqlStatement, params, connection, isStreaming);
 };
 
 // RETURN THE USER ENTITY BASED ON AN EMAIL ADDRESS
