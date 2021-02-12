@@ -1,6 +1,6 @@
 {
   "name": "backstrap-server",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "license": "SEE LICENSE IN LICENSE.txt",
   "description": "Backstrap is a framework for rest and rest-like APIs",
   "keywords": [
@@ -38,6 +38,7 @@
     "os": "^0.1.1",
     "path": "^0.12.7",
     "pg": "^8.5.1",
+    "pg-query-stream": "^4.0.0",
     "pluralize": "^3.1.0",
     "q": "^1.5.1",
     "request": "^2.88.0",
