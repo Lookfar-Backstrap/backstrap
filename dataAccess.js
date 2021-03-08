@@ -3021,7 +3021,7 @@ DataAccess.prototype.t_runSql = function (connection, sqlStatement, params, isSt
 DataAccess.prototype.getUserByEmail = function (email, callback) {
 	var deferred = Q.defer();
 
-	var qry = "SELECT bsuser.data FROM bsuser WHERE bsuser.data->>'email' ILIKE $1";
+	var qry = "SELECT data FROM bsuser WHERE LOWER(bsuser.data->>'email') = LOWER($1)";
 	var qry_params = [email];
 	DataAccess.prototype.ExecutePostgresQuery(qry, qry_params, null)
 	.then(function (connection) {
@@ -3081,7 +3081,7 @@ DataAccess.prototype.getUserBySessionToken = function (tkn, connection, callback
 DataAccess.prototype.getUserByUserName = function (userName, callback) {
 	var deferred = Q.defer();
 
-	var qry = "SELECT * FROM bsuser WHERE bsuser.data->'username' ? $1";
+	var qry = "SELECT * FROM bsuser WHERE LOWER(bsuser.data->>'username') = LOWER($1)";
 	var qry_params = [userName];
 	DataAccess.prototype.ExecutePostgresQuery(qry, qry_params, null)
 	.then(function (connection) {
