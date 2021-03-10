@@ -66,6 +66,57 @@ var Utilities = function (s) {
   }
 };
 
+Utilities.prototype.getToken = () => {
+  var deferred = Q.defer();
+
+  dataAccess.findAll('session')
+  .then(function(find_results) {
+    var tokenIsGood = false;
+    var token;
+
+    while (!tokenIsGood) {
+      token = crypto.randomBytes(48).toString('hex');
+
+      var sessions = find_results.filter(function(inSysObj) {
+        return (inSysObj.object_type === 'session' && inSysObj.token === token);
+      });
+
+      if (sessions === null || sessions.length === 0) {
+        tokenIsGood = true;
+      }
+      else {
+        tokenIsGood = false;
+      }
+    }
+
+    deferred.resolve(token);
+  })
+  .fail(function(err) {
+    if (err !== undefined && err !== null && typeof (err.AddToError) == 'function') {
+      if (err.message === 'no results found') {
+        var token = crypto.randomBytes(48).toString('hex');
+        deferred.resolve(token);
+      }
+      else {
+        deferred.reject(err.AddToError(__filename, 'getToken'));
+      }
+    }
+    else {
+      var errorObj = new ErrorObj(500,
+        'a1036',
+        __filename,
+        'getToken',
+        'error getting token',
+        'Error getting token',
+        err
+      );
+      deferred.reject(errorObj);
+    }
+  });
+
+  return deferred.promise;
+}
+
 Utilities.prototype.getDataAccess = function(){
 	return dataAccess;
 }

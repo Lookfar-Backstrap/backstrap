@@ -3870,4 +3870,43 @@ DataAccess.prototype.updateRelProps = function (obj, relatedObj, relType, relPro
 	return deferred.promise;
 };
 
+DataAccess.prototype.GenerateForgotPasswordToken = (email, username) => {
+  var deferred = Q.defer();
+
+  DataAccess.prototype.findUser(email, username)
+  .then(function (userObj) {
+    if (userObj.is_locked) {
+      deferred.reject(new ErrorObj(
+        403,
+        'a2006',
+        __filename,
+        'forgotPassword',
+        'bsuser is locked',
+        'Unauthorized'
+      ));
+      return deferred.promise;
+    }
+    else {
+      return [userObj, utilities.getToken()];
+    }
+  })
+  .spread(function (userObj, tkn) {
+    if (userObj.forgot_password_tokens === undefined || userObj.forgot_password_tokens === null) {
+      userObj.forgot_password_tokens = [tkn];
+    }
+    else {
+      userObj.forgot_password_tokens.push(tkn);
+    }
+    return [tkn, DataAccess.prototype.saveEntity('bsuser', userObj)];
+  })
+  .spread(function(tkn) {
+    deferred.resolve(tkn);
+  })
+  .fail(function(err) {
+    deferred.reject(err);
+  });
+
+  return deferred.promise;
+}
+
 exports.DataAccess = DataAccess;
