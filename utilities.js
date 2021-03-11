@@ -66,7 +66,7 @@ var Utilities = function (s) {
   }
 };
 
-UtilitiesExtension.prototype.getHash = (alg, data, length) => {
+Utilities.prototype.getHash = (alg, data, length) => {
   var deferred = Q.defer();
 
   if(alg == null) alg = 'sha256';
