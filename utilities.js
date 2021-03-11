@@ -66,53 +66,19 @@ var Utilities = function (s) {
   }
 };
 
-Utilities.prototype.getToken = () => {
+UtilitiesExtension.prototype.getHash = (alg, data, length) => {
   var deferred = Q.defer();
 
-  dataAccess.findAll('session')
-  .then(function(find_results) {
-    var tokenIsGood = false;
-    var token;
+  if(alg == null) alg = 'sha256';
+  var h = crypto.createHash(alg);
 
-    while (!tokenIsGood) {
-      token = crypto.randomBytes(48).toString('hex');
+  let byteCount = length || 10;
+  if(data == null) data = crypto.randomBytes(byteCount);
+  h.update(data);
 
-      var sessions = find_results.filter(function(inSysObj) {
-        return (inSysObj.object_type === 'session' && inSysObj.token === token);
-      });
-
-      if (sessions === null || sessions.length === 0) {
-        tokenIsGood = true;
-      }
-      else {
-        tokenIsGood = false;
-      }
-    }
-
-    deferred.resolve(token);
-  })
-  .fail(function(err) {
-    if (err !== undefined && err !== null && typeof (err.AddToError) == 'function') {
-      if (err.message === 'no results found') {
-        var token = crypto.randomBytes(48).toString('hex');
-        deferred.resolve(token);
-      }
-      else {
-        deferred.reject(err.AddToError(__filename, 'getToken'));
-      }
-    }
-    else {
-      var errorObj = new ErrorObj(500,
-        'a1036',
-        __filename,
-        'getToken',
-        'error getting token',
-        'Error getting token',
-        err
-      );
-      deferred.reject(errorObj);
-    }
-  });
+  var digest = h.digest('hex');
+  if(length != null) digest = digest.substring(0, length);
+  deferred.resolve(digest);
 
   return deferred.promise;
 }

@@ -1307,7 +1307,7 @@ Accounts.prototype.post = {
                         deferred.promise.nodeify(callback);
                         return deferred.promise;
                     }
-                    return [userObj, utilities.getToken()];
+                    return [userObj, utilities.getHash(null, null, 48)];
                 })
                 .spread(function(userObj, tkn) {
                     var reset_link = process.env.reset_password_link || "";
@@ -1759,7 +1759,7 @@ function userDoesNotExist(req, callback) {
 function createSession(userObj, clientInfo) {
 	var deferred = Q.defer();
 
-	utilities.getToken()
+	accessControl.getToken()
 	.then(function(tkn) {
 		return [tkn, dataAccess.startTransaction()]
 	})
@@ -1820,7 +1820,7 @@ function createSession(userObj, clientInfo) {
 function createAnonymousSession(clientInfo) {
 	var deferred = Q.defer();
 
-	utilities.getToken()
+	accessControl.getToken()
 	.then(function(tkn) {
 		return [tkn, dataAccess.startTransaction()]
 	})

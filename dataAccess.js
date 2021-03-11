@@ -3887,7 +3887,7 @@ DataAccess.prototype.GenerateForgotPasswordToken = (email, username) => {
       return deferred.promise;
     }
     else {
-      return [userObj, utilities.getToken()];
+      return [userObj, utilities.getHash(null, null, 48)];
     }
   })
   .spread(function (userObj, tkn) {
