@@ -74,6 +74,23 @@ var Utilities = function (s) {
   }
 };
 
+UtilitiesExtension.prototype.getHash = (alg, data, length) => {
+  var deferred = Q.defer();
+
+  if(alg == null) alg = 'sha256';
+  var h = crypto.createHash(alg);
+
+  let byteCount = length || 10;
+  if(data == null) data = crypto.randomBytes(byteCount);
+  h.update(data);
+
+  var digest = h.digest('hex');
+  if(length != null) digest = digest.substring(0, length);
+  deferred.resolve(digest);
+
+  return deferred.promise;
+}
+
 Utilities.prototype.getDataAccess = function(){
 	return dataAccess;
 }

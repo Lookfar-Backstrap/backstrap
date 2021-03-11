@@ -1,6 +1,6 @@
 {
   "name": "backstrap-server",
-  "version": "2.2.1",
+  "version": "2.2.2",
   "license": "SEE LICENSE IN LICENSE.txt",
   "description": "Backstrap is a framework for rest and rest-like APIs",
   "keywords": [

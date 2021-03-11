@@ -1307,7 +1307,7 @@ Accounts.prototype.post = {
                         deferred.promise.nodeify(callback);
                         return deferred.promise;
                     }
-                    return [userObj, getToken()];
+                    return [userObj, utilities.getHash(null, null, 48)];
                 })
                 .spread(function(userObj, tkn) {
                     var reset_link = process.env.reset_password_link || "";
@@ -1659,57 +1659,6 @@ Accounts.prototype.delete = {
 // =====================================================================================
 // UTILITY FUNCTIONS
 // =====================================================================================
-function getToken(callback) {
-    var deferred = Q.defer();
-
-    dataAccess.findAll('session')
-        .then(function(find_results) {
-            var tokenIsGood = false;
-            var token;
-            while (!tokenIsGood) {
-                token = crypto.randomBytes(48).toString('hex');
-
-                var sessions = find_results.filter(function(inSysObj) {
-                    return (inSysObj.object_type === 'session' && inSysObj.token === token);
-                });
-
-                if (sessions === null || sessions.length === 0) {
-                    tokenIsGood = true;
-                }
-                else {
-                    tokenIsGood = false;
-                }
-            }
-
-            deferred.resolve(token);
-        })
-        .fail(function(err) {
-            if (err !== undefined && err !== null && typeof (err.AddToError) == 'function') {
-                if (err.message === 'no results found') {
-                    var token = crypto.randomBytes(48).toString('hex');
-                    deferred.resolve(token);
-                }
-                else {
-                    deferred.reject(err.AddToError(__filename, 'getToken'));
-                }
-            }
-            else {
-                var errorObj = new ErrorObj(500,
-                    'a1036',
-                    __filename,
-                    'getToken',
-                    'error getting token',
-                    'Error getting token',
-                    err
-                );
-                deferred.reject(errorObj);
-            }
-        });
-
-    deferred.promise.nodeify(callback);
-    return deferred.promise;
-}
-
 
 function getUser(req, callback) {
     var deferred = Q.defer();
@@ -1810,7 +1759,7 @@ function userDoesNotExist(req, callback) {
 function createSession(userObj, clientInfo) {
 	var deferred = Q.defer();
 
-	getToken()
+	accessControl.getToken()
 	.then(function(tkn) {
 		return [tkn, dataAccess.startTransaction()]
 	})
@@ -1871,7 +1820,7 @@ function createSession(userObj, clientInfo) {
 function createAnonymousSession(clientInfo) {
 	var deferred = Q.defer();
 
-	getToken()
+	accessControl.getToken()
 	.then(function(tkn) {
 		return [tkn, dataAccess.startTransaction()]
 	})

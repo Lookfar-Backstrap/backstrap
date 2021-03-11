@@ -964,6 +964,7 @@ AccessControl.prototype.roleExists = function(roleName, callback) {
 	return deferred.promise;
 };
 
+AccessControl.prototype.getToken = getSessionToken;
 
 // =====================================================================
 // UTILITY FUNCTIONS
