@@ -437,7 +437,7 @@ Accounts.prototype.post = {
                     else {
                         userObj.forgot_password_tokens.push(tkn);
                     }
-                    return [tkn, dataAccess.updateJsonbField('bsuser', 'data', userObj)];
+                    return [tkn, dataAccess.updateJsonbField('bsuser', 'data', userObj, `data->>'id' = ${userObj.id}`)];
                 })
                 .spread(function(tkn, save_res) {
                     // ADD EVENT TO SESSION
@@ -530,7 +530,7 @@ Accounts.prototype.post = {
                 userObj.password = hashedPassword;
                 userObj.salt = salt;
                 userObj.forgot_password_tokens = [];
-                return dataAccess.updateJsonbField('bsuser', 'data', userObj);
+                return dataAccess.updateJsonbField('bsuser', 'data', userObj, `data->>'id' = ${userObj.id}`);
             })
             .then(function() {
                 var resolveObj = { 'success': true };
@@ -574,7 +574,7 @@ Accounts.prototype.post = {
             }
         }
 
-        dataAccess.updateJsonbField('bsuser', 'data', userObj)
+        dataAccess.updateJsonbField('bsuser', 'data', userObj, `data->>'id' = ${userObj.id}`)
             .then(function() {
                 // ADD EVENT TO SESSION
                 var resolveObj = { 'profile': true };

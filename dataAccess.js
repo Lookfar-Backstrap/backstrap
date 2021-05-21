@@ -599,7 +599,7 @@ var runSql = (sqlStatement, params, connection, isStreaming) => {
 DataAccess.prototype.runSql = runSql;
 
 
-
+// %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 DataAccess.prototype.GetDeadSessions = function (timeOut, callback) {
 	var deferred = Q.defer();
 	var minutes = "'" + timeOut + " minutes'";
@@ -755,7 +755,7 @@ DataAccess.prototype.GenerateForgotPasswordToken = (email, username) => {
     else {
       userObj.forgot_password_tokens.push(tkn);
     }
-    return [tkn, DataAccess.prototype.updateJsonbField('bsuser', 'data', userObj)];
+    return [tkn, DataAccess.prototype.updateJsonbField('bsuser', 'data', userObj, `data->>'id' = ${userObj.id}`)];
   })
   .spread(function(tkn) {
     deferred.resolve(tkn);
@@ -766,8 +766,7 @@ DataAccess.prototype.GenerateForgotPasswordToken = (email, username) => {
 
   return deferred.promise;
 }
-
-
+// %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
 DataAccess.prototype.getActiveTokens = () => {
@@ -878,6 +877,50 @@ DataAccess.prototype.getUserByUserName = (username) => {
 	return deferred.promise;
 }
 
+DataAccess.prototype.getUserByEmail = (email) => {
+  var deferred = Q.defer();
+
+	var qry = "SELECT * FROM bsuser WHERE LOWER(bsuser.data->>'email') = LOWER($1)";
+	var qry_params = [email];
+	ExecutePostgresQuery(qry, qry_params, null)
+	.then(function (connection) {
+		if (connection.results.length === 0) {
+			var errorObj = new ErrorObj(500,
+				'da0160',
+				__filename,
+				'getUserByEmail',
+				'no user found',
+				'Cannot find user.',
+				null
+			);
+			deferred.reject(errorObj);
+		}
+		else if (connection.results.length === 1) {
+			deferred.resolve(connection.results[0].data);
+		}
+		else {
+			console.log('found multiple users');
+			var errorObj = new ErrorObj(500,
+				'da0161',
+				__filename,
+				'getUserByEmail',
+				'',
+				'Found multiple users with that user name.',
+				null
+			);
+			deferred.reject(errorObj);
+		}
+	})
+	.fail(function (err) {
+		try {
+			deferred.reject(err.AddToError(__filename, 'getUserByEmail'));
+		}
+		catch(e) {console.log(e)}
+	});
+
+	return deferred.promise;
+}
+
 DataAccess.prototype.createUser = (userObj) => {
   var deferred = Q.defer();
 
@@ -899,7 +942,11 @@ DataAccess.prototype.createUser = (userObj) => {
 DataAccess.prototype.updateJsonbField = (tableName, fieldname, updateObj, whereClause) => {
   var deferred = Q.defer();
 
-  let sql = `UPDATE ${tableName} SET ${fieldname} = ${fieldname} || $1 WHERE ${whereClause} RETURNING *`;
+  let sql = `UPDATE ${tableName} SET ${fieldname} = ${fieldname} || $1`;
+  if(whereClause) {
+    sql += ` WHERE ${whereClause}`;
+  } 
+  sql += ` RETURNING *`;
   let params = [JSON.stringify(updateObj)];
 
   runSql(sql, params)
@@ -909,6 +956,100 @@ DataAccess.prototype.updateJsonbField = (tableName, fieldname, updateObj, whereC
   .fail((err) => {
     deferred.reject(err.AddToError(__filename, 'updateJsonbField'));
   })
+
+  return deferred.promise;
+}
+
+DataAccess.prototype.getSession = (sid, tkn) => {
+  var deferred = Q.defer();
+
+  let sql = "SELECT * FROM session WHERE";
+  let params = [];
+  if(sid) {
+    sql += " data->>'id' = $1";
+    params.push(sid);
+  }
+  else if(tkn) {
+    " data->>'token' = $1";
+    params.push(tkn);
+  }
+
+  runSql(sql, params)
+  .then((sessRes) => {
+    if(sessRes.length === 1) {
+      deferred.resolve(sessRes[0]);
+    }
+    else if(sessRes.length === 0) {
+      deferred.resolve(null);
+    }
+    else {
+      let errorObj = new ErrorObj(500,
+                                  'da0080',
+                                  __filename,
+                                  'getSession',
+                                  'multiple sessions found',
+                                  'There was a problem with your request',
+                                  null);
+      deferred.reject(errorObj);
+    }
+  })
+  .fail((err) => {
+    let errorObj = new ErrorObj(500,
+                              'da0081',
+                              __filename,
+                              'getSession',
+                              'db error',
+                              'There was a problem with your request',
+                              err);
+    deferred.reject(errorObj);
+  });
+
+  return deferred.promise;
+}
+
+DataAccess.prototype.getUserBySession = (sid, tkn) => {
+  var deferred = Q.defer();
+
+  let sql = "SELECT bsuser.* FROM bsuser INNER JOIN bsuser_session bsus ON bsuser.row_id = bsus.left_id INNER JOIN session ON session.row_id = bsus.right_id WHERE";
+  let params = [];
+  if(sid) {
+    sql += " session.data->>'id' = $1";
+    params.push(sid);
+  }
+  else if(tkn) {
+    " session.data->>'token' = $1";
+    params.push(tkn);
+  }
+
+  runSql(sql, params)
+  .then((sessRes) => {
+    if(sessRes.length === 1) {
+      deferred.resolve(sessRes[0]);
+    }
+    else if(sessRes.length === 0) {
+      deferred.resolve(null);
+    }
+    else {
+      let errorObj = new ErrorObj(500,
+                                  'da0082',
+                                  __filename,
+                                  'getUserBySession',
+                                  'multiple sessions found',
+                                  'There was a problem with your request',
+                                  null);
+      deferred.reject(errorObj);
+    }
+  })
+  .fail((err) => {
+    let errorObj = new ErrorObj(500,
+                              'da0083',
+                              __filename,
+                              'getUserBySession',
+                              'db error',
+                              'There was a problem with your request',
+                              err);
+    deferred.reject(errorObj);
+  });
 
   return deferred.promise;
 }

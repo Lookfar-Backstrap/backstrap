@@ -301,18 +301,19 @@ AccessControl.prototype.signIn = (params, apiToken) => {
       if (validTokenRes.is_valid === true && validTokenRes.session.is_anonymous === true && validTokenRes.session.username === 'anonymous') {
           sess = validTokenRes.session;
           sess.username = username;
-          return [userObj, tkn, true, dataAccess.updateJsonbField('session', 'data', sess)];
+          return [userObj, tkn, true, dataAccess.updateJsonbField('session', 'data', sess, `data->>'id' = ${sess.id}`)];
       }
       else {
           return [userObj, tkn, false];
       }
   })
-  .spread((userObj, tkn, isNewAnonSess, sess) => {
+  .spread((userObj, tkn, isNewAnonSess, sessRes) => {
       if (isNewAnonSess) {
-          return [userObj, tkn, dataAccess.attachUserToSession(userObj, sess)];
+        let sess = sessRes[0] ? sessRes[0].data : null;
+        return [userObj, tkn, dataAccess.attachUserToSession(userObj, sess)];
       }
       else {
-          return [userObj, tkn];
+        return [userObj, tkn];
       }
   })
   .spread((userObj, tkn) => {
@@ -415,7 +416,7 @@ AccessControl.prototype.startSession = (userObj, clientInfo) => {
     if(userObj != null) {
       var sessionObj = {
           'object_type': 'session',
-          'id': utilities.createUID(true),
+          'id': utilities.getUID(true),
           'token': tkn,
           'username': userObj.username ? userObj.username : userObj.email,
           'user_id': userObj.id,
@@ -428,7 +429,7 @@ AccessControl.prototype.startSession = (userObj, clientInfo) => {
     else {
       var sessionObj = {
           'object_type': 'session',
-          'id': utilities.createUID(true),
+          'id': utilities.getUID(true),
           'token': tkn,
           "is_anonymous": true,
           'username': 'anonymous',
@@ -931,7 +932,7 @@ function createStandardUser(username, email, password = null, exid = null, first
         var userObj = {
           'object_type': 'bsuser',
           'account_type': 'external',
-          'id': utilities.createUID(true),
+          'id': utilities.getUID(true),
           'username': email,
           'first': first,
           'last': last,
@@ -963,18 +964,19 @@ function createStandardUser(username, email, password = null, exid = null, first
       if (validTokenRes.is_valid === true && validTokenRes.session.is_anonymous === true && validTokenRes.session.username === 'anonymous') {
           sess = validTokenRes.session;
           sess.username = username;
-          return [userObj, true, dataAccess.updateJsonbField('session', 'data', sess)];
+          return [userObj, true, dataAccess.updateJsonbField('session', 'data', sess, `data->>'id' = ${sess.id}`)];
       }
       else {
           return [userObj, false];
       }
   })
-  .spread(function(userObj, isNewAnonSess, sess) {
+  .spread(function(userObj, isNewAnonSess, sessRes) {
       if (isNewAnonSess) {
-          return [userObj, dataAccess.attachUserToSession(userObj, sess)];
+        let sess = sessRes[0] ? sessRes[0].data : null;
+        return [userObj, dataAccess.attachUserToSession(userObj, sess)];
       }
       else {
-          return [userObj];
+        return [userObj];
       }
   })
   .spread(function(userObj) {
@@ -1044,7 +1046,7 @@ function createAPIUser(email, first, last, roles, parentAccountId) {
       var userObj = {
           'object_type': 'bsuser',
           'account_type': 'api',
-          'id': utilities.createUID(),
+          'id': utilities.getUID(),
           'client_id': creds.clientId,
           'first': first,
           'last': last,
@@ -1215,7 +1217,7 @@ function createExternalAPIUser(email, exid, first, last, roles) {
       var userObj = {
           'object_type': 'bsuser',
           'account_type': 'external-api',
-          'id': utilities.createUID(true),
+          'id': utilities.getUID(true),
           'first': first,
           'last': last,
           'email': email,

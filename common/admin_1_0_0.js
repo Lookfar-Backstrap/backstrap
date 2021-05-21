@@ -158,6 +158,7 @@ Admin.prototype.post = {
 
 			var userObj = {
 				'object_type': 'bsuser',
+        'id': utilities.getUID(true),
 				'account_type': 'native',
 				'username': username,
 				'first': first,
@@ -181,7 +182,7 @@ Admin.prototype.post = {
 				}
 			}
 
-			return dataAccess.saveEntity('bsuser', userObj);
+			return dataAccess.createUser(userObj);
 		})
 		.then(function(userDbEntity) {
 			delete userDbEntity.password;

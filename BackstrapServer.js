@@ -331,7 +331,7 @@ function requestPipeline(req, res, verb) {
       if(validTokenResponse.hasOwnProperty('session')) {
         if(settings.data.access_logging === true) accessLogEvent.session_id = validTokenResponse.session.id;
 
-        dataAccess.joinOne({object_type:'session', id:validTokenResponse.session.id}, 'bsuser')
+        dataAccess.getUserBySession(validTokenResponse.session.id)
         .then(function(usr) {
           inner_deferred.resolve(usr);
         })
@@ -406,7 +406,7 @@ function requestPipeline(req, res, verb) {
     if(validTokenResponse.session != null) {
       let session = validTokenResponse.session;
       session.last_touch = new Date().toISOString();
-      dataAccess.updateJsonbField('session', 'data', session);
+      dataAccess.updateJsonbField('session', 'data', session, `data->>'id' = ${session.id}`).then()
     }
 
     // IF ACCESS LOGGING IS ENABLED.  ADD THE END TIMESTAMP
