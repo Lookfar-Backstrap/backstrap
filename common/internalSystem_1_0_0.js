@@ -9,16 +9,14 @@ var settings;
 var models;
 var Q = require('q');
 var os = require('os');
-var crypto = require('crypto');
 var fs = require('fs')
 
-var InternalSystem = function(da, utils, ac, sr, st, m) {
+var InternalSystem = function(da, utils, ac, sr, st) {
 	dataAccess = da;
 	utilities = utils;
 	accessControl = ac;
 	serviceRegistration = sr;
 	settings = st;
-	models = m;
 };
 
 InternalSystem.prototype.get = {

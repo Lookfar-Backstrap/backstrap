@@ -3,19 +3,17 @@ var utilities;
 var accessControl;
 var serviceRegistration;
 var settings;
-var models;
 var endpoints;
 
 var fs = require('fs');
 var Q = require('q');
 
-var Controller = function (da, utils, ac, sr, st, m, e) {
+var Controller = function (da, utils, ac, sr, st, e) {
 	dataAccess = da;
 	utilities = utils;
 	accessControl = ac;
 	serviceRegistration = sr;
 	settings = st;
-	models = m;
 	endpoints = e;
 };
 
@@ -47,7 +45,7 @@ Controller.prototype.resolveServiceCall = function (serviceCallDescriptor, req, 
 		serviceCallDescriptor.verb.toLowerCase() === 'put' ||
 		serviceCallDescriptor.verb.toLowerCase() === 'patch' ||
 		serviceCallDescriptor.verb.toLowerCase() === 'delete') {
-		var wsNoVerb = exports.getVersionOfWebService(serviceCallDescriptor.area.toLowerCase(), serviceCallDescriptor.controller.toLowerCase(), versionObj);
+		var wsNoVerb = exports.getController(serviceCallDescriptor.area.toLowerCase(), serviceCallDescriptor.controller.toLowerCase(), versionObj);
 		if (wsNoVerb !== null) {
 			versionOfWS = wsNoVerb[serviceCallDescriptor.verb.toLowerCase()];
 		}
@@ -82,34 +80,16 @@ Controller.prototype.resolveServiceCall = function (serviceCallDescriptor, req, 
 
 	var funcName = null;
 	var foundFuncName = false;
-	if (serviceCallDescriptor.area.toLowerCase() === 'common' && serviceCallDescriptor.controller.toLowerCase() === 'models') {
-		for (var mIdx = 0; mIdx < models.data.models.length; mIdx++) {
-			var currentModel = models.data.models[mIdx];
-			if (currentModel.obj_type.toLowerCase() === serviceCallDescriptor.call.toLowerCase()) {
-				foundFuncName = true;
-				funcName = 'model';
-				if (serviceCallDescriptor.verb.toLowerCase() === 'get') {
-					req.query.model_type = currentModel.obj_type.toLowerCase();
-				}
-				else {
-					req.body.model_type = currentModel.obj_type.toLowerCase();
-				}
+	
+  var funcNames = Object.keys(versionOfWS);
+  for (var fIdx = 0; fIdx < funcNames.length; fIdx++) {
+    if (funcNames[fIdx].toLowerCase() === serviceCallDescriptor.call.toLowerCase()) {
+      foundFuncName = true;
+      funcName = funcNames[fIdx];
 
-				break;
-			}
-		}
-	}
-	else {
-		var funcNames = Object.keys(versionOfWS);
-		for (var fIdx = 0; fIdx < funcNames.length; fIdx++) {
-			if (funcNames[fIdx].toLowerCase() === serviceCallDescriptor.call.toLowerCase()) {
-				foundFuncName = true;
-				funcName = funcNames[fIdx];
-
-				break;
-			}
-		}
-	}
+      break;
+    }
+  }
 
 	if (foundFuncName) {
 		var mainCall = Q.denodeify(versionOfWS[funcName]);		
@@ -139,12 +119,8 @@ Controller.prototype.resolveServiceCall = function (serviceCallDescriptor, req, 
 			console.log(errorObj);
 			console.log('=============================================================\n');
 
-				console.log('\n========================== ERROR ==========================');
-				console.log(errorObj);
-				console.log('=============================================================\n');
-
-				deferred.reject(errorObj);
-			});			
+			deferred.reject(errorObj);
+		});			
 	}
 	else {
 		var errorObj = new ErrorObj(400,
@@ -191,7 +167,7 @@ exports.makeVersionObject = function makeVersionObject(versionString) {
 	return versionObject;
 }
 
-exports.getVersionOfWebService = function getVersionOfWebService(areaName, controllerName, versionObj) {
+exports.getController = function getController(areaName, controllerName, versionObj) {
 	var servicesDir = './' + areaName + '/';
 	var services = fs.readdirSync(servicesDir);
 	var baseServiceName = null;
@@ -212,15 +188,45 @@ exports.getVersionOfWebService = function getVersionOfWebService(areaName, contr
   
   try {
     var serviceCallsPath = servicesDir + baseServiceName + '_' + inputVersionString + '.js';
-    var ServiceCalls = require(serviceCallsPath)[baseServiceName];
-    var versionOfWS = new ServiceCalls(dataAccess, utilities, accessControl, serviceRegistration, settings, models, endpoints);
+    var ServiceCalls = null;
+    try {
+      ServiceCalls = require(serviceCallsPath)[baseServiceName];
+    }
+    catch(e) {
+      let errorObj = new ErrorObj(500,
+                                  'c0010',
+                                  __filename,
+                                  'getController',
+                                  `Error loading controller: ${serviceCallsPath}`,
+                                  'There was a problem executing your request.',
+                                  e
+                                  );
+      console.error(errorObj);
+      return null;
+    }
+
+    var versionOfWS = null;
+    try {
+      versionOfWS = new ServiceCalls(dataAccess, utilities, accessControl, serviceRegistration, settings, endpoints);
+    }
+    catch(e) {
+      let errorObj = new ErrorObj(500,
+                                  'c0011',
+                                  __filename,
+                                  'getController',
+                                  `Error initializing controller: ${serviceCallsPath}`,
+                                  'There was a problem executing your request.',
+                                  e
+                                  );
+      console.error(errorObj);
+    }
     return versionOfWS;
   }
   catch(e) {
     let errorObj = new ErrorObj(500,
 			'c1006',
 			__filename,
-			'getVersionOfWebService',
+			'getController',
 			'error loading web service file',
 			'There was a problem with your request.  Please try again.',
 			e

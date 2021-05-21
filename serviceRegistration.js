@@ -1,15 +1,20 @@
+// ==================================================================
+// SERVICE REGISTRATION
+// ==================================================================
+// Service Registration handles loading, processing, and validation
+// of endpoints and arguments.  Works in tandem with endpoints.js
+// ==================================================================
+
 var dataAccess;
 var endpoints;
-var models;
 var Q = require('q');
 var moment = require('moment');
 var base64 = require('./base64.js');
 
 // CONSTRUCTOR
-var ServiceRegistration = function(db, e, m) {
+var ServiceRegistration = function(db, e) {
 	dataAccess = db;
 	endpoints = e;
-	models = m;
 };
 
 ServiceRegistration.prototype.reload = function() {
@@ -17,9 +22,6 @@ ServiceRegistration.prototype.reload = function() {
 
 	endpoints.reload()
 	.then(function(reload_res) {
-		return endpoints.generateFromModels(models.data.models, false);
-	})
-	.then(function(gen_res) {
 		deferred.resolve(true);
 	})
 	.fail(function(err) {
@@ -45,9 +47,9 @@ ServiceRegistration.prototype.reload = function() {
 ServiceRegistration.prototype.registerServiceCall = function(call, area, controller, verb, version, args, authRequired, description, callback) {
 	var deferred = Q.defer();
 
-	// -------------------
-	// VALIDATE
-	// -------------------
+	// -------------------------------------------------------------------
+	// VALIDATE THAT WE HAVE ALL THE INFO NECESSARY TO CREATE AN ENDPOINT
+	// -------------------------------------------------------------------
 	var isValid = true;
 	var invalidArgs = [];
 	if(call===null) {
@@ -74,6 +76,7 @@ ServiceRegistration.prototype.registerServiceCall = function(call, area, control
 		authRequired = false;
 	}
 
+  // MISSING REQUIRED ARGS TO CREATE AN ENDPOINT
 	if(isValid===false) {
 		var errorObj = new ErrorObj(500, 
 									'sr0001', 
@@ -86,24 +89,9 @@ ServiceRegistration.prototype.registerServiceCall = function(call, area, control
 		deferred.reject(errorObj);
 	}
 	else {
-		//call = call.toLowerCase();
-		//area = area.toLowerCase();
-		//controller = area.toLowerCase();
 		verb = verb.toUpperCase();
-		//version = version.toLowerCase();
 
-		var serviceObj = {
-			'object_type': 'webServiceCallDescriptor',
-			'call': call,
-			'area': area,
-			'controller': controller,
-			'verb': verb,
-			'version': version,
-			'args': args,
-			'authRequired': authRequired,
-			'description': description
-		};
-
+    // CHECK IF WE HAVE ALREADY CREATED THIS ENDPOINT
 		this.serviceCallExists(call, area, controller, verb, version)
 		.then(function() {
 			var errorObj = new ErrorObj(500, 
@@ -759,42 +747,11 @@ ServiceRegistration.prototype.getAllServiceCalls = function(callback) {
 	return deferred.promise;
 };
 
-ServiceRegistration.prototype.updateFromModels = function(doNetworkReload, callback) {
-	var deferred = Q.defer();
-
-	if(doNetworkReload === null || doNetworkReload === undefined) {
-		doNetworkReload = false;
-	}
-
-	endpoints.generateFromModels(models.data.models, doNetworkReload)
-	.then(function(update_res) {
-		deferred.resolve(update_res);
-	})
-	.fail(function(err) {
-		if(err !== undefined && err !== null && typeof(err.AddToError) === 'function') {
-			deferred.reject(err.AddToError(__filename, 'updateFromModels'));
-		}
-		else {
-			var errorObj = new ErrorObj(500, 
-										'sr1010', 
-										__filename, 
-										'updateFromModels', 
-										'error updating endpoints based on models',
-										'Error updating endpoints based on models',
-										err
-										);
-			deferred.reject(errorObj);
-		}
-	});
-
-	deferred.promise.nodeify(callback);
-	return deferred.promise;
-};
-
 
 // ==================================================
 // UTILITY FUNCTIONS
 // ==================================================
+// BS3 TODO: REPLACE MOMENT PACKAGE
 function formatDateForStorage(dateString) {
 	var re = /(\+|\-)\d\d:?\d\d$/;
 	var reZ = /(Z$|\+00:?00$)/;

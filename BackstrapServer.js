@@ -11,10 +11,12 @@ var express = require('express');	// Import express to handle routing and server
 var cors = require('cors');		// Setup CORS
 var path = require('path');			// Import path to control our folder structure
 var bodyParser = require('body-parser');
-var Q = require('q');
 var fs = require('fs');
-var async = require('async');
+var Q = require('q');
 
+console.log('==================================================');
+console.log('INITIALIZATION');
+console.log('==================================================');
 
 require('./ErrorObj');
 
@@ -25,21 +27,32 @@ var ServiceRegistration = require('./serviceRegistration').ServiceRegistration;
 var Controller = require('./controller').Controller;		// GETS THE CORRECT WEB SERVICE FILE AND ROUTES CALLS
 var Utilities = require('./utilities').Utilities;
 var AccessControl = require('./accessControl').AccessControl;
-var Models = require('./models.js').Models;
 var schemaControl = require('./schema.js');
 
 // ---------------------------------
 // SETUP EXPRESS
 // ---------------------------------
 var app = express();
-app.set('views', path.join(__dirname, 'views'));	// MAP views TO FOLDER STRUCTURE
-app.set('view engine', 'jade');						// USE JADE FOR TEMPLATING
 
 const requestSizeLimit = (process.env.MAX_REQUEST_SIZE && !isNaN(process.env.MAX_REQUEST_SIZE) && Number(process.env.MAX_REQUEST_SIZE > 0)) ? process.env.MAX_REQUEST_SIZE+'mb' : '50mb';
 app.use(bodyParser.json({ limit: requestSizeLimit }));		// THIS IS A HIGH DEFAULT LIMIT SINCE BACKSTRAP ALLOWS BASE64 ENCODED FILE UPLOAD
 app.use(bodyParser.urlencoded({ extended: true }));			// DETERMINE IF THIS IS HTML OR JSON REQUEST
-app.use(express.static(path.join(__dirname, 'public')));	// MAP STATIC PAGE CALLS TO public FOLDER
 app.use(cors());
+
+// PASS THE HANDLE TO THE EXPRESS APP INTO
+// express_init.js SO THE USER CAN ADD EXPRESS MODULES
+try {
+  require('./express_init').init(app);
+}
+catch(expressInitErr) {
+  if(expressInitErr && expressInitErr.code === 'MODULE_NOT_FOUND') {
+    console.log('Express settings script skipped -- no file found');
+  }
+  else {
+    console.error(expressInitErr);
+  }
+}
+
 
 if(process.env.DEBUG_MODE != null && (process.env.DEBUG_MODE === true || process.env.DEBUG_MODE.toString().toLowerCase() === 'true')) {
   process.on('warning', e => console.warn(e.stack));       // USEFUL IN DEBUGGING
@@ -49,21 +62,9 @@ if(process.env.DEBUG_MODE != null && (process.env.DEBUG_MODE === true || process
 
 //Settings File, contains DB params
 var nodeEnv = process.env.NODE_ENV || 'local';
-var configFile = './config/config.' + nodeEnv + '.js';
+var configFile = './dbconfig/dbconfig.' + nodeEnv + '.js';
 var config = require(configFile);
 
-var rsString = process.env.BS_REMOTE || 'false';
-rsString = rsString.toLowerCase();
-var useRemoteSettings = rsString == 'true' ? true : false;
-
-var connectionString =
-	'postgres://' + config.db.user + ':' + config.db.pass + '@' + config.db.host + ':' + config.db.port + '/' + config.db.name;  // DATABASE
-
-console.log('==================================================');
-console.log('INITIALIZATION');
-console.log('==================================================');
-
-var models;
 var endpoints;
 var dataAccess;
 var serviceRegistration;
@@ -76,172 +77,157 @@ var sessionLog;
 var accessLog;
 var eventLog;
 
-var settings = new Settings();
-settings.init(config.s3.bucket, 'Settings.json', useRemoteSettings)
-	.then(function (settings_res) {
-		console.log('Settings initialized');
-		utilities = new Utilities(settings);
-		console.log('Utilities initialized');
-		models = new Models(settings);
-		return models.init(config.s3.bucket, 'Models.json', useRemoteSettings);
-	})
-	.then(function (endpoints_res) {
-		console.log('Models initialized');
-		endpoints = new Endpoints(settings);
-		return endpoints.init(config.s3.bucket, 'Endpoints.json', useRemoteSettings);
-	})
-	.then(function (model_res) {
-		console.log('Endpoints initialized');
+var settings = new Settings('Settings.json');
+console.log('Settings initialized');
+utilities = new Utilities(settings);
+console.log('Utilities initialized');
+endpoints = new Endpoints(settings, 'Endpoints_in.json');
+console.log('Endpoints initialized');
+dataAccess = new DataAccess(config, utilities, settings);
+console.log('DataAccess initialized');
+//NOW SET THE DATA ACCESS VAR IN UTILITIES
+utilities.setDataAccess(dataAccess);
+serviceRegistration = new ServiceRegistration(dataAccess, endpoints);
+console.log('ServiceRegistration initialized');
+accessControl = new AccessControl(utilities, settings, dataAccess);
+accessControl.init('Security.json')
+.then(function (acl_res) {
+  console.log('AccessControl initialized');
+  mainController = new Controller(dataAccess, utilities, accessControl, serviceRegistration, settings, endpoints.data);
+  console.log('Controller initialized');
 
-		dataAccess = new DataAccess(config, models.data.models, utilities, settings);
-		console.log('DataAccess initialized');
-		//NOW SET THE DATA ACCESS VAR IN UTILITIES
-		utilities.setDataAccess(dataAccess);
-		serviceRegistration = new ServiceRegistration(dataAccess, endpoints, models, utilities);
-		console.log('ServiceRegistration initialized');
-		accessControl = new AccessControl(utilities, settings, dataAccess);
-		return accessControl.init(config.s3.bucket, 'Security.json', useRemoteSettings);
-	})
-	.then(function (acl_res) {
-		console.log('AccessControl initialized');
-		mainController = new Controller(dataAccess, utilities, accessControl, serviceRegistration, settings, models, endpoints.data);
-		console.log('Controller initialized');
-		// GENERATE ENDPOINTS FROM MODELS
-		return endpoints.generateFromModels(models.data.models, false);
-	})
-	.then(function (ge_res) {
-		console.log('Models generated');
-		// CREATE ANY NEW DB TABLES BASED ON MODELS
-		return schemaControl.updateSchema(models, config.db.name, config.db.user, config.db.pass, config.db.host, config.db.port, utilities)
-	})
-	.then(function (us_Res) {
-    console.log('Schema updated');
-    
-    // CREATE A LOG DIRECTORY IF NEEDED
-    // DO IT SYNCHRONOUSLY WHICH IS ALRIGHT SINCE THIS IS JUST ONCE
-    // DURING STARTUP
-    if(!fs.existsSync('./logs')) fs.mkdirSync('./logs');
-    
-    changeErrorLogs();
-    utilities.setLogs(eventLog, errorLog, sessionLog);
-    console.log('Log files opened');
+  return schemaControl.updateSchema(config.db.name, config.db.user, config.db.pass, config.db.host, config.db.port, utilities)
+})
+.then(function(schemaUpd) {
+  // CREATE A LOG DIRECTORY IF NEEDED
+  // DO IT SYNCHRONOUSLY WHICH IS ALRIGHT SINCE THIS IS JUST ONCE
+  // DURING STARTUP
+  if(!fs.existsSync('./logs')) fs.mkdirSync('./logs');
+  
+  changeErrorLogs();
+  utilities.setLogs(eventLog, errorLog, sessionLog);
+  console.log('Log files opened');
 
-		// SERVER PORT
-		app.set('port', process.env.PORT || settings.data.server_port);
+  // SERVER PORT
+  app.set('port', process.env.PORT || settings.data.server_port);
 
-		// STARTUP THE SESSION INVALIDATION -- CHECK EVERY X MINUTES
-		var timeoutInMintues = settings.data.timeout;
-    var invalidSessionTimer = setInterval(function () { checkForInvalidSessions(dataAccess, settings) }, settings.data.timeout_check * 60000);
-    
-    
-		// ========================================================
-		// SETUP ROUTE HANDLERS
-		// ========================================================
-		// ---------------------------------------------------------------------------------
-		// GETS
-		// ---------------------------------------------------------------------------------
-		app.get('/:area/:controller/:serviceCall/:version?', function (req, res) {
-			requestPipeline(req, res, 'GET');
-    });
-    app.get('/:area/:controller?', function (req, res) {
-			requestPipeline(req, res, 'GET');
-		});
-		// ---------------------------------------------------------------------------------
-		// ---------------------------------------------------------------------------------
+  // STARTUP THE SESSION INVALIDATION -- CHECK EVERY X MINUTES
+  var invalidSessionTimer = setInterval(function () { checkForInvalidSessions(dataAccess, settings) }, settings.data.timeout_check * 60000);
+  
+  // EVERYTHING IS INITIALIZED.  RUN ANY INITIALIZATION CODE
+  try {
+    require('./onInit');
+  }
+  catch(onInitErr) {
+    if(onInitErr && onInitErr.code === 'MODULE_NOT_FOUND') {
+      console.log('Initialization script skipped -- no file found');
+    }
+    else {
+      console.error(onInitErr);
+    }
+  }
+  
+  // ========================================================
+  // SETUP ROUTE HANDLERS
+  // ========================================================
+  // ---------------------------------------------------------------------------------
+  // GETS
+  // ---------------------------------------------------------------------------------
+  app.get('/:area/:controller/:serviceCall/:version?', function (req, res) {
+    requestPipeline(req, res, 'GET');
+  });
+  app.get('/:area/:controller?', function (req, res) {
+    requestPipeline(req, res, 'GET');
+  });
+  // ---------------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------------
 
-		// ---------------------------------------------------------------------------------
-		// POSTS
-		// ---------------------------------------------------------------------------------
-		app.post('/:area/:controller/:serviceCall/:version?', function (req, res) {
-			requestPipeline(req, res, 'POST');
-    });
-    app.post('/:area/:controller?', function (req, res) {
-			requestPipeline(req, res, 'POST');
-		});
-		// ---------------------------------------------------------------------------------
-		// ---------------------------------------------------------------------------------
-		// ---------------------------------------------------------------------------------
-		// PUTS
-		// ---------------------------------------------------------------------------------
-		app.put('/:area/:controller/:serviceCall/:version?', function (req, res) {
-			requestPipeline(req, res, 'PUT');
-    });
-    app.put('/:area/:controller?', function (req, res) {
-			requestPipeline(req, res, 'PUT');
-		});
-		// ---------------------------------------------------------------------------------
-		// ---------------------------------------------------------------------------------
-		// ---------------------------------------------------------------------------------
-		// PATCH
-		// ---------------------------------------------------------------------------------
-		app.patch('/:area/:controller/:serviceCall/:version?', function (req, res) {
-			requestPipeline(req, res, 'PATCH');
-    });
-    app.patch('/:area/:controller?', function (req, res) {
-			requestPipeline(req, res, 'PATCH');
-		});
-		// ---------------------------------------------------------------------------------
-		// ---------------------------------------------------------------------------------
-		// ---------------------------------------------------------------------------------
-		// DELETES
-		// ---------------------------------------------------------------------------------
-		app.delete('/:area/:controller/:serviceCall/:version?', function (req, res) {
-			requestPipeline(req, res, 'DELETE');
-    });
-    app.delete('/:area/:controller?', function (req, res) {
-			requestPipeline(req, res, 'DELETE');
-		});
-		// ---------------------------------------------------------------------------------
-		// ---------------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------------
+  // POSTS
+  // ---------------------------------------------------------------------------------
+  app.post('/:area/:controller/:serviceCall/:version?', function (req, res) {
+    requestPipeline(req, res, 'POST');
+  });
+  app.post('/:area/:controller?', function (req, res) {
+    requestPipeline(req, res, 'POST');
+  });
+  // ---------------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------------
+  // PUTS
+  // ---------------------------------------------------------------------------------
+  app.put('/:area/:controller/:serviceCall/:version?', function (req, res) {
+    requestPipeline(req, res, 'PUT');
+  });
+  app.put('/:area/:controller?', function (req, res) {
+    requestPipeline(req, res, 'PUT');
+  });
+  // ---------------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------------
+  // PATCH
+  // ---------------------------------------------------------------------------------
+  app.patch('/:area/:controller/:serviceCall/:version?', function (req, res) {
+    requestPipeline(req, res, 'PATCH');
+  });
+  app.patch('/:area/:controller?', function (req, res) {
+    requestPipeline(req, res, 'PATCH');
+  });
+  // ---------------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------------
+  // DELETES
+  // ---------------------------------------------------------------------------------
+  app.delete('/:area/:controller/:serviceCall/:version?', function (req, res) {
+    requestPipeline(req, res, 'DELETE');
+  });
+  app.delete('/:area/:controller?', function (req, res) {
+    requestPipeline(req, res, 'DELETE');
+  });
+  // ---------------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------------
 
-		app.get('*', function (req, res) {
-			res.status(404).send({ 'Error': 'Route/File Not Found' });
-		});
+  app.get('*', function (req, res) {
+    res.status(404).send({ 'Error': 'Route/File Not Found' });
+  });
 
-		app.use(function (err, req, res, next) {
-			if (req.xhr) {
-				if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
-					console.error('Bad JSON');
-					res.status(400).send({ 'message': 'json body malformed' });
-				}
-				else {
-					res.status(500).send({ 'message': 'unknown error' });
-				}
-			}
-			else {
-				next(err);
-			}
-		});
+  app.use(function (err, req, res, next) {
+    if (req.xhr) {
+      if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+        console.error('Bad JSON');
+        res.status(400).send({ 'message': 'json body malformed' });
+      }
+      else {
+        res.status(500).send({ 'message': 'unknown error' });
+      }
+    }
+    else {
+      next(err);
+    }
+  });
 
-		// -----------------------------------
-		// LAUNCH THE SERVER
-		// -----------------------------------
-		const server = http.createServer(app).listen(app.get('port'), function () {
-			console.log('----------------------------------------------');
-			console.log('----------------------------------------------');
-			console.log('Express server listening on port ' + app.get('port'));
-			console.log('');
-
-			if (useRemoteSettings) {
-				settings.registerIp()
-				.then(function (res) {
-					console.log('Running in distributed mode');
-				})
-				.fail(function (err) {
-					console.error('Problem registering ip');
-				});
-			}
-    });
-    
-    if(settings.data.server_timeout != null) server.timeout = parseInt(settings.data.server_timeout);
-    if(settings.data.keep_alive_timeout != null) server.keepAliveTimeout = parseInt(settings.data.keep_alive_timeout);
-    if(settings.data.headers_timeout != null) server.headersTimeout = parseInt(settings.data.headers_timeout);
-	})
-	.fail(function (err) {
-		console.log('Initialization Failure');
-		console.log(err);
-		return 2;
-	});
+  // -----------------------------------
+  // LAUNCH THE SERVER
+  // -----------------------------------
+  const server = http.createServer(app).listen(app.get('port'), function () {
+    console.log('\n');
+    console.log('==============================================');
+    console.log('**************** BACKSTRAP 3 *****************')
+    console.log('==============================================');
+    console.log('Express server listening on port ' + app.get('port'));
+    console.log(new Date().toISOString());
+    console.log('');
+  });
+  
+  if(settings.data.server_timeout != null) server.timeout = parseInt(settings.data.server_timeout);
+  if(settings.data.keep_alive_timeout != null) server.keepAliveTimeout = parseInt(settings.data.keep_alive_timeout);
+  if(settings.data.headers_timeout != null) server.headersTimeout = parseInt(settings.data.headers_timeout);
+})
+.fail(function (err) {
+  console.log('Initialization Failure');
+  console.log(err);
+  return 2;
+});
 
 
 // ================================================

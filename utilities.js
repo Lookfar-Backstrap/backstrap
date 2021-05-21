@@ -14,7 +14,6 @@ const crypto = require('crypto');
 const mkdirp = require('mkdirp');
 
 var UtilitiesExtension = require('./utilities_ext.js');
-var async = require('async');
 
 var dataAccess;
 var settings;

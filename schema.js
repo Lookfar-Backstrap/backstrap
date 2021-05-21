@@ -6,7 +6,7 @@ var crypto = require('crypto');
 var dataAccess;
 
 module.exports = {
-	updateSchema: function (modelsJs, name, user, pass, host, port, utilities) {
+	updateSchema: function (name, user, pass, host, port, utilities) {
 		var deferred = Q.defer();
 		dataAccess = utilities.getDataAccess();
 		checkDbExists(name, user, pass, host, port)
@@ -15,9 +15,6 @@ module.exports = {
 			})
 			.then(function (connection) {
 				return [connection, createInitialTables(connection)];
-			})
-			.spread(function (connection, cit_res) {
-				return [connection, makeTables(connection, modelsJs.data.models)];
 			})
 			.spread(function (connection, res) {
 				return [res, dataAccess.closeDbConnection(connection)];
@@ -251,184 +248,6 @@ function createDefaultUser(utilities) {
 				err
 			);
 			deferred.reject(errorObj);
-		});
-
-	return deferred.promise;
-}
-
-function makeTables(connection, models) {
-	var deferred = Q.defer();
-	var allModels = models;
-
-	var tableList = [];
-	var linkingTableList = [];
-	var linkingDetails = [];
-
-	// GET NAMES OF ALL TABLES USING obj_type and relationships.linking_table
-	// MAKE SURE WE DON'T ADD THEM TWICE
-	for (var model in allModels) {
-		var m = allModels[model];
-		if (tableList.indexOf(m.obj_type) == -1) {
-			tableList.push(m.obj_type);
-		}
-
-		for (var rel in m.relationships) {
-			var r = m.relationships[rel];
-			if (linkingTableList.indexOf(r.linking_table) == -1) {
-				linkingTableList.push(r.linking_table);
-
-				// PUSH THE RELATES_TO TABLE TO THE TABLE LIST TO CHECK FOR EXISTENCE
-				if (tableList.indexOf(r.relates_to) == -1 && (r.relates_to.toLowerCase() !== 'user' && r.relates_to.toLowerCase() !== 'account')) {
-					tableList.push(r.relates_to);
-				}
-
-				var lDetails = {
-					'linking_table': r.linking_table
-				};
-				if (r.relates_to === 'bsuser') {
-					lDetails.left_table = m.obj_type;
-					lDetails.right_table = 'bsuser';
-				}
-				else {
-					// LINKING TABLE MUST BE NAMED USING THE TWO TABLE NAMES THAT IT JOINS
-					var computedLinkingTableName = r.relates_to + '_' + m.obj_type;
-					if (r.linking_table === computedLinkingTableName) {
-						lDetails.left_table = r.relates_to;
-						lDetails.right_table = m.obj_type;
-					}
-					else {
-						lDetails.left_table = m.obj_type;
-						lDetails.right_table = r.relates_to;
-					}
-				}
-				linkingDetails.push(lDetails);
-			}
-		}
-	}
-
-	Q.all(tableList.map(function (tableName) {
-		var inner_deferred = Q.defer();
-		checkForTable(connection, tableName)
-			.then(function (tableExists) {
-				if (tableExists) {
-					inner_deferred.resolve();
-				}
-				else {
-					createTable(connection, tableName)
-						.then(function (ct_res) {
-							inner_deferred.resolve();
-						})
-						.fail(function (err) {
-							if (err !== undefined && err !== null && typeof (err.AddToError) === 'function') {
-								inner_deferred.reject(err.AddToError(__filename, 'makeTables'));
-							}
-							else {
-								var errorObj = new ErrorObj(500,
-									'sc1009',
-									__filename,
-									'makeTables',
-									'error making tables',
-									'Database error',
-									err
-								);
-								inner_deferred.reject(errorObj);
-							}
-						});
-				}
-			})
-			.fail(function (err) {
-				if (err !== undefined && err !== null && typeof (err.AddToError) === 'function') {
-					inner_deferred.reject(err.AddToError(__filename, 'makeTables'));
-				}
-				else {
-					var errorObj = new ErrorObj(500,
-						'sc1010',
-						__filename,
-						'makeTables',
-						'error making tables',
-						'Database error',
-						err
-					);
-					inner_deferred.reject(errorObj);
-				}
-			});
-
-		return inner_deferred.promise;
-	}))
-		.then(function () {
-			return Q.all(linkingDetails.map(function (lDetails) {
-				var inner_deferred = Q.defer();
-
-				var tableName = lDetails.linking_table;
-				var leftTable = lDetails.left_table;
-				var rightTable = lDetails.right_table;
-
-				checkForTable(connection, tableName)
-					.then(function (tableExists) {
-						if (tableExists) {
-							inner_deferred.resolve();
-						}
-						else {
-							createLinkingTable(connection, tableName, leftTable, rightTable)
-								.then(function (ct_res) {
-									inner_deferred.resolve();
-								})
-								.fail(function (err) {
-									if (err !== undefined && err !== null && typeof (err.AddToError) === 'function') {
-										inner_deferred.reject(err.AddToError(__filename, 'makeTables'));
-									}
-									else {
-										var errorObj = new ErrorObj(500,
-											'sc1011',
-											__filename,
-											'makeTables',
-											'error making tables',
-											'Database error',
-											err
-										);
-										inner_deferred.reject(errorObj);
-									}
-								});
-						}
-					})
-					.fail(function (err) {
-						if (err !== undefined && err !== null && typeof (err.AddToError) === 'function') {
-							inner_deferred.reject(err.AddToError(__filename, 'makeTables'));
-						}
-						else {
-							var errorObj = new ErrorObj(500,
-								'sc1012',
-								__filename,
-								'makeTables',
-								'error making tables',
-								'Database error',
-								err
-							);
-							inner_deferred.reject(errorObj);
-						}
-					});
-
-				return inner_deferred.promise;
-			}));
-		})
-		.then(function () {
-			deferred.resolve(true);
-		})
-		.fail(function (err) {
-			if (err !== undefined && err !== null && typeof (err.AddToError) === 'function') {
-				deferred.reject(err.AddToError(__filename, 'makeTables'));
-			}
-			else {
-				var errorObj = new ErrorObj(500,
-					'sc1013',
-					__filename,
-					'makeTables',
-					'error making tables',
-					'Database error',
-					err
-				);
-				inner_deferred.reject(errorObj);
-			}
 		});
 
 	return deferred.promise;

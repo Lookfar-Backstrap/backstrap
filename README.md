@@ -94,7 +94,7 @@ utilities.js
 
 
 __Extension files__ are editable files which extend some of the Core files.  accessControl.js, dataAccess.js, and utilities.js are injected into controller files on instantiation, and you can add your own functions to these classes using accessControl_ext.js, dataAccess_ext.js, and utilities_ext.js.  Those functions will then be available by calling accessControl.extension.yourFunction(), dataAccess.extension.yourFunction(), or utilities.extension.yourFunction().
-You may also notice an additional file with "_ext" in the name Endpoints_ext.json is both an extension file and a configuration file.  It is an extension of Endpoints.json which contains information about the system generated endpoints and it's a configuration file which contains information on endpoints defined by you.
+You may also notice an additional file with "_ext" in the name Endpoints_ext.json is both an extension file and a configuration file.  It is an extension of Endpoints_in.json which contains information about the system generated endpoints and it's a configuration file which contains information on endpoints defined by you.
 There is more information on using Extension files in following sections.
 
 
@@ -102,9 +102,9 @@ __Configuration files__ include
 - `Settings.json` - the fundamentals: server port, timeout, auth headers, email account options, etc.
 - `Security.json` - define user roles for the api and what areas, controllers, methods each role may access.
 - `Models.json` - describe your models.
-- `Endpoints.json / Endpoints_ext.json` - describes all API endpoints and their parameters.
+- `Endpoints_in.json / Endpoints.json` - describes all API endpoints and their parameters.
 
-All of these files are editable except `Endpoints.json`.  Instead use `Endpoints_ext.json`.  There is more specific information on Configuration files in following sections.
+All of these files are editable except `Endpoints_in.json`.  Instead use `Endpoints.json`.  There is more specific information on Configuration files in following sections.
 
 
 __Controller files__ are where the code for each endpoint is defined.  The name and location of these files is specified by the endpoints they define.  All endpoints in Backstrap Server are of the format {BASE_URL}/{AREA}/{CONTROLLER}/{METHOD}/{CONTROLLER VERSION} and the corresponding controller file would be found at the path [PROJECT ROOT]/[AREA]/[CONTROLLER]_[VERSION].  For example, the endpoint http://basedomain.com/myArea/myController/myMethod/1.0.0 would be defined in a file at the path [PROJECT ROOT]/myArea/myController_1_0_0.js.
@@ -195,8 +195,8 @@ controller.js — Core file handling routing of Express requests to the correct 
 dataAccess_ext.js — Extension file for dataAccess.js
 dataAccess.js — Core file for dealing with database reading/writing.  Some functions are for use with the onboard ORM, and others allow you to run arbitrary SQL commands.
 Endpoints_ext.json — Extension/Configuration file holding info on endpoints you have defined (non-system-generated endpoints)
-endpoints.js — Core file which manipulates and exposes the data in Endpoints.json/Endpoints_ext.json to the rest of the system.
-Endpoints.json — Core/Configuration file with information on out-of-the-box endpoints
+endpoints.js — Core file which manipulates and exposes the data in Endpoints_in.json/Endpoints.json to the rest of the system.
+Endpoints_in.json — Core/Configuration file with information on out-of-the-box endpoints
 entityMethods.js — Core file which can optionally be used to handle reading/writing using the ORM.
 ErrorObj.js — Core file definition of the general error class in Backstrap.
 LICENSES.txt — Standard MIT license

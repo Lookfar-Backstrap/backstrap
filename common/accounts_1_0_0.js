@@ -8,20 +8,17 @@ var utilities;
 var accessControl;
 var serviceRegistration;
 var settings;
-var models;
 
 var Q = require('q');
 var crypto = require('crypto');
 var request = require('request');
-var jwt = require('../jwt.js');
 
-var Accounts = function(db, utils, ac, sr, st, m) {
+var Accounts = function(db, utils, ac, sr, st) {
     dataAccess = db;
     utilities = utils;
     accessControl = ac;
     serviceRegistration = sr;
     settings = st;
-    models = m;
 };
 
 Accounts.prototype.get = {

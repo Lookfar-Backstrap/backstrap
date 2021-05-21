@@ -1,11 +1,7 @@
 var Q = require('q');
-const { Pool } = require('pg')
-var pool;
 var dataAccess;
-var models;
 
-var DataAccessExtension = function(da, dbConfig, mdls) {	
-	models = mdls;
+var DataAccessExtension = function(da, dbConfig) {	
 	dataAccess = da;	
 }
 

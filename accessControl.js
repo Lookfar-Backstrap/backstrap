@@ -7,12 +7,10 @@ var permissions = {
 	some: 'some',
 	all: 'all'
 }
-var AWS = require('aws-sdk');
-var s3;
+
 var bucket = null;
 var file = null;
 var remoteSettings = null;
-var data = [];
 var settings;
 var dataAccess;
 var utilities;
@@ -23,7 +21,6 @@ const jwt = require('./jwt.js');
 var AccessControlExtension = require('./accessControl_ext.js');
 
 var AccessControl = function (util, s, d) {
-  s3 = new AWS.S3();
   utilities = util;
   settings = s;
   dataAccess = d;
@@ -31,94 +28,48 @@ var AccessControl = function (util, s, d) {
   this.extension = new AccessControlExtension(this, util, s);
 };
 
-AccessControl.prototype.init = function (b, f, rs) {
-	var ac = this;
+AccessControl.prototype.init = function (f) {
 	var deferred = Q.defer();
 
-	bucket = b;
 	file = f;
-	remoteSettings = rs;
+  try {
+    if(file.substring(0,2) !== './') file = './'+file;
+    securityObj = require(file);
+    AccessControl.prototype.data = securityObj;
 
-	if (remoteSettings == null || remoteSettings === false) {
-		try {
-			if(file.substring(0,2) !== './') file = './'+file;
-			securityObj = require(file);
-			AccessControl.prototype.data = securityObj;
-
-      if(settings.data.identity && settings.data.identity.provider && settings.data.identity.provider.toLowerCase() === 'auth0') {
-        let keyUrl = settings.data.identity.key_url || null;
-        let kid = settings.data.identity.kid || null;
-        jwt.getKey(keyUrl, kid)
-        .then((key) => {
-          authSigningKey = key;
-          deferred.resolve(true);
-        })
-        .fail((keyErr) => {
-          let errorObj = new ErrorObj(500,
-                                      'ac0020',
-                                      __filename,
-                                      'init',
-                                      'problem getting signing key from auth0',
-                                      'Initialization Failure.  Please contact your administrator.',
-                                      keyErr);
-          deferred.reject(errorObj);
-        });
-      }
-      else {
+    if(settings.data.identity && settings.data.identity.provider && settings.data.identity.provider.toLowerCase() === 'auth0') {
+      let keyUrl = settings.data.identity.key_url || null;
+      let kid = settings.data.identity.kid || null;
+      jwt.getKey(keyUrl, kid)
+      .then((key) => {
+        authSigningKey = key;
         deferred.resolve(true);
-      }
-		}
-		catch (e) {
-			var errorObj = new ErrorObj(403,
-				'ac0001',
-				__filename,
-				'init',
-				'unauthorized',
-				'You are not authorized to access this endpoint',
-				null);
-			deferred.reject(errorObj);
-		}
-	}
-	else {
-		s3.getObject({ Bucket: bucket, Key: file }, function (err, res) {
-			if (!err) {
-				securityObj = JSON.parse(res.Body.toString());
-				AccessControl.prototype.data = securityObj;
-        
-        if(settings.data.identity && settings.data.identity.provider && settings.data.identity.provider.toLowerCase() === 'auth0') {
-          let keyUrl = settings.data.identity.key_url || null;
-          let kid = settings.data.identity.kid || null;
-          jwt.getKey(keyUrl, kid)
-          .then((key) => {
-            authSigningKey = key;
-            deferred.resolve(true);
-          })
-          .fail((keyErr) => {
-            let errorObj = new ErrorObj(500,
-                                        'ac0021',
-                                        __filename,
-                                        'init',
-                                        'problem getting signing key from auth0',
-                                        'Initialization Failure.  Please contact your administrator.',
-                                        keyErr);
-            deferred.reject(errorObj);
-          });
-        }
-        else {
-          deferred.resolve(true);
-        }
-			}
-			else {
-				var errorObj = new ErrorObj(500,
-					'ac0002',
-					__filename,
-					'init',
-					'error getting file from S3'
-				);
-				deferred.reject(errorObj);
-			}
-		});
-	}
+      })
+      .fail((keyErr) => {
+        let errorObj = new ErrorObj(500,
+                                    'ac0020',
+                                    __filename,
+                                    'init',
+                                    'problem getting signing key from auth0',
+                                    'Initialization Failure.  Please contact your administrator.',
+                                    keyErr);
+        deferred.reject(errorObj);
+      });
+    }
+    else {
+      deferred.resolve(true);
+    }
+  }
+  catch (e) {
+    var errorObj = new ErrorObj(403,
+      'ac0001',
+      __filename,
+      'init',
+      'unauthorized',
+      'You are not authorized to access this endpoint',
+      null);
+    deferred.reject(errorObj);
+  }
 
 	return deferred.promise;
 }
@@ -516,60 +467,23 @@ AccessControl.prototype.reload = function () {
 	return deferred.promise;
 }
 
-AccessControl.prototype.save = function (doNetworkReload) {
+AccessControl.prototype.save = function () {
 	var deferred = Q.defer();
-	if (remoteSettings == null || remoteSettings === false) {
-		var fswrite = Q.denodeify(fs.writeFile);
-		fswrite(file, JSON.stringify(this.data, null, 4))
-			.then(function (write_res) {
-				deferred.resolve(true);
-			})
-			.fail(function (err) {
-				var errorObj = new ErrorObj(500,
-					'ac0004',
-					__filename,
-					'save',
-					'error writing to Security config file'
-				);
-				deferred.reject(errorObj);
-			});
-	}
-	else {
-		s3.putObject({ Bucket: bucket, Key: file, Body: JSON.stringify(this.data, null, 4) }, function (err, save_res) {
-			if (!err) {
-				if (doNetworkReload === true) {
-					settings.reloadNetwork()
-						.then(function (reload_res) {
-							deferred.resolve(true);
-						})
-						.fail(function (err) {
-							var errorObj = new ErrorObj(500,
-								'ac0005',
-								__filename,
-								'save',
-								'error reloading servers',
-								err
-							);
-							deferred.reject(errorObj);
-						});
-				}
-				else {
-					deferred.resolve(true);
-				}
-			}
-			else {
-				var errorObj = new ErrorObj(500,
-					'ac0006',
-					__filename,
-					'save',
-					'error writing Security config file to S3',
-					'External error',
-					err
-				);
-				deferred.reject(errorObj);
-			}
-		});
-	}
+	
+  var fswrite = Q.denodeify(fs.writeFile);
+  fswrite(file, JSON.stringify(this.data, null, 4))
+    .then(function (write_res) {
+      deferred.resolve(true);
+    })
+    .fail(function (err) {
+      var errorObj = new ErrorObj(500,
+        'ac0004',
+        __filename,
+        'save',
+        'error writing to Security config file'
+      );
+      deferred.reject(errorObj);
+    });
 
 	return deferred.promise;
 };
