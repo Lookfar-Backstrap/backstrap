@@ -1,5 +1,3 @@
-/*jshint expr: true, es5: true, unused:false */
-
 // ==================================================================================
 // SETUP
 // ==================================================================================
@@ -42,7 +40,7 @@ app.use(cors());
 // PASS THE HANDLE TO THE EXPRESS APP INTO
 // express_init.js SO THE USER CAN ADD EXPRESS MODULES
 try {
-  require('./express_init').init(app);
+  require('./expressSettings').init(app);
 }
 catch(expressInitErr) {
   if(expressInitErr && expressInitErr.code === 'MODULE_NOT_FOUND') {
@@ -116,7 +114,7 @@ accessControl.init('Security.json')
   
   // EVERYTHING IS INITIALIZED.  RUN ANY INITIALIZATION CODE
   try {
-    require('./onInit');
+    require('./onInit').run(dataAccess, utilities, accessControl, serviceRegistration, settings);
   }
   catch(onInitErr) {
     if(onInitErr && onInitErr.code === 'MODULE_NOT_FOUND') {
@@ -408,7 +406,7 @@ function requestPipeline(req, res, verb) {
     if(validTokenResponse.session != null) {
       let session = validTokenResponse.session;
       session.last_touch = new Date().toISOString();
-      dataAccess.saveEntity('session', session);
+      dataAccess.updateJsonbField('session', 'data', session);
     }
 
     // IF ACCESS LOGGING IS ENABLED.  ADD THE END TIMESTAMP

@@ -19,6 +19,7 @@ var authSigningKey;
 const jwt = require('./jwt.js');
 
 var AccessControlExtension = require('./accessControl_ext.js');
+const { util } = require('chai');
 
 var AccessControl = function (util, s, d) {
   utilities = util;
@@ -292,18 +293,15 @@ AccessControl.prototype.signIn = (params, apiToken) => {
     // START UP A SESSION
     return [userObj, AccessControl.prototype.startSession(userObj, params.clientInfo)];
   })
-  .spread((userObj, newSess) => {
-    return [userObj, newSess.token, dataAccess.addRelationship(userObj, newSess, null)];
-  })
-  .spread((userObj, tkn, rel_res) => {
-      return [userObj, tkn, AccessControl.prototype.validateToken(apiToken, true)];
+  .spread((userObj, sess) => {
+      return [userObj, sess.token, AccessControl.prototype.validateToken(apiToken, true)];
   })
   .spread((userObj, tkn, validTokenRes) => {
       var sess = null;
       if (validTokenRes.is_valid === true && validTokenRes.session.is_anonymous === true && validTokenRes.session.username === 'anonymous') {
           sess = validTokenRes.session;
           sess.username = username;
-          return [userObj, tkn, true, dataAccess.saveEntity('session', sess)];
+          return [userObj, tkn, true, dataAccess.updateJsonbField('session', 'data', sess)];
       }
       else {
           return [userObj, tkn, false];
@@ -311,7 +309,7 @@ AccessControl.prototype.signIn = (params, apiToken) => {
   })
   .spread((userObj, tkn, isNewAnonSess, sess) => {
       if (isNewAnonSess) {
-          return [userObj, tkn, dataAccess.addRelationship(userObj, sess)];
+          return [userObj, tkn, dataAccess.attachUserToSession(userObj, sess)];
       }
       else {
           return [userObj, tkn];
@@ -414,16 +412,33 @@ AccessControl.prototype.startSession = (userObj, clientInfo) => {
   getSessionToken()
   .then((tkn) => {
     var rightNow = new Date();
-    var sessionObj = {
-        'object_type': 'session',
-        'token': tkn,
-        'username': userObj.username ? userObj.username : userObj.email,
-        'user_id': userObj.id,
-        'started_at': rightNow,
-        'client_info': clientInfo || null,
-        'last_touch': rightNow
-    };
-    return dataAccess.saveEntity('session', sessionObj);
+    if(userObj != null) {
+      var sessionObj = {
+          'object_type': 'session',
+          'id': utilities.createUID(true),
+          'token': tkn,
+          'username': userObj.username ? userObj.username : userObj.email,
+          'user_id': userObj.id,
+          'started_at': rightNow,
+          'client_info': clientInfo || null,
+          'last_touch': rightNow
+      };
+      return dataAccess.startSession(userObj, sessionObj);
+    }
+    else {
+      var sessionObj = {
+          'object_type': 'session',
+          'id': utilities.createUID(true),
+          'token': tkn,
+          "is_anonymous": true,
+          'username': 'anonymous',
+          'user_id': userObj.id,
+          'started_at': rightNow,
+          'client_info': clientInfo || null,
+          'last_touch': rightNow
+      };
+      return dataAccess.startSession(userObj, sessionObj);
+    }
   })
   .then((newSess) => {
     deferred.resolve(newSess);
@@ -890,6 +905,7 @@ function createStandardUser(username, email, password = null, exid = null, first
           var userObj = {
             'object_type': 'bsuser',
             'account_type': 'native',
+            'id': utilities.getUID(true),
             'username': username,
             'first': first,
             'last': last,
@@ -901,7 +917,8 @@ function createStandardUser(username, email, password = null, exid = null, first
             'is_locked': false
           };
           if(exid) userObj.external_identity_id = exid;
-          return dataAccess.saveEntity('bsuser', userObj);
+          
+          return dataAccess.createUser(userObj);
         })
         .then((usr) => {
           inner_deferred.resolve(usr);
@@ -914,6 +931,7 @@ function createStandardUser(username, email, password = null, exid = null, first
         var userObj = {
           'object_type': 'bsuser',
           'account_type': 'external',
+          'id': utilities.createUID(true),
           'username': email,
           'first': first,
           'last': last,
@@ -923,7 +941,7 @@ function createStandardUser(username, email, password = null, exid = null, first
           'is_locked': false,
           'external_identity_id': exid
         };
-        return dataAccess.saveEntity('bsuser', userObj);
+        return dataAccess.createUser(userObj);
       }
       else {
         inner_deferred.reject(new ErrorObj(400,
@@ -945,7 +963,7 @@ function createStandardUser(username, email, password = null, exid = null, first
       if (validTokenRes.is_valid === true && validTokenRes.session.is_anonymous === true && validTokenRes.session.username === 'anonymous') {
           sess = validTokenRes.session;
           sess.username = username;
-          return [userObj, true, dataAccess.saveEntity('session', sess)];
+          return [userObj, true, dataAccess.updateJsonbField('session', 'data', sess)];
       }
       else {
           return [userObj, false];
@@ -953,7 +971,7 @@ function createStandardUser(username, email, password = null, exid = null, first
   })
   .spread(function(userObj, isNewAnonSess, sess) {
       if (isNewAnonSess) {
-          return [userObj, dataAccess.addRelationship(sess, userObj)];
+          return [userObj, dataAccess.attachUserToSession(userObj, sess)];
       }
       else {
           return [userObj];
@@ -1026,6 +1044,7 @@ function createAPIUser(email, first, last, roles, parentAccountId) {
       var userObj = {
           'object_type': 'bsuser',
           'account_type': 'api',
+          'id': utilities.createUID(),
           'client_id': creds.clientId,
           'first': first,
           'last': last,
@@ -1041,7 +1060,7 @@ function createAPIUser(email, first, last, roles, parentAccountId) {
       else {
         userObj.email = email;
       }
-      return [creds.clientSecret, dataAccess.saveEntity('bsuser', userObj)];
+      return [creds.clientSecret, dataAccess.createUser(userObj)];
   })
   .spread(function(clientSecret, userObj) {
       delete userObj.id;
@@ -1075,16 +1094,14 @@ function getSessionToken() {
 
   // DO A COLLISION CHECK.  THIS IS PROBABLY OVERKILL SINCE OUR TOTAL POOL IS 256^48
   // BUT WE REALLY DON'T WANT TWO SESSIONS WITH THE SAME TOKEN
-  dataAccess.findAll('session')
-  .then(function(find_results) {
+  dataAccess.getActiveTokens()
+  .then((tokens) => {
       var tokenIsGood = false;
       var token;
       while (!tokenIsGood) {
           token = crypto.randomBytes(48).toString('hex');
 
-          var sessions = find_results.filter(function(inSysObj) {
-              return (inSysObj.object_type === 'session' && inSysObj.token === token);
-          });
+          var sessions = tokens.filter(tkn => tkn === token);
 
           if (sessions === null || sessions.length === 0) {
               tokenIsGood = true;
@@ -1198,6 +1215,7 @@ function createExternalAPIUser(email, exid, first, last, roles) {
       var userObj = {
           'object_type': 'bsuser',
           'account_type': 'external-api',
+          'id': utilities.createUID(true),
           'first': first,
           'last': last,
           'email': email,
@@ -1206,7 +1224,7 @@ function createExternalAPIUser(email, exid, first, last, roles) {
           'is_active': true,
           'is_locked': false
       };
-      return dataAccess.saveEntity('bsuser', userObj);
+      return dataAccess.createUser(userObj);
     }
     else {
       var errorObj = new ErrorObj(500,

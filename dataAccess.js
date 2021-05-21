@@ -5,6 +5,7 @@ var fs = require('fs');
 const Stream = require('stream');
 
 var DataAccessExtension = require('./dataAccess_ext.js');
+const { util } = require('chai');
 
 var utilities;
 var pool;
@@ -67,7 +68,7 @@ DataAccess.prototype.CheckForDatabase = function (db_name, db_user, db_pass, db_
 			  " ELSE" +
 			  " 	SELECT 'false';" +
 			  " END IF";
-	DataAccess.prototype.ExecutePostgresQuery(qry, qry_params, null)
+	ExecutePostgresQuery(qry, qry_params, null)
 	.then(function(connection){
 		deferred.resolve(connection.results[0]);
 	})
@@ -81,12 +82,11 @@ DataAccess.prototype.CheckForDatabase = function (db_name, db_user, db_pass, db_
 
 DataAccess.prototype.CreateDatabase = function (db_name, db_user, db_pass, db_host, db_port, callback) {
 	var deferred = Q.defer();
-	var defaultConnection = 'postgres://' + db_user + ':' + db_pass + '@' + db_host + ':' + db_port + '/template1';
 	
 	var qryString = 'CREATE DATABASE ' + db_name;
 	var qryParams = [];
 	
-	DataAccess.prototype.ExecutePostgresQuery(qryString, qryParams, null)
+	ExecutePostgresQuery(qryString, qryParams, null)
 	.then(res => {
 		deferred.resolve(res);
 	})
@@ -107,8 +107,8 @@ DataAccess.prototype.CreateDatabase = function (db_name, db_user, db_pass, db_ho
 // rolling back transactions
 // -------------------------------------------------------------------
 // START A CONNECTION TO THE DATABASE TO USE FUNCTIONS 
-DataAccess.prototype.getDbConnection = function (callback) {
-	var deferred = Q.defer();
+var getDbConnection = (callback) => {
+  var deferred = Q.defer();
 
 	pool.connect((err, client, done) => {
 		if (!err) {
@@ -129,11 +129,12 @@ DataAccess.prototype.getDbConnection = function (callback) {
 
 	deferred.promise.nodeify(callback);
 	return deferred.promise;
-};
+}
+DataAccess.prototype.getDbConnection = getDbConnection;
 
 // CLOSE A CONNECTION TO THE DATABASE AFTER USING FUNCTIONS
-DataAccess.prototype.closeDbConnection = function (connection, callback) {
-	var deferred = Q.defer();
+var closeDbConnection = (connection, callback) => {
+  var deferred = Q.defer();
 	if(connection != null && !connection.isReleased) {
 		try {
       connection.release();
@@ -158,50 +159,53 @@ DataAccess.prototype.closeDbConnection = function (connection, callback) {
 
 	deferred.promise.nodeify(callback);
 	return deferred.promise;
-};
+}
+DataAccess.prototype.closeDbConnection = closeDbConnection;
 
 // GET A CONNECTION TO THE DATABASE AND START A TRANSACTION
-DataAccess.prototype.startTransaction = function (callback) {
-	var deferred = Q.defer();
 
-	DataAccess.prototype.getDbConnection()
-		.then(function (connection) {
-			//SET TRANSACTIONAL
-      connection['transactional'] = true;
-			connection.client.query('BEGIN', (err) => {
-				if (err) {
-					var errorObj = new ErrorObj(500,
-						'da0005',
-						__filename,
-						'startTransaction',
-						'error querying postgres',
-						'Database error',
-						err
-					);
-					deferred.reject(errorObj);
-				}
-				deferred.resolve(connection)
-			});
-		})
-		.fail(function (err) {
-			var errorObj = new ErrorObj(500,
-				'da9005',
-				__filename,
-				'startTransaction',
-				'error creating postgres transaction connection',
-				'Database error',
-				err
-			);
-			deferred.reject(errorObj);
-		});
+var startTransaction = (callback) => {
+  var deferred = Q.defer();
+
+	getDbConnection()
+  .then(function (connection) {
+    //SET TRANSACTIONAL
+    connection['transactional'] = true;
+    connection.client.query('BEGIN', (err) => {
+      if (err) {
+        var errorObj = new ErrorObj(500,
+          'da0005',
+          __filename,
+          'startTransaction',
+          'error querying postgres',
+          'Database error',
+          err
+        );
+        deferred.reject(errorObj);
+      }
+      deferred.resolve(connection)
+    });
+  })
+  .fail(function (err) {
+    var errorObj = new ErrorObj(500,
+      'da9005',
+      __filename,
+      'startTransaction',
+      'error creating postgres transaction connection',
+      'Database error',
+      err
+    );
+    deferred.reject(errorObj);
+  });
 
 	deferred.promise.nodeify(callback);
 	return deferred.promise;
-};
+}
+DataAccess.prototype.startTransaction = startTransaction;
 
 // COMMIT A TRANSACTION AND CLOSE THE DATABASE CONNECTION
-DataAccess.prototype.commitTransaction = function (connection, callback) {
-	var deferred = Q.defer();
+var commitTransaction = (connection, callback) => {
+  var deferred = Q.defer();
 
 	connection.client.query('COMMIT', (err) => {
 		if (err) {
@@ -232,11 +236,12 @@ DataAccess.prototype.commitTransaction = function (connection, callback) {
 
 	deferred.promise.nodeify(callback);
 	return deferred.promise;
-};
+}
+DataAccess.prototype.commitTransaction = commitTransaction;
 
 // ROLLBACK A TRANSACTION AND CLOSE THE DATABASE CONNECTION
-DataAccess.prototype.rollbackTransaction = function (connection, callback) {
-	var deferred = Q.defer();
+var rollbackTransaction = () => {
+  var deferred = Q.defer();
 
 	if(connection != null && !connection.isReleased) {
 		if(connection.transactional) {
@@ -307,14 +312,15 @@ DataAccess.prototype.rollbackTransaction = function (connection, callback) {
 
 	deferred.promise.nodeify(callback);
 	return deferred.promise;
-};
+}
+DataAccess.prototype.rollbackTransaction = rollbackTransaction;
 
 //THIS FUNCTION IS USED SO ONE FUNCTION CAN RESOLVE THE CURRENT CONNECTION STATE AND RETURN A CONNECTION
-function resolveDbConnection(connection, callback) {
+var resolveDbConnection = (connection, callback) => {
 	var deferred = Q.defer();
 	
 	if(connection == null) {
-		DataAccess.prototype.getDbConnection()
+		getDbConnection()
 		.then(function(db_connection) {
 			deferred.resolve(db_connection);
 		})
@@ -339,12 +345,12 @@ function resolveDbConnection(connection, callback) {
 }
 
 // RELEASES A CONNECTION (IF YOU NEED TO DO THAT MANUALLY)
-function releaseConnection(connection) {
+var releaseConnection = (connection) => {
 	var deferred = Q.defer();
 
 	if(connection != null && !connection.isReleased) {
 		if(connection.transactional) {
-			DataAccess.prototype.rollbackTransaction(connection)
+			rollbackTransaction(connection)
 			.then(function(rollback_res) {
         delete connection.transactional;
 				deferred.resolve();
@@ -384,11 +390,12 @@ function releaseConnection(connection) {
 	return deferred.promise;
 }
 
+
 // ================================================================================
 //THIS FUNCTION GLOBALIZES ALL QUERIES (SELECT) AND NON QUERIES (INSERT UPDATE DELETE ETC)
 //CONDITIONALLY CREATES AND DESTROYS CONNECTIONS DEPENDING IF THEY ARE TRANSACTIONAL OR NOT
-DataAccess.prototype.ExecutePostgresQuery = function (query, params, connection, includeRowId, isStreaming, callback) {
-	var deferred = Q.defer();
+var ExecutePostgresQuery = (query, params, connection, isStreaming, callback) => {
+  var deferred = Q.defer();
 	var pg_query = query;
 	//THE QUERY CONFIG OBJECT DOES NOT WORK IF THERE IS AN EMPTY ARRAY OF PARAMS
 	if (params != null && params.length > 0) {
@@ -396,10 +403,6 @@ DataAccess.prototype.ExecutePostgresQuery = function (query, params, connection,
 			text: query,
 			values: params,
 		}
-	}
-
-	if(includeRowId !== true) {
-		includeRowId = false;
 	}
 
 	resolveDbConnection(connection)
@@ -410,16 +413,6 @@ DataAccess.prototype.ExecutePostgresQuery = function (query, params, connection,
       db_connection.client.query(pg_query)
       .then(function(res) {
         db_connection.results = res.rows;
-        //THE NEW pg 7 NPM PACKAGE RETURNS ROW QUERIES WITH THE KEY data FOR EACH ROW
-        //WE ONLY WANT THE JSON OBJECT VALUE NOT THE KEY
-        if (db_connection.results !== undefined && db_connection.results !== null && db_connection.results.length > 0) {
-          var result = db_connection.results[0];
-          var keys = Object.keys(result);
-          if ((keys.length === 1 && keys[0] === 'data' && includeRowId !== true)
-            || (keys.length == 2 && keys[0] === 'row_id' && keys[1] === 'data' && includeRowId !== true)) {
-            db_connection.results = db_connection.results.map(r => r.data);
-          }
-        }
 
         // IF THE ARG connection PASSED INTO THE FUNCTION IS null/undefined
         // THIS IS A ONE-OFF AND WE MUST SHUT DOWN THE CONNECTION WE MADE
@@ -464,7 +457,7 @@ DataAccess.prototype.ExecutePostgresQuery = function (query, params, connection,
           // IF THIS IS PART OF A TRANSACTIONAL SEQUENCE, WE NEED TO ROLL BACK
           // AND FAIL OUT
           if(db_connection.transactional) {
-            DataAccess.prototype.rollbackTransaction(db_connection)
+            rollbackTransaction(db_connection)
             .then(function(rollback_res) {
               var errorObj = new ErrorObj(500,
                             'da0502',
@@ -533,7 +526,7 @@ DataAccess.prototype.ExecutePostgresQuery = function (query, params, connection,
 
       stream.on('error', (streamErr) => {
         if(db_connection.transactional === true) {
-          DataAccess.prototype.rollbackTransaction(db_connection)
+          rollbackTransaction(db_connection)
           .finally(function() {
             outStream.destroy(streamErr);
           });
@@ -568,28 +561,42 @@ DataAccess.prototype.ExecutePostgresQuery = function (query, params, connection,
 
 	deferred.promise.nodeify(callback);
 	return deferred.promise;
-};
+}
+DataAccess.prototype.ExecutePostgresQuery = ExecutePostgresQuery;
+
 
 
 // ================================================================================
 // DATA ACCESS UTILITIES
 // -------------------------------------------------------------------
-// These functions handle various com`mo`n tasks
+// These functions handle various common tasks
 // -------------------------------------------------------------------
 // RUN ARBITRARY SQL STATEMENTS
-DataAccess.prototype.runSql = function (sqlStatement, params, connection, isStreaming) {
-	var deferred = Q.defer();
+var runSql = (sqlStatement, params, connection, isStreaming) => {
+  var deferred = Q.defer();
 	
-	DataAccess.prototype.ExecutePostgresQuery(sqlStatement, params, connection, null, isStreaming)
+	ExecutePostgresQuery(sqlStatement, params, connection, isStreaming)
 	.then(function (connection) {
 		deferred.resolve(connection.results);
 	})
 	.fail(function (err) {
-		deferred.reject(err.AddToError(__filename, 'runSql'));
+    if(err && typeof(err.AddToError) === 'function') {
+		  deferred.reject(err.AddToError(__filename, 'runSql'));
+    }
+    else {
+      let errorObj = new ErrorObj(500,
+                                  'da0090',
+                                  __filename,
+                                  'runSql',
+                                  'psql error',
+                                  'There was a problem with your request.',
+                                  err);
+    }
 	});
 
 	return deferred.promise;
 }
+DataAccess.prototype.runSql = runSql;
 
 
 
@@ -598,7 +605,7 @@ DataAccess.prototype.GetDeadSessions = function (timeOut, callback) {
 	var minutes = "'" + timeOut + " minutes'";
 	var qry = "select row_id as rid, data from session where (data->>'last_touch')::timestamp with time zone < (NOW() - INTERVAL " + minutes + ")";
 	var qry_params = [];
-	DataAccess.prototype.ExecutePostgresQuery(qry, qry_params, null)
+	ExecutePostgresQuery(qry, qry_params, null)
 	.then(function (connection) {
 		deferred.resolve(connection.results);
 	})
@@ -616,24 +623,24 @@ DataAccess.prototype.DeleteSessions = function(dsIds, callback) {
   var idString = dsIds.join(',');
   var db_connection;
 
-  DataAccess.prototype.startTransaction()
+  startTransaction()
   .then((db_handle) => {
     db_connection = db_handle;
     var qry_linking = "DELETE FROM bsuser_session WHERE right_id IN ("+idString+")";
-    return [db_handle, DataAccess.prototype.ExecutePostgresQuery(qry_linking, [], db_handle)];
+    return [db_handle, ExecutePostgresQuery(qry_linking, [], db_handle)];
   })
   .spread((db_handle, qry_res) => {
     var qry = "DELETE FROM session WHERE row_id IN ("+idString+")";
-    return [db_handle, DataAccess.prototype.ExecutePostgresQuery(qry, [], db_handle)];
+    return [db_handle, ExecutePostgresQuery(qry, [], db_handle)];
   })
   .spread((db_handle, qry_res) => {
-    return DataAccess.prototype.commitTransaction(db_handle);
+    return commitTransaction(db_handle);
   })
   .then(() => {
     deferred.resolve();
   })
   .fail((err) => {
-    DataAccess.prototype.rollbackTransaction(db_connection)
+    rollbackTransaction(db_connection)
     .finally(() => {
       deferred.reject(err);
     })
@@ -649,13 +656,13 @@ DataAccess.prototype.findUser = function (email, username, connection, callback)
 
 	var qry = "SELECT * FROM bsuser WHERE data->>'email' ILIKE '" + email + "'";
 	var qry_params = [];
-	DataAccess.prototype.ExecutePostgresQuery(qry, qry_params, null)
+	ExecutePostgresQuery(qry, qry_params, null)
 	.then(function (connection) {
 		var results = connection.results;
 		if (results.length <= 0) {
 			qry = "SELECT * FROM bsuser WHERE data->>'username' ILIKE '" + username + "'";
 			qry_params = [];
-			DataAccess.prototype.ExecutePostgresQuery(qry, qry_params, null)
+			ExecutePostgresQuery(qry, qry_params, null)
 			.then(function (connection) {
 				var results = connection.results;
 				if (results.length <= 0) {
@@ -748,7 +755,7 @@ DataAccess.prototype.GenerateForgotPasswordToken = (email, username) => {
     else {
       userObj.forgot_password_tokens.push(tkn);
     }
-    return [tkn, DataAccess.prototype.saveEntity('bsuser', userObj)];
+    return [tkn, DataAccess.prototype.updateJsonbField('bsuser', 'data', userObj)];
   })
   .spread(function(tkn) {
     deferred.resolve(tkn);
@@ -756,6 +763,152 @@ DataAccess.prototype.GenerateForgotPasswordToken = (email, username) => {
   .fail(function(err) {
     deferred.reject(err);
   });
+
+  return deferred.promise;
+}
+
+
+
+
+DataAccess.prototype.getActiveTokens = () => {
+  var deferred = Q.defer();
+
+  let sql = "SELECT data->>'token' FROM session";
+  runSql(sql, [])
+  .then((tokenRes) => {
+    deferred.resolve(tokenRes.map(tknObj => tknObj.token));
+  })
+  .fail((err) => {
+    deferred.reject(err.AddToError(__filename, 'getActiveTokens'));
+  });
+
+  return deferred.promise;
+}
+
+
+DataAccess.prototype.startSession = (userObj, sessionObj) => {
+  var deferred = Q.defer();
+
+  utilities.getUID()
+  .then((uid) => {
+    sessionObj.id = uid;
+    return startTransaction();
+  })
+  .then((dbHandle) => {
+    let sql = "INSERT INTO session(data) VALUES($1) RETURNING *";
+    return [dbHandle, runSql(sql, [sessionObj], dbHandle)];
+  })
+  .spread((dbHandle, sessRes) => {
+    let sess = sessRes[0].data;
+    let sessRowId = sessRes[0].row_id;
+    let sql = "INSERT INTO bsuser_session(left_id, right_id) VALUES((SELECT row_id FROM bsuser WHERE data->>'id' = $1), $2)";
+    return [dbHandle, sess, runSql(sql, [userObj.id, sessRowId], dbHandle)];
+  })
+  .spread((dbHandle, sess, insRes) => {
+    return [sess, commitTransaction(dbHandle)];
+  })
+  .spread((sess) => {
+    deferred.resolve(sess);
+  })
+  .fail((err) => {
+    deferred.reject(err.AddToError(__filename, 'startSession', 'Problem starting up a new session'));
+  });
+  
+  return deferred.promise;
+}
+
+var attachUserToSession = (userObj, sessionObj, connection) => {
+  var deferred = Q.defer();
+
+  let sql = "INSERT INTO bsuser_session(left_id, right_id) VALUES((SELECT row_id FROM bsuser WHERE data->>'id' = $1), (SELECT row_id FROM session WHERE data->>'id' = $2))";
+  let params = [userObj.id, sessionObj.id];
+  runSql(sql, params, connection)
+  .then((res) => {
+    deferred.resolve({success:true});
+  })
+  .fail((attachErr) => {
+    deferred.reject(attachErr.AddToError(__filename, 'attachUserToSession', 'Problem attaching user to session'));
+  })
+
+  return deferred.promise;
+}
+DataAccess.prototype.attachUserToSession = attachUserToSession;
+
+DataAccess.prototype.getUserByUserName = (username) => {
+  var deferred = Q.defer();
+
+	var qry = "SELECT * FROM bsuser WHERE LOWER(bsuser.data->>'username') = LOWER($1)";
+	var qry_params = [username];
+	ExecutePostgresQuery(qry, qry_params, null)
+	.then(function (connection) {
+		if (connection.results.length === 0) {
+			var errorObj = new ErrorObj(500,
+				'da0160',
+				__filename,
+				'getUserByUserName',
+				'no user found',
+				'Cannot find user.',
+				null
+			);
+			deferred.reject(errorObj);
+		}
+		else if (connection.results.length === 1) {
+			deferred.resolve(connection.results[0].data);
+		}
+		else {
+			console.log('found multiple users');
+			var errorObj = new ErrorObj(500,
+				'da0161',
+				__filename,
+				'getUserByUserName',
+				'',
+				'Found multiple users with that user name.',
+				null
+			);
+			deferred.reject(errorObj);
+		}
+	})
+	.fail(function (err) {
+		try {
+			deferred.reject(err.AddToError(__filename, 'getUserByUserName'));
+		}
+		catch(e) {console.log(e)}
+	});
+
+	return deferred.promise;
+}
+
+DataAccess.prototype.createUser = (userObj) => {
+  var deferred = Q.defer();
+
+  let sql = `INSERT INTO bsuser(data) VALUES($1) RETURNING *`;
+  let params = [JSON.stringify(userObj)];
+
+  runSql(sql, params)
+  .then((res) => {
+    deferred.resolve(res);
+  })
+  .fail((err) => {
+    deferred.reject(err.AddToError(__filename, 'createUser'));
+  });
+
+  return deferred.promise;
+}
+
+
+DataAccess.prototype.updateJsonbField = (tableName, fieldname, updateObj, whereClause) => {
+  var deferred = Q.defer();
+
+  let sql = `UPDATE ${tableName} SET ${fieldname} = ${fieldname} || $1 WHERE ${whereClause} RETURNING *`;
+  let params = [JSON.stringify(updateObj)];
+
+  runSql(sql, params)
+  .then((updRes) => {
+    deferred.resolve(updRes);
+  })
+  .fail((err) => {
+    deferred.reject(err.AddToError(__filename, 'updateJsonbField'));
+  })
 
   return deferred.promise;
 }

@@ -752,16 +752,23 @@ function replaceTemplateValues(template, args) {
 	return updatedTemplate;
 }
 
-Utilities.prototype.getUID = function (callback) {
-	var deferred = Q.defer();
-
-	var tKey = crypto.randomBytes(12).toString('hex');
+var createUID = () => {
+  var tKey = crypto.randomBytes(12).toString('hex');
 	var date = new Date();
 	var dateKey = new Date(date.getFullYear(), date.getMonth(), date.getDay(), date.getHours(), date.getMinutes(), date.getSeconds(), date.getMilliseconds());
 	var token = crypto.createHash("md5").update(tKey + dateKey).digest('hex');
-	deferred.resolve(token);
+  return token;
+}
 
-	return deferred.promise;
+Utilities.prototype.getUID = function (sync, callback) {
+  if(sync == null || sync === false) {
+    var deferred = Q.defer();
+    deferred.resolve(createUID());
+    return deferred.promise;
+  }
+  else {
+    return createUID();
+  }
 };
 
 Utilities.prototype.logEvent = function(tkn, eventDescriptor) {
