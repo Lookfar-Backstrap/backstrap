@@ -1,7 +1,5 @@
 var Q = require('q');
 var crypto = require('crypto');
-const fs = require('fs');
-const { exec } = require('child_process');
 
 var dataAccess;
 var utilities;
@@ -37,36 +35,36 @@ Admin.prototype.get = {
 			searchObj.email = req.query.email.toLowerCase();
 		}
 
-		dataAccess.find('bsuser', searchObj)
-			.then(function (userObjs) {
-				var formattedUserObjs = [];
-				for (var uIdx = 0; uIdx < userObjs.length; uIdx++) {
-					var userObj = userObjs[uIdx];
-					delete userObj.password;
-					delete userObj.salt;
-					formattedUserObjs.push(userObj);
-				}
+		dataAccess.findUser(searchObj.id, searchObj.username, searchObj.email)
+    .then(function (userObjs) {
+      var formattedUserObjs = [];
+      for (var uIdx = 0; uIdx < userObjs.length; uIdx++) {
+        var userObj = userObjs[uIdx];
+        delete userObj.password;
+        delete userObj.salt;
+        formattedUserObjs.push(userObj);
+      }
 
-				var resolveObj = formattedUserObjs;
-				deferred.resolve(resolveObj);
-			})
-			.fail(function (err) {
-				if (err !== undefined && err !== null && typeof (err.AddToError) == 'function') {
-					err.setMessages('error getting user', 'Problem fetching users');
-					deferred.reject(err.AddToError(__filename, 'user'));
-				}
-				else {
-					var errorObj = new ErrorObj(500,
-						'ad0001',
-						__filename,
-						'user',
-						'error getting user',
-						'Error getting user',
-						err
-					);
-					deferred.reject(errorObj);
-				}
-			});
+      var resolveObj = formattedUserObjs;
+      deferred.resolve(resolveObj);
+    })
+    .fail(function (err) {
+      if (err !== undefined && err !== null && typeof (err.AddToError) == 'function') {
+        err.setMessages('error getting user', 'Problem fetching users');
+        deferred.reject(err.AddToError(__filename, 'user'));
+      }
+      else {
+        var errorObj = new ErrorObj(500,
+          'ad0001',
+          __filename,
+          'user',
+          'error getting user',
+          'Error getting user',
+          err
+        );
+        deferred.reject(errorObj);
+      }
+    });
 
 		deferred.promise.nodeify(callback);
 		return deferred.promise;
@@ -77,28 +75,28 @@ Admin.prototype.get = {
 
 		var username = req.query.username.toLowerCase();
 
-		dataAccess.findOne('bsuser', { 'username': username })
-			.then(function (userObj) {
-				var resolveObj = { 'roles': userObj.roles };
-				deferred.resolve(resolveObj);
-			})
-			.fail(function (err) {
-				if (err !== undefined && err !== null && typeof (err.AddToError) == 'function') {
-					err.setMessages('error getting user\'s roles', 'Problem getting user roles');
-					deferred.reject(err.AddToError(__filename, 'user'));
-				}
-				else {
-					var errorObj = new ErrorObj(404,
-						'ad0002',
-						__filename,
-						'userRole',
-						'error getting user',
-						'Error getting user',
-						err
-					);
-					deferred.reject(errorObj);
-				}
-			});
+		dataAccess.getUserByUserName(username)
+    .then(function (userObj) {
+      var resolveObj = { 'roles': userObj.roles };
+      deferred.resolve(resolveObj);
+    })
+    .fail(function (err) {
+      if (err !== undefined && err !== null && typeof (err.AddToError) == 'function') {
+        err.setMessages('error getting user\'s roles', 'Problem getting user roles');
+        deferred.reject(err.AddToError(__filename, 'user'));
+      }
+      else {
+        var errorObj = new ErrorObj(404,
+          'ad0002',
+          __filename,
+          'userRole',
+          'error getting user',
+          'Error getting user',
+          err
+        );
+        deferred.reject(errorObj);
+      }
+    });
 
 		deferred.promise.nodeify(callback);
 		return deferred.promise;
@@ -221,12 +219,12 @@ Admin.prototype.post = {
 
 		accessControl.roleExists(role)
 		.then(function() {
-			return dataAccess.findOne('bsuser', {'username': username});
+			return dataAccess.getUserByUserName(username);
 		})
 		.then(function(userObj) {
 			if(userObj.roles.indexOf(role)===-1) {
 				userObj.roles.push(role);
-				return dataAccess.saveEntity('bsuser', userObj);
+				return dataAccess.updateJsonbField('bsuser', 'data', {roles:userObj.roles}, `data->>'id' = '${userObj.id}'`);
 			}
 			else {
 				var innerPromise = Q.defer();
@@ -269,7 +267,7 @@ Admin.prototype.post = {
     var clientId = req.body.client_id;
     var cryptoCall = Q.denodeify(crypto.randomBytes);
 
-    dataAccess.findOne('bsuser', {client_id: clientId})
+    dataAccess.getUserByClientId(clientId)
     .then((usr) => {
       return [usr, cryptoCall(24)];
     })
@@ -282,7 +280,7 @@ Admin.prototype.post = {
       let saltedSecret = clientSecret + salt;
       let hashedSecret = crypto.createHash('sha256').update(saltedSecret).digest('hex');
 
-      return [clientSecret, dataAccess.updateEntity('bsuser', {object_type: 'bsuser', id: usr.id, salt: salt, client_secret: hashedSecret})];
+      return [clientSecret, dataAccess.updateJsonbField('bsuser', 'data', {salt: salt, client_secret: hashedSecret}), `data->>'id' = '${usr.id}'`];
     })
     .spread((clientSecret, usr) => {
       deferred.resolve({client_secret: clientSecret});
@@ -313,9 +311,7 @@ Admin.prototype.patch = {
 	user: function (req, callback) {
 		var deferred = Q.defer();
 
-		var id = req.body.id;
 		var username;
-		var bIsActive = req.body.is_active;
 		if (req.body.username !== undefined) {
 			if (req.body.username == null) {
 				var errorObj = new ErrorObj(500,
@@ -361,7 +357,7 @@ Admin.prototype.patch = {
 			}
 		}
 
-		dataAccess.findOne('bsuser', {'id': req.body.id})
+		dataAccess.getUserById(req.body.id)
 		.then(function(existingUser) {
 			if(username) {
 				return [existingUser, utilities.validateUsername(username, existingUser.username)];
@@ -436,7 +432,7 @@ Admin.prototype.patch = {
 				}
 			}
 
-			return dataAccess.saveEntity('bsuser', existingUser);
+      return dataAccess.updateJsonbField('bsuser', 'data', existingUser, `data->>'id' = '${existingUser.id}'`);
 		})
 		.then(function(userDbEntity) {
 			delete userDbEntity.password;
@@ -472,30 +468,27 @@ Admin.prototype.delete = {
 	user: function (req, callback) {
 		var deferred = Q.defer();
 
-		dataAccess.findOne('bsuser', { 'id': req.body.id })
-			.then(function (user) {
-				return dataAccess.deleteEntity('bsuser', user);
-			})
-			.then(function (del_res) {
-				var resolveObj = del_res;
-				deferred.resolve(resolveObj);
-			})
-			.fail(function (err) {
-				if (err !== undefined && err !== null && typeof (err.AddToError) == 'function') {
-					deferred.reject(err.AddToError(__filename, 'DELETE user'));
-				}
-				else {
-					var errorObj = new ErrorObj(500,
-						'ad0005',
-						__filename,
-						'user',
-						'error deleting user',
-						'Error deleting user',
-						err
-					);
-					deferred.reject(errorObj);
-				}
-			});
+    dataAccess.deleteUser(req.body.id)
+    .then(function (del_res) {
+      var resolveObj = del_res;
+      deferred.resolve(resolveObj);
+    })
+    .fail(function (err) {
+      if (err !== undefined && err !== null && typeof (err.AddToError) == 'function') {
+        deferred.reject(err.AddToError(__filename, 'DELETE user'));
+      }
+      else {
+        var errorObj = new ErrorObj(500,
+          'ad0005',
+          __filename,
+          'user',
+          'error deleting user',
+          'Error deleting user',
+          err
+        );
+        deferred.reject(errorObj);
+      }
+    });
 
 		deferred.promise.nodeify(callback);
 		return deferred.promise;
@@ -509,12 +502,12 @@ Admin.prototype.delete = {
 
 		accessControl.roleExists(role)
 		.then(function() {
-			return dataAccess.findOne('bsuser', {'username': username});
+			return dataAccess.getUserByUserName(username);
 		})
 		.then(function(userObj) {
 			if(userObj.roles.indexOf(role)!==-1) {
 				userObj.roles.splice(userObj.roles.indexOf(role), 1);
-				return dataAccess.saveEntity('bsuser', userObj);
+				return dataAccess.updateJsonbField('bsuser', 'data', {roles:userObj.roles}, `data->>'id' = '${userObj.id}'`);
 			}
 			else {
 				var innerPromise = Q.defer();
@@ -557,117 +550,7 @@ Admin.prototype.delete = {
 // ===============================================================
 // UTILITY FUNCTIONS
 // ===============================================================
-function getUser(req, callback) {
-	var deferred = Q.defer();
-	var username = req.body.username.toLowerCase();
 
-	//find all lets us get users that have been deleted so we'll loop until we find ours.
-	dataAccess.findAll('bsuser')
-		.then(function (users) {
-			var foundUser = false;
-			for (var uIdx = 0; uIdx < users.length; uIdx++) {
-				var user = users[uIdx];
-				if (user.username.toLowerCase() === username) {
-					foundUser = true;
-					deferred.resolve(user);
-					break;
-				}
-			}
-			if (!foundUser) {
-				var errorObj = new ErrorObj(500,
-					'a0035',
-					__filename,
-					'getUser',
-					'no user found'
-				);
-				deferred.reject(errorObj);
-			}
-		})
-		.fail(function (err) {
-			if (err !== undefined && err !== null && typeof (err.AddToError) == 'function') {
-				deferred.reject(err.AddToError(__filename, 'getUser'));
-			}
-			else {
-				var errorObj = new ErrorObj(500,
-					'a1037',
-					__filename,
-					'getUser',
-					'error getting user',
-					'Error getting user',
-					err
-				);
-				deferred.reject(errorObj);
-			}
-		});
 
-	deferred.promise.nodeify(callback);
-	return deferred.promise;
-}
-
-function userExists(req, callback) {
-	var deferred = Q.defer();
-
-	getUser(req)
-		.then(function () {
-			deferred.resolve({ 'user_exists': true });
-		})
-		.fail(function (err) {
-			if (err !== undefined && err !== null && typeof (err.AddToError) == 'function') {
-				deferred.reject(err.AddToError(__filename, 'userExists'));
-			}
-			else {
-				var errorObj = new ErrorObj(500,
-					'a1038',
-					__filename,
-					'userExists',
-					'error checking that user exists',
-					'Error checking that user exists',
-					err
-				);
-				deferred.reject(errorObj);
-			}
-		});
-
-	deferred.promise.nodeify(callback);
-	return deferred.promise;
-}
-
-function userDoesNotExist(req, callback) {
-	var deferred = Q.defer();
-	getUser(req)
-		.then(function () {
-			var errorObj = new ErrorObj(500,
-				'a0036',
-				__filename,
-				'userDoesNotExist',
-				'a user already exists with the information provided'
-			);
-			deferred.reject(errorObj);
-		})
-		.fail(function (err) {
-			if (err !== undefined && err !== null && typeof (err.AddToError) == 'function') {
-				if (err.message === 'no user found' || err.err_code === 'a0035') {
-					deferred.resolve({ 'user_not_exist': true });
-				}
-				else {
-					deferred.reject(err.AddToError(__filename, 'userDoesNotExist'));
-				}
-			}
-			else {
-				var errorObj = new ErrorObj(500,
-					'a1039',
-					__filename,
-					'userExists',
-					'error checking that user does not exist',
-					'Error checking that user does not exist',
-					err
-				);
-				deferred.reject(errorObj);
-			}
-		});
-
-	deferred.promise.nodeify(callback);
-	return deferred.promise;
-}
 
 exports.admin = Admin;

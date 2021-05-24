@@ -301,7 +301,7 @@ AccessControl.prototype.signIn = (params, apiToken) => {
       if (validTokenRes.is_valid === true && validTokenRes.session.is_anonymous === true && validTokenRes.session.username === 'anonymous') {
           sess = validTokenRes.session;
           sess.username = username;
-          return [userObj, tkn, true, dataAccess.updateJsonbField('session', 'data', sess, `data->>'id' = ${sess.id}`)];
+          return [userObj, tkn, true, dataAccess.updateJsonbField('session', 'data', sess, `data->>'id' = '${sess.id}'`)];
       }
       else {
           return [userObj, tkn, false];
@@ -528,7 +528,7 @@ AccessControl.prototype.validateToken = function (tkn, continueWhenInvalid, call
 		return deferred.promise;
 	}
 
-	dataAccess.findOne('session', { 'object_type': 'session', 'token': tkn })
+	dataAccess.getSession(null, tkn)
   .then(function (find_results) {
     deferred.resolve({is_valid:true, session:find_results});
   })
@@ -572,7 +572,7 @@ AccessControl.prototype.validateBasicAuth = function(authHeader, continueWhenInv
   if(authType.toLowerCase() === 'basic') {
     let [clientId, clientSecret] = Buffer.from(authToken, 'base64').toString().split(':');
     if(clientId && clientSecret) {
-      dataAccess.findOne('bsuser', {client_id: clientId})
+      dataAccess.getUserByClientId(clientId)
       .then((usr) => {
         if(!usr.is_locked) {
           let saltedSecret = clientSecret + usr.salt;
@@ -964,7 +964,7 @@ function createStandardUser(username, email, password = null, exid = null, first
       if (validTokenRes.is_valid === true && validTokenRes.session.is_anonymous === true && validTokenRes.session.username === 'anonymous') {
           sess = validTokenRes.session;
           sess.username = username;
-          return [userObj, true, dataAccess.updateJsonbField('session', 'data', sess, `data->>'id' = ${sess.id}`)];
+          return [userObj, true, dataAccess.updateJsonbField('session', 'data', sess, `data->>'id' = '${sess.id}'`)];
       }
       else {
           return [userObj, false];

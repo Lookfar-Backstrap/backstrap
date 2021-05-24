@@ -651,66 +651,110 @@ DataAccess.prototype.DeleteSessions = function(dsIds, callback) {
 };
 
 
-DataAccess.prototype.findUser = function (email, username, connection, callback) {
+DataAccess.prototype.findUser = function (id, username, email, connection, callback) {
 	var deferred = Q.defer();
 
-	getUserByUserName(username, connection)
-	.then(function (usr) {
-		if(!usr) {
-      getUserByEmail(email, connection)
-      .then((usr) => {
-        if(usr) {
-          deferred.resolve(usr);
-        }
-        else {
-          let errorObj = new ErrorObj(404,
-                                      'da0200',
-                                      __filename,
-                                      'findUser',
-                                      'no user found',
-                                      'No user found.',
-                                      null
-                                    );
-          deferred.reject(errorObj);
-        }
-      })
-      .fail((emailErr) => {
-        if(emailErr && typeof(emailErr.AddToError) === 'function') {
-          deferred.reject(emailErr.AddToError(__filename, 'find user'));
-        }
-        else {
-          let errorObj = new ErrorObj(404,
-                                      'da0201',
-                                      __filename,
-                                      'findUser',
-                                      'error finding user',
-                                      'There was a problem with your request',
-                                      emailErr
-                                    );
+  if(id || username || email) {
+    getUserById(id, connection)
+    .then((usr) => {
+      if(!usr) {
+        getUserByUserName(username, connection)
+        .then(function (usr) {
+          if(!usr) {
+            getUserByEmail(email, connection)
+            .then((usr) => {
+              if(usr) {
+                deferred.resolve(usr);
+              }
+              else {
+                let errorObj = new ErrorObj(404,
+                                            'da0200',
+                                            __filename,
+                                            'findUser',
+                                            'no user found',
+                                            'No user found.',
+                                            null
+                                          );
+                deferred.reject(errorObj);
+              }
+            })
+            .fail((emailErr) => {
+              if(emailErr && typeof(emailErr.AddToError) === 'function') {
+                deferred.reject(emailErr.AddToError(__filename, 'find user'));
+              }
+              else {
+                let errorObj = new ErrorObj(404,
+                                            'da0201',
+                                            __filename,
+                                            'findUser',
+                                            'error finding user',
+                                            'There was a problem with your request',
+                                            emailErr
+                                          );
+                  deferred.reject(errorObj);
+              }
+            })
+          }
+          else {
+            deferred.resolve(usr);
+          }
+        })
+        .fail((usernameErr) => {
+          if(usernameErr && typeof(usernameErr.AddToError) === 'function') {
+            deferred.reject(usernameErr.AddToError(__filename, 'find user'));
+          }
+          else {
+            let errorObj = new ErrorObj(404,
+                                        'da0202',
+                                        __filename,
+                                        'findUser',
+                                        'error finding user',
+                                        'There was a problem with your request',
+                                        usernameErr
+                                      );
             deferred.reject(errorObj);
-        }
-      })
-    }
-    else {
-      deferred.resolve(usr);
-    }
-  })
-  .fail((usernameErr) => {
-    if(usernameErr && typeof(usernameErr.AddToError) === 'function') {
-      deferred.reject(usernameErr.AddToError(__filename, 'find user'));
-    }
-    else {
+          }
+        })
+      }
+      else {
+        deferred.resolve(usr);
+      }
+    })
+    .fail((idErr) => {
+      if(usernameErr && typeof(usernameErr.AddToError) === 'function') {
+        deferred.reject(usernameErr.AddToError(__filename, 'find user'));
+      }
+      else {
+        let errorObj = new ErrorObj(404,
+                                    'da0203',
+                                    __filename,
+                                    'findUser',
+                                    'error finding user',
+                                    'There was a problem with your request',
+                                    idErr
+                                  );
+        deferred.reject(errorObj);
+      }
+    })
+  }
+  else {
+    let sql = "SELECT data FROM bsuser WHERE (data->>'is_active')::boolean = true";
+    runSql(sql,[],connection)
+    .then((userRes) => {
+      deferred.resolve(userRes.map(u => u.data));
+    })
+    .fail((allUsrErr) => {
       let errorObj = new ErrorObj(404,
-                                  'da0202',
+                                  'da0204',
                                   __filename,
                                   'findUser',
                                   'error finding user',
                                   'There was a problem with your request',
-                                  usernameErr
+                                  allUsrErr
                                 );
       deferred.reject(errorObj);
-    }
-  })
+    })
+  }
     
   
 	deferred.promise.nodeify(callback);
@@ -721,7 +765,7 @@ DataAccess.prototype.findUser = function (email, username, connection, callback)
 DataAccess.prototype.GenerateForgotPasswordToken = (email, username) => {
   var deferred = Q.defer();
 
-  DataAccess.prototype.findUser(email, username)
+  DataAccess.prototype.findUser(null, username, email)
   .then(function (userObj) {
     if (userObj.is_locked) {
       deferred.reject(new ErrorObj(
@@ -745,7 +789,7 @@ DataAccess.prototype.GenerateForgotPasswordToken = (email, username) => {
     else {
       userObj.forgot_password_tokens.push(tkn);
     }
-    return [tkn, DataAccess.prototype.updateJsonbField('bsuser', 'data', userObj, `data->>'id' = ${userObj.id}`)];
+    return [tkn, DataAccess.prototype.updateJsonbField('bsuser', 'data', userObj, `data->>'id' = '${userObj.id}'`)];
   })
   .spread(function(tkn) {
     deferred.resolve(tkn);
@@ -823,46 +867,102 @@ var attachUserToSession = (userObj, sessionObj, connection) => {
 }
 DataAccess.prototype.attachUserToSession = attachUserToSession;
 
+
+var getUserById = (id, connection) => {
+  var deferred = Q.defer();
+
+  if(cid) {
+    var qry = "SELECT * FROM bsuser WHERE bsuser.data->>'id' = $1 AND (data->>'is_active')::boolean = true";
+    var qry_params = [id];
+    ExecutePostgresQuery(qry, qry_params, connection)
+    .then(function (connection) {
+      if (connection.results.length === 0) {
+        var errorObj = new ErrorObj(404,
+          'da0160',
+          __filename,
+          'getUserById',
+          'no user found',
+          'Cannot find user.',
+          null
+        );
+        deferred.reject(errorObj);
+      }
+      else if (connection.results.length === 1) {
+        deferred.resolve(connection.results[0].data);
+      }
+      else {
+        console.log('found multiple users');
+        var errorObj = new ErrorObj(500,
+          'da0161',
+          __filename,
+          'getUserById',
+          '',
+          'Found multiple users with that id.',
+          null
+        );
+        deferred.reject(errorObj);
+      }
+    })
+    .fail(function (err) {
+      try {
+        deferred.reject(err.AddToError(__filename, 'getUserById'));
+      }
+      catch(e) {console.log(e)}
+    });
+  }
+  else {
+    deferred.resolve(null);
+  }
+
+  return deferred.promise;
+}
+DataAccess.getUserById = getUserById;
+
 var getUserByUserName = (username, connection) => {
   var deferred = Q.defer();
 
-	var qry = "SELECT * FROM bsuser WHERE LOWER(bsuser.data->>'username') = LOWER($1)";
-	var qry_params = [username];
-	ExecutePostgresQuery(qry, qry_params, connection)
-	.then(function (connection) {
-		if (connection.results.length === 0) {
-			var errorObj = new ErrorObj(404,
-				'da0160',
-				__filename,
-				'getUserByUserName',
-				'no user found',
-				'Cannot find user.',
-				null
-			);
-			deferred.reject(errorObj);
-		}
-		else if (connection.results.length === 1) {
-			deferred.resolve(connection.results[0].data);
-		}
-		else {
-			console.log('found multiple users');
-			var errorObj = new ErrorObj(500,
-				'da0161',
-				__filename,
-				'getUserByUserName',
-				'',
-				'Found multiple users with that user name.',
-				null
-			);
-			deferred.reject(errorObj);
-		}
-	})
-	.fail(function (err) {
-		try {
-			deferred.reject(err.AddToError(__filename, 'getUserByUserName'));
-		}
-		catch(e) {console.log(e)}
-	});
+  if(username) {
+    var qry = "SELECT * FROM bsuser WHERE LOWER(bsuser.data->>'username') = LOWER($1) AND (data->>'is_active')::boolean = true";
+    var qry_params = [username];
+    ExecutePostgresQuery(qry, qry_params, connection)
+    .then(function (connection) {
+      if (connection.results.length === 0) {
+        var errorObj = new ErrorObj(404,
+          'da0162',
+          __filename,
+          'getUserByUserName',
+          'no user found',
+          'Cannot find user.',
+          null
+        );
+        deferred.reject(errorObj);
+      }
+      else if (connection.results.length === 1) {
+        deferred.resolve(connection.results[0].data);
+      }
+      else {
+        console.log('found multiple users');
+        var errorObj = new ErrorObj(500,
+          'da0163',
+          __filename,
+          'getUserByUserName',
+          '',
+          'Found multiple users with that user name.',
+          null
+        );
+        deferred.reject(errorObj);
+      }
+    })
+    .fail(function (err) {
+      try {
+        deferred.reject(err.AddToError(__filename, 'getUserByUserName'));
+      }
+      catch(e) {console.log(e)}
+    });
+  }
+  else {
+    deferred.resolve(null);
+  }
 
 	return deferred.promise;
 }
@@ -871,47 +971,132 @@ DataAccess.prototype.getUserByUserName = getUserByUserName;
 var getUserByEmail = (email, connection) => {
   var deferred = Q.defer();
 
-	var qry = "SELECT * FROM bsuser WHERE LOWER(bsuser.data->>'email') = LOWER($1)";
-	var qry_params = [email];
-	ExecutePostgresQuery(qry, qry_params, connection)
-	.then(function (connection) {
-		if (connection.results.length === 0) {
-			var errorObj = new ErrorObj(404,
-				'da0160',
-				__filename,
-				'getUserByEmail',
-				'no user found',
-				'Cannot find user.',
-				null
-			);
-			deferred.reject(errorObj);
-		}
-		else if (connection.results.length === 1) {
-			deferred.resolve(connection.results[0].data);
-		}
-		else {
-			console.log('found multiple users');
-			var errorObj = new ErrorObj(500,
-				'da0161',
-				__filename,
-				'getUserByEmail',
-				'',
-				'Found multiple users with that user name.',
-				null
-			);
-			deferred.reject(errorObj);
-		}
-	})
-	.fail(function (err) {
-		try {
-			deferred.reject(err.AddToError(__filename, 'getUserByEmail'));
-		}
-		catch(e) {console.log(e)}
-	});
+  if(email) {
+    var qry = "SELECT * FROM bsuser WHERE LOWER(bsuser.data->>'email') = LOWER($1) AND (data->>'is_active')::boolean = true";
+    var qry_params = [email];
+    ExecutePostgresQuery(qry, qry_params, connection)
+    .then(function (connection) {
+      if (connection.results.length === 0) {
+        var errorObj = new ErrorObj(404,
+          'da0164',
+          __filename,
+          'getUserByEmail',
+          'no user found',
+          'Cannot find user.',
+          null
+        );
+        deferred.reject(errorObj);
+      }
+      else if (connection.results.length === 1) {
+        deferred.resolve(connection.results[0].data);
+      }
+      else {
+        console.log('found multiple users');
+        var errorObj = new ErrorObj(500,
+          'da0165',
+          __filename,
+          'getUserByEmail',
+          '',
+          'Found multiple users with that user name.',
+          null
+        );
+        deferred.reject(errorObj);
+      }
+    })
+    .fail(function (err) {
+      try {
+        deferred.reject(err.AddToError(__filename, 'getUserByEmail'));
+      }
+      catch(e) {console.log(e)}
+    });
+  }
+  else {
+    deferred.resolve(null);
+  }
 
 	return deferred.promise;
 }
 DataAccess.prototype.getUserByEmail = getUserByEmail;
+
+var getUserByClientId = (cid, connection) => {
+  var deferred = Q.defer();
+
+  if(cid) {
+    var qry = "SELECT * FROM bsuser WHERE bsuser.data->>'client_id' = $1(data->>'is_active')::boolean = true";
+    var qry_params = [cid];
+    ExecutePostgresQuery(qry, qry_params, connection)
+    .then(function (connection) {
+      if (connection.results.length === 0) {
+        var errorObj = new ErrorObj(404,
+          'da0166',
+          __filename,
+          'getUserByClientId',
+          'no user found',
+          'Cannot find user.',
+          null
+        );
+        deferred.reject(errorObj);
+      }
+      else if (connection.results.length === 1) {
+        deferred.resolve(connection.results[0].data);
+      }
+      else {
+        console.log('found multiple users');
+        var errorObj = new ErrorObj(500,
+          'da0167',
+          __filename,
+          'getUserByClientId',
+          '',
+          'Found multiple users with that user name.',
+          null
+        );
+        deferred.reject(errorObj);
+      }
+    })
+    .fail(function (err) {
+      try {
+        deferred.reject(err.AddToError(__filename, 'getUserByClientId'));
+      }
+      catch(e) {console.log(e)}
+    });
+  }
+  else {
+    deferred.resolve(null);
+  }
+
+	return deferred.promise;
+}
+DataAccess.prototype.getUserByClientId = getUserByClientId;
+
+DataAccess.prototype.deleteUser = (uid, connection) => {
+  var deferred = Q.defer();
+
+  let sql = "UPDATE bsuser SET data = JSONB_SET(data, '{is_active}', 'false') WHERE id = $1 RETURNING id";
+  let params = [uid];
+
+  runSql(sql, params, connection)
+  .then((delRes) => {
+    if(delRes.length > 0) {
+      deferred.resolve({success: true});
+    }
+    else {
+      deferred.reject({success:false, message:'problem deleting user'});
+    }
+  })
+  .fail((delErr) => {
+    let errorObj = new ErrorObj(500,
+                                'da0170',
+                                __filename,
+                                'deleteUser',
+                                'problem deleting user',
+                                'There was a problem with your request.',
+                                delErr
+                              );
+    deferred.reject(errorObj);
+  })
+
+  return deferred.promise;
+}
 
 DataAccess.prototype.createUser = (userObj) => {
   var deferred = Q.defer();
@@ -929,7 +1114,6 @@ DataAccess.prototype.createUser = (userObj) => {
 
   return deferred.promise;
 }
-
 
 DataAccess.prototype.updateJsonbField = (tableName, fieldname, updateObj, whereClause) => {
   var deferred = Q.defer();
@@ -962,14 +1146,14 @@ DataAccess.prototype.getSession = (sid, tkn) => {
     params.push(sid);
   }
   else if(tkn) {
-    " data->>'token' = $1";
+    sql += " data->>'token' = $1";
     params.push(tkn);
   }
 
   runSql(sql, params)
   .then((sessRes) => {
     if(sessRes.length === 1) {
-      deferred.resolve(sessRes[0]);
+      deferred.resolve(sessRes[0].data);
     }
     else if(sessRes.length === 0) {
       deferred.resolve(null);
@@ -1016,7 +1200,7 @@ DataAccess.prototype.getUserBySession = (sid, tkn) => {
   runSql(sql, params)
   .then((sessRes) => {
     if(sessRes.length === 1) {
-      deferred.resolve(sessRes[0]);
+      deferred.resolve(sessRes[0].data);
     }
     else if(sessRes.length === 0) {
       deferred.resolve(null);
@@ -1045,5 +1229,6 @@ DataAccess.prototype.getUserBySession = (sid, tkn) => {
 
   return deferred.promise;
 }
+
 
 exports.DataAccess = DataAccess;

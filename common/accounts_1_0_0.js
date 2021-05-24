@@ -65,40 +65,38 @@ Accounts.prototype.get = {
         var deferred = Q.defer();
 
         var username = (typeof (req.query.username) == 'undefined' || req.query.username === null) ? req.query.email.toLowerCase() : req.query.username.toLowerCase();
-        var token = req.headers[settings.data.token_header];
-        var userObj = req.this_user;
-        dataAccess.findOne('bsuser', { 'username': username })
-            .then(function(userObj) {
-                delete userObj.password;
-                delete userObj.salt;
-                delete userObj.client_secret;
-                delete userObj.object_type;
-                delete userObj.forgot_password_tokens;
+        dataAccess.getUserByUserName(username)
+        .then(function(userObj) {
+            delete userObj.password;
+            delete userObj.salt;
+            delete userObj.client_secret;
+            delete userObj.object_type;
+            delete userObj.forgot_password_tokens;
 
-                // ADD EVENT TO SESSION
-                var resolveObj = userObj;
-                deferred.resolve(resolveObj);
-            })
-            .fail(function(err) {
-                if (err !== undefined && err !== null && typeof (err.AddToError) === 'function') {
-                    if (err.message === 'no results found' || err.err_code === 'da0109') {
-                        err.setStatus(400);
-                        err.setMessages('user not found', 'User not found');
-                    }
-                    deferred.reject(err.AddToError(__filename, 'GET user'));
+            // ADD EVENT TO SESSION
+            var resolveObj = userObj;
+            deferred.resolve(resolveObj);
+        })
+        .fail(function(err) {
+            if (err !== undefined && err !== null && typeof (err.AddToError) === 'function') {
+                if (err.message === 'no results found' || err.err_code === 'da0109') {
+                    err.setStatus(400);
+                    err.setMessages('user not found', 'User not found');
                 }
-                else {
-                    var errorObj = new ErrorObj(500,
-                        'a1002',
-                        __filename,
-                        'GET user',
-                        'error getting user',
-                        'Error getting user',
-                        err
-                    );
-                    deferred.reject(errorObj);
-                }
-            });
+                deferred.reject(err.AddToError(__filename, 'GET user'));
+            }
+            else {
+                var errorObj = new ErrorObj(500,
+                    'a1002',
+                    __filename,
+                    'GET user',
+                    'error getting user',
+                    'Error getting user',
+                    err
+                );
+                deferred.reject(errorObj);
+            }
+        });
 
         deferred.promise.nodeify(callback);
         return deferred.promise;
@@ -406,23 +404,23 @@ Accounts.prototype.post = {
         }
 
         if (validArgs) {
-            dataAccess.findUser(email, username)
+            dataAccess.findUser(null, username, email)
                 .then(function(userObj) {
-                    if (userObj.is_locked) {
-                        var errorObj = new ErrorObj(403,
-                            'a2006',
-                            __filename,
-                            'forgotPassword',
-                            'bsuser is locked',
-                            'Unauthorized',
-                            null
-                        );
-                        deferred.reject(errorObj);
+                  if (userObj.is_locked) {
+                      var errorObj = new ErrorObj(403,
+                          'a2006',
+                          __filename,
+                          'forgotPassword',
+                          'bsuser is locked',
+                          'Unauthorized',
+                          null
+                      );
+                      deferred.reject(errorObj);
 
-                        deferred.promise.nodeify(callback);
-                        return deferred.promise;
-                    }
-                    return [userObj, utilities.getHash(null, null, 48)];
+                      deferred.promise.nodeify(callback);
+                      return deferred.promise;
+                  }
+                  return [userObj, utilities.getHash(null, null, 48)];
                 })
                 .spread(function(userObj, tkn) {
                     var reset_link = process.env.reset_password_link || "";
@@ -437,7 +435,7 @@ Accounts.prototype.post = {
                     else {
                         userObj.forgot_password_tokens.push(tkn);
                     }
-                    return [tkn, dataAccess.updateJsonbField('bsuser', 'data', userObj, `data->>'id' = ${userObj.id}`)];
+                    return [tkn, dataAccess.updateJsonbField('bsuser', 'data', userObj, `data->>'id' = '${userObj.id}'`)];
                 })
                 .spread(function(tkn, save_res) {
                     // ADD EVENT TO SESSION
@@ -490,69 +488,68 @@ Accounts.prototype.post = {
         var password = args.password;
 
         dataAccess.getUserByForgotPasswordToken(tkn)
-            .then(function(userObjs) {
-                if (userObjs !== undefined && userObjs !== null && userObjs.length > 0) {
-                    var userObj = userObjs[0];
-                    // IF USER IS LOCKED, BAIL OUT
-                    if (userObj.is_locked) {
-                        var errorObj = new ErrorObj(403,
-                            'a2007',
-                            __filename,
-                            'resetPassword',
-                            'bsuser is locked',
-                            'Unauthorized',
-                            null
-                        );
-                        deferred.reject(errorObj);
+        .then(function(userObjs) {
+          if (userObjs !== undefined && userObjs !== null && userObjs.length > 0) {
+              var userObj = userObjs[0];
+              // IF USER IS LOCKED, BAIL OUT
+              if (userObj.is_locked) {
+                  var errorObj = new ErrorObj(403,
+                      'a2007',
+                      __filename,
+                      'resetPassword',
+                      'bsuser is locked',
+                      'Unauthorized',
+                      null
+                  );
+                  deferred.reject(errorObj);
 
-                        deferred.promise.nodeify(callback);
-                        return deferred.promise;
-                    }
+                  deferred.promise.nodeify(callback);
+                  return deferred.promise;
+              }
 
-                    var cryptoCall = Q.denodeify(crypto.randomBytes);
-                    return [userObj, cryptoCall(48)];
-                }
-                else {
-                    var errorObj = new ErrorObj(500,
-                        'a0033',
-                        __filename,
-                        'resetPassword',
-                        'token not found'
-                    );
-                    deferred.reject(errorObj);
-                }
-
-            })
-            .spread(function(userObj, buf) {
-                var salt = buf.toString('hex');
-                var saltedPassword = password + salt;
-                var hashedPassword = crypto.createHash('sha256').update(saltedPassword).digest('hex');
-                userObj.password = hashedPassword;
-                userObj.salt = salt;
-                userObj.forgot_password_tokens = [];
-                return dataAccess.updateJsonbField('bsuser', 'data', userObj, `data->>'id' = ${userObj.id}`);
-            })
-            .then(function() {
-                var resolveObj = { 'success': true };
-                deferred.resolve(resolveObj);
-            })
-            .fail(function(err) {
-                if (err !== undefined && err !== null && typeof (err.AddToError) == 'function') {
-                    err.setMessages('Problem reseting password');
-                    deferred.reject(err.AddToError(__filename, 'resetPassword'));
-                }
-                else {
-                    var errorObj = new ErrorObj(500,
-                        'a1033',
-                        __filename,
-                        'resetPassword',
-                        'error reseting password',
-                        'Problem reseting password',
-                        err
-                    );
-                    deferred.reject(errorObj);
-                }
-            });
+              var cryptoCall = Q.denodeify(crypto.randomBytes);
+              return [userObj, cryptoCall(48)];
+          }
+          else {
+              var errorObj = new ErrorObj(500,
+                  'a0033',
+                  __filename,
+                  'resetPassword',
+                  'token not found'
+              );
+              deferred.reject(errorObj);
+          }
+        })
+        .spread(function(userObj, buf) {
+            var salt = buf.toString('hex');
+            var saltedPassword = password + salt;
+            var hashedPassword = crypto.createHash('sha256').update(saltedPassword).digest('hex');
+            userObj.password = hashedPassword;
+            userObj.salt = salt;
+            userObj.forgot_password_tokens = [];
+            return dataAccess.updateJsonbField('bsuser', 'data', userObj, `data->>'id' = '${userObj.id}'`);
+        })
+        .then(function() {
+            var resolveObj = { 'success': true };
+            deferred.resolve(resolveObj);
+        })
+        .fail(function(err) {
+            if (err !== undefined && err !== null && typeof (err.AddToError) == 'function') {
+                err.setMessages('Problem reseting password');
+                deferred.reject(err.AddToError(__filename, 'resetPassword'));
+            }
+            else {
+                var errorObj = new ErrorObj(500,
+                    'a1033',
+                    __filename,
+                    'resetPassword',
+                    'error reseting password',
+                    'Problem reseting password',
+                    err
+                );
+                deferred.reject(errorObj);
+            }
+        });
 
         deferred.promise.nodeify(callback);
         return deferred.promise;
@@ -574,7 +571,7 @@ Accounts.prototype.post = {
             }
         }
 
-        dataAccess.updateJsonbField('bsuser', 'data', userObj, `data->>'id' = ${userObj.id}`)
+        dataAccess.updateJsonbField('bsuser', 'data', userObj, `data->>'id' = '${userObj.id}'`)
             .then(function() {
                 // ADD EVENT TO SESSION
                 var resolveObj = { 'profile': true };
@@ -644,52 +641,52 @@ Accounts.prototype.post = {
 
 Accounts.prototype.patch = {
     password: function(req, callback) {
-        var deferred = Q.defer();
+      var deferred = Q.defer();
 
-        // TODO: validate password if possible
+      // TODO: validate password if possible
 
-        var token = req.headers[settings.data.token_header];
-        var existingUser = req.this_user;
-        // GOT A USER, MAKE SURE THERE IS A STORED SALT
-        var salt = existingUser.salt;
-        if (salt === null) {
-            var errorObj = new ErrorObj(500,
-                'a0034',
-                __filename,
-                'bsuser',
-                'error retrieving salt for this user'
-            );
-            deferred.reject(errorObj);
-        }
-        else {
-            // SALT AND HASH PASSWORD
-            var saltedPassword = req.body.password + existingUser.salt;
-            var hashedPassword = crypto.createHash('sha256').update(saltedPassword).digest('hex');
-            existingUser.password = hashedPassword;
+      var token = req.headers[settings.data.token_header];
+      var existingUser = req.this_user;
+      // GOT A USER, MAKE SURE THERE IS A STORED SALT
+      var salt = existingUser.salt;
+      if (salt === null) {
+          var errorObj = new ErrorObj(500,
+              'a0034',
+              __filename,
+              'bsuser',
+              'error retrieving salt for this user'
+          );
+          deferred.reject(errorObj);
+      }
+      else {
+          // SALT AND HASH PASSWORD
+          var saltedPassword = req.body.password + existingUser.salt;
+          var hashedPassword = crypto.createHash('sha256').update(saltedPassword).digest('hex');
+          existingUser.password = hashedPassword;
 
-            dataAccess.updateEntity('bsuser', existingUser)
-            .then(function(updatedUser) {
-                deferred.resolve();
-            })
-            .fail(function(err) {
-                if (err !== undefined && err !== null && typeof (err.AddToError) === 'function') {
-                    err.setMessages('error updating bsuser', 'Problem updating password');
-                    deferred.reject(err.AddToError(__filename, 'PATCH password'));
-                }
-                else {
-                    var errorObj = new ErrorObj(500,
-                        'a0052',
-                        __filename,
-                        'password',
-                        'error updating user password'
-                    );
-                    deferred.reject(errorObj);
-                }
-            });
-        }
+          dataAccess.updateJsonbField('bsuser', 'data', {password: hashedPassword}, `data->>'id' = '${existingUser.id}'`)
+          .then(function(updatedUser) {
+            deferred.resolve();
+          })
+          .fail(function(err) {
+            if (err !== undefined && err !== null && typeof (err.AddToError) === 'function') {
+                err.setMessages('error updating bsuser', 'Problem updating password');
+                deferred.reject(err.AddToError(__filename, 'PATCH password'));
+            }
+            else {
+                var errorObj = new ErrorObj(500,
+                    'a0052',
+                    __filename,
+                    'password',
+                    'error updating user password'
+                );
+                deferred.reject(errorObj);
+            }
+          });
+      }
 
-        deferred.promise.nodeify(callback);
-        return deferred.promise;
+      deferred.promise.nodeify(callback);
+      return deferred.promise;
     }
 };
 
@@ -712,7 +709,7 @@ Accounts.prototype.put = {
                 return utilities.validateUsername(updateUser.username, existingUser.username);
             })
             .then(function() {
-                return dataAccess.updateEntity('bsuser', updateUser);
+                return dataAccess.updateJsonbField('bsuser', 'data', updateUser, `data->>'id' = '${updateUser.id}'`);
             })
             .then(function(update_res) {
                 // ADD EVENT TO SESSION
@@ -744,29 +741,28 @@ Accounts.prototype.delete = {
     account: function(req, callback) {
         var deferred = Q.defer();
 
-        var token = req.headers[settings.data.token_header];
-        var existingUser = req.this_user;
-        dataAccess.deleteEntity('bsuser', existingUser)
-            .then(function() {
-                deferred.resolve();
-            })
-            .fail(function(err) {
-                if (err !== undefined && err !== null && typeof (err.AddToError) === 'function') {
-                    err.setMessages('error deleting bsuser');
-                    deferred.reject(err.AddToError(__filename, 'DELETE bsuser'));
-                }
-                else {
-                    var errorObj = new ErrorObj(500,
-                        'a00051',
-                        __filename,
-                        'bsuser',
-                        'error deleting bsuser',
-                        err
-                    );
-                    deferred.reject(errorObj);
-                }
-                deferred.reject();
-            });
+        dataAccess.deleteUser(req.this_user.id)
+        .then(function() {
+            deferred.resolve();
+        })
+        .fail(function(err) {
+            if (err !== undefined && err !== null && typeof (err.AddToError) === 'function') {
+                err.setMessages('error deleting bsuser');
+                deferred.reject(err.AddToError(__filename, 'DELETE bsuser'));
+            }
+            else {
+                var errorObj = new ErrorObj(500,
+                    'a00051',
+                    __filename,
+                    'bsuser',
+                    'error deleting bsuser',
+                    err
+                );
+                deferred.reject(errorObj);
+            }
+            deferred.reject();
+        });
+
         deferred.promise.nodeify(callback);
         return deferred.promise;
     }

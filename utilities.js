@@ -168,35 +168,36 @@ Utilities.prototype.validateEmail = function (newEmail, existingEmail) {
 
 Utilities.prototype.getUserFromApiToken = function (apiTkn, callback) {
 	var deferred = Q.defer();
-	dataAccess.findOne('session', { 'object_type': 'session', 'token': apiTkn })
-		.then(function (sessionObj) {
-			if(sessionObj.is_anonymous) {
-				return {'object_type': 'bsuser', 'username': 'anonymous'};
-			}
-			else {
-				return dataAccess.findOne('bsuser', { 'object_type': 'bsuser', 'username': sessionObj.username });
-			}
-		})
-		.then(function (userObj) {
-			deferred.resolve(userObj);
-		})
-		.fail(function (err) {
-			// ADD LOGGING HERE?
-			if (err !== undefined && err !== null && typeof (err.AddToError) === 'function') {
-				deferred.reject(err.AddToError(__filename, 'getUserFromApiToken'));
-			}
-			else {
-				var errorObj = new ErrorObj(500,
-					'u1001',
-					__filename,
-					'getUserFromApiToken',
-					'error getting user from api token',
-					'Error getting user from api token',
-					err
-				);
-				deferred.reject(errorObj);
-			}
-		});
+  
+  dataAccess.getSession(null, apiTkn)
+  .then(function (sessionObj) {
+    if(sessionObj.is_anonymous) {
+      return {'object_type': 'bsuser', 'username': 'anonymous'};
+    }
+    else {
+      return dataAccess.getUserBySession(sessionObj.id);
+    }
+  })
+  .then(function (userObj) {
+    deferred.resolve(userObj);
+  })
+  .fail(function (err) {
+    // ADD LOGGING HERE?
+    if (err !== undefined && err !== null && typeof (err.AddToError) === 'function') {
+      deferred.reject(err.AddToError(__filename, 'getUserFromApiToken'));
+    }
+    else {
+      var errorObj = new ErrorObj(500,
+        'u1001',
+        __filename,
+        'getUserFromApiToken',
+        'error getting user from api token',
+        'Error getting user from api token',
+        err
+      );
+      deferred.reject(errorObj);
+    }
+  });
 
 	deferred.promise.nodeify(callback);
 	return deferred.promise;
@@ -789,7 +790,7 @@ Utilities.prototype.logEvent = function(tkn, eventDescriptor) {
 Utilities.prototype.invalidateSession = function(sessionObj) {
   var deferred = Q.defer();
 
-  dataAccess.hardDeleteEntity('session', sessionObj)
+  dataAccess.DeleteSessions([sessionObj.id])
   .then(() => {
     if(settings.data.session_logging === true) {
       let dsObj = {

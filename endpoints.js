@@ -2,15 +2,11 @@ var Q = require('q');
 var fs = require('fs');
 
 var endpointData = null;
+var file = null;
 var extensionFile = null;
 var settings;
 
-var Endpoints = function(s, f) {
-  var deferred = Q.defer();
-
-  settings = s;
-	file = f;
-	//extensionFile = file.substring(0, file.indexOf('.json'))+'_ext.json';
+var init = () => {
   extensionFile = file.replace('_in', '');
 
   try {
@@ -70,42 +66,25 @@ var Endpoints = function(s, f) {
       }
     }
 
-    this.data = endpointData;
+    return endpointData;
   }
   catch(e) {
     console.error("Initialization Error -- endpoints.js");
     console.error(e);
   }
+}
+
+var Endpoints = function(s, f) {
+  settings = s;
+  file = f;
+  this.data = init();
 };
-
-
-// Endpoints.prototype.reload = function() {
-	// var e = this;
-	// var deferred = Q.defer();
-	// e.init(bucket, file)
-	// .then(function(res) {
-	// 	deferred.resolve(res);
-	// })
-	// .fail(function(err) {
-	// 	if(err !== undefined && err !== null && typeof(err.AddToError) === 'function') {
-	// 		deferred.reject(err.AddToError(__filename, 'reload'));
-	// 	}
-	// 	else {
-	// 		var errorObj = new ErrorObj(500, 
-	// 									'e1001', 
-	// 									__filename, 
-	// 									'reload', 
-	// 									'error reloading endpoints config',
-	// 									'External error',
-	// 									err
-	// 									);
-	// 		deferred.reject(errorObj);
-	// 	}
-	// });
-	
-
-	// return deferred.promise;
-// }
+Endpoints.prototype.init = () => {
+  this.data = init();
+};
+Endpoints.prototype.reload = () => {
+  this.data = init();
+};
 
 Endpoints.prototype.save = function() {
 	var deferred = Q.defer();

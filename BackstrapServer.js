@@ -96,7 +96,6 @@ accessControl.init('Security.json')
 })
 .then(function(cInit) {
   console.log('Controller initialized');
-
   return schemaControl.updateSchema(config.db.name, config.db.user, config.db.pass, config.db.host, config.db.port, utilities)
 })
 .then(function(schemaUpd) {
@@ -360,7 +359,7 @@ function requestPipeline(req, res, verb) {
       else {
         if(settings.data.access_logging === true) accessLogEvent.client_id = validTokenResponse.client_id;
 
-        dataAccess.findOne('bsuser', {client_id: validTokenResponse.client_id})
+        dataAccess.getUserByClientId(validTokenResponse.client_id)
         .then(function(usr) {
           inner_deferred.resolve(usr);
         })
@@ -409,7 +408,7 @@ function requestPipeline(req, res, verb) {
     if(validTokenResponse.session != null) {
       let session = validTokenResponse.session;
       session.last_touch = new Date().toISOString();
-      dataAccess.updateJsonbField('session', 'data', session, `data->>'id' = ${session.id}`).then()
+      dataAccess.updateJsonbField('session', 'data', session, `data->>'id' = '${session.id}'`).then()
     }
 
     // IF ACCESS LOGGING IS ENABLED.  ADD THE END TIMESTAMP
