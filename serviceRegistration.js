@@ -17,33 +17,36 @@ var ServiceRegistration = function(db, e) {
 	endpoints = e;
 };
 
-ServiceRegistration.prototype.reload = function() {
-	var deferred = Q.defer();
+// ServiceRegistration.prototype.reload = function() {
+	// var deferred = Q.defer();
 
-	endpoints.reload()
-	.then(function(reload_res) {
-		deferred.resolve(true);
-	})
-	.fail(function(err) {
-		if(err !== undefined && err !== null && typeof(err.AddToError) === 'function') {
-			deferred.reject(err.AddToError(__filename, 'reload'));
-		}
-		else {
-			var errorObj = new ErrorObj(500, 
-										'sr1001', 
-										__filename, 
-										'reload', 
-										'error reloading ServiceRegistration',
-										'Error reloading configs',
-										err
-										);
-			deferred.reject(errorObj);
-		}
-	});
+	// endpoints.reload()
+	// .then(function(reload_res) {
+	// 	deferred.resolve(true);
+	// })
+	// .fail(function(err) {
+	// 	if(err !== undefined && err !== null && typeof(err.AddToError) === 'function') {
+	// 		deferred.reject(err.AddToError(__filename, 'reload'));
+	// 	}
+	// 	else {
+	// 		var errorObj = new ErrorObj(500, 
+	// 									'sr1001', 
+	// 									__filename, 
+	// 									'reload', 
+	// 									'error reloading ServiceRegistration',
+	// 									'Error reloading configs',
+	// 									err
+	// 									);
+	// 		deferred.reject(errorObj);
+	// 	}
+	// });
 
-	return deferred.promise;
-};
+	// return deferred.promise;
+// };
 
+// ====================================
+// CREATE A NEW ENDPOINT
+// ====================================
 ServiceRegistration.prototype.registerServiceCall = function(call, area, controller, verb, version, args, authRequired, description, callback) {
 	var deferred = Q.defer();
 
@@ -212,6 +215,9 @@ ServiceRegistration.prototype.registerServiceCall = function(call, area, control
 	return deferred.promise;
 };
 
+// ====================================
+// UPDATE ENDPOINT
+// ====================================
 ServiceRegistration.prototype.updateServiceCall = function(call, area, controller, verb, version, args, authRequired, description, callback) {
 	var deferred = Q.defer();
 
@@ -300,7 +306,9 @@ ServiceRegistration.prototype.updateServiceCall = function(call, area, controlle
 	return deferred.promise;
 };
 
-
+// ====================================
+// DELETE ENDPOINT
+// ====================================
 ServiceRegistration.prototype.deleteServiceCall = function(call, area, controller, verb, version, callback) {
 	var deferred = Q.defer();
 
@@ -383,7 +391,9 @@ ServiceRegistration.prototype.deleteServiceCall = function(call, area, controlle
 	return deferred.promise;
 };
 
-
+// ====================================
+// GET ENDPOINT
+// ====================================
 ServiceRegistration.prototype.getServiceCall = function(call, area, controller, verb, version, callback) {
 	var deferred = Q.defer();
 
@@ -515,6 +525,9 @@ ServiceRegistration.prototype.getServiceCall = function(call, area, controller, 
 	return deferred.promise;
 };
 
+// ====================================
+// CHECK FOR ENDPOINT
+// ====================================
 // DEPENDS ON ServiceRegistration.getServiceCall()'s ERRORS TO DETERMINE IF SERVICE CALL EXISTS
 ServiceRegistration.prototype.serviceCallExists = function(call, area, controller, verb, version, callback) {
 	var deferred = Q.defer();
@@ -544,7 +557,9 @@ ServiceRegistration.prototype.serviceCallExists = function(call, area, controlle
 	return deferred.promise;
 };
 
-
+// ====================================
+// VALIDATE ENDPOINT ARGS
+// ====================================
 ServiceRegistration.prototype.validateArguments = function(call, area, controller, verb, version, inputArgs, callback) {
 	var deferred = Q.defer();
 
@@ -706,6 +721,9 @@ ServiceRegistration.prototype.validateArguments = function(call, area, controlle
 	return deferred.promise;
 };
 
+// ====================================
+// GET ALL ENDPOINTS
+// ====================================
 ServiceRegistration.prototype.getAllServiceCalls = function(callback) {
 	var deferred = Q.defer();
 
@@ -746,6 +764,17 @@ ServiceRegistration.prototype.getAllServiceCalls = function(callback) {
 	deferred.promise.nodeify(callback);
 	return deferred.promise;
 };
+
+// ====================================
+// GET ALL CONTROLLERS
+// ====================================
+ServiceRegistration.prototype.getControllers = (area, cName) => {
+  var deferred = Q.defer();
+
+  
+
+  return deferred.promise;
+}
 
 
 // ==================================================

@@ -89,9 +89,12 @@ serviceRegistration = new ServiceRegistration(dataAccess, endpoints);
 console.log('ServiceRegistration initialized');
 accessControl = new AccessControl(utilities, settings, dataAccess);
 accessControl.init('Security.json')
-.then(function (acl_res) {
+.then(function (aclRes) {
   console.log('AccessControl initialized');
-  mainController = new Controller(dataAccess, utilities, accessControl, serviceRegistration, settings, endpoints.data);
+  mainController = new Controller(dataAccess, utilities, accessControl, serviceRegistration, settings, endpoints);
+  return mainController.init();
+})
+.then(function(cInit) {
   console.log('Controller initialized');
 
   return schemaControl.updateSchema(config.db.name, config.db.user, config.db.pass, config.db.host, config.db.port, utilities)

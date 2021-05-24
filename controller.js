@@ -4,8 +4,8 @@ var accessControl;
 var serviceRegistration;
 var settings;
 var endpoints;
+var controllers;
 
-var fs = require('fs');
 var Q = require('q');
 
 var Controller = function (da, utils, ac, sr, st, e) {
@@ -17,27 +17,81 @@ var Controller = function (da, utils, ac, sr, st, e) {
 	endpoints = e;
 };
 
+var init = () => {
+  var deferred = Q.defer();
+
+  let hasErrors = false;
+  controllers = {};
+  var areas = Object.keys(endpoints.data);
+	for(var aIdx = 0; aIdx < areas.length; aIdx++) {
+		var areaName = areas[aIdx];
+    controllers[areaName] = {};
+		var controllerArray = endpoints.data[areas[aIdx]];
+		for(var cIdx = 0; cIdx < controllerArray.length; cIdx++) {
+			var controllerObj = controllerArray[cIdx];
+			var controllerName = controllerObj.name;
+      var controllerVersion = controllerObj.version;
+      if(controllers[areaName][controllerName] == null) {
+        controllers[areaName][controllerName] = {};
+      }
+
+      // DUPLICATE CONTROLLER DEFINITION
+			if(controllers[areaName][controllerName][controllerVersion] != null) {
+        console.warn('DUPLICATE CONTROLLER DEFINITION');
+      }
+
+      let filePath = `./${areaName}/${controllerName}_${controllerVersion.replace(/\./g, '_')}.js`;
+      let thisController = null;
+      try {
+        thisController = require(filePath)[controllerName];
+      }
+      catch(e) {
+        let errorObj = new ErrorObj(500,
+                                    'c0100',
+                                    __filename,
+                                    'init',
+                                    `Error loading controller: ${filePath}`,
+                                    'There was a problem executing your request.',
+                                    e
+                                    );
+        console.error(errorObj);
+        utilities.writeErrorToLog(errorObj);
+      }
+      try {
+        controllers[areaName][controllerName][controllerVersion] = new thisController(dataAccess, utilities, accessControl, serviceRegistration, settings, endpoints);
+      }
+      catch(e) {
+        let errorObj = new ErrorObj(500,
+                                    'c0101',
+                                    __filename,
+                                    'init',
+                                    `Error initializing controller: ${filePath}`,
+                                    'There was a problem executing your request.',
+                                    e
+                                    );
+        console.error(errorObj);
+        utilities.writeErrorToLog(errorObj);
+      }
+    }
+  }
+
+  if(!hasErrors) {
+    deferred.resolve({success:true});
+  }
+  else {
+    deferred.reject({success:false, message:'Controller initialization error'});
+  }
+
+  return deferred.promise;
+}
+Controller.prototype.init = init;
+Controller.prototype.reload = init;
+
 Controller.prototype.resolveServiceCall = function (serviceCallDescriptor, req, callback) {
 	var deferred = Q.defer();
 	// ===================================================================
 	// PULL THE APPROPRIATE VERSION OF WEB SERVICE WITH APPROPRIATE VERB
 	// ===================================================================
-	var versionObj;
-	try {
-		versionObj = exports.makeVersionObject(serviceCallDescriptor.version);
-	}
-	catch (err) {
-		var errorObj = new ErrorObj(400,
-			'c0001',
-			__filename,
-			'resolveServiceCall',
-			'invalid version string',
-			'Invalid version string. Please follow version format x.y.x - major.minor.bug',
-			err
-		);
-    deferred.reject(errorObj);
-    return deferred.promise;
-	}
 	var versionOfWS;
 
 	if (serviceCallDescriptor.verb.toLowerCase() === 'get' ||
@@ -45,8 +99,11 @@ Controller.prototype.resolveServiceCall = function (serviceCallDescriptor, req, 
 		serviceCallDescriptor.verb.toLowerCase() === 'put' ||
 		serviceCallDescriptor.verb.toLowerCase() === 'patch' ||
 		serviceCallDescriptor.verb.toLowerCase() === 'delete') {
-		var wsNoVerb = exports.getController(serviceCallDescriptor.area.toLowerCase(), serviceCallDescriptor.controller.toLowerCase(), versionObj);
+    
+      // GRAB THE CONTROLLER
+    var wsNoVerb = controllers[serviceCallDescriptor.area][serviceCallDescriptor.controller][serviceCallDescriptor.version]
 		if (wsNoVerb !== null) {
+      // GRAB THE BLOCK OF FUNCTIONS FOR THIS VERB
 			versionOfWS = wsNoVerb[serviceCallDescriptor.verb.toLowerCase()];
 		}
 		else {
@@ -78,9 +135,9 @@ Controller.prototype.resolveServiceCall = function (serviceCallDescriptor, req, 
     return deferred.promise;
 	}
 
+  // LOOK THROUGH THE CONTROLLER FOR THIS METHOD
 	var funcName = null;
 	var foundFuncName = false;
-	
   var funcNames = Object.keys(versionOfWS);
   for (var fIdx = 0; fIdx < funcNames.length; fIdx++) {
     if (funcNames[fIdx].toLowerCase() === serviceCallDescriptor.call.toLowerCase()) {
@@ -92,7 +149,8 @@ Controller.prototype.resolveServiceCall = function (serviceCallDescriptor, req, 
   }
 
 	if (foundFuncName) {
-		var mainCall = Q.denodeify(versionOfWS[funcName]);		
+		// EXECUTE THE ACTUAL FUNCTION
+    var mainCall = Q.denodeify(versionOfWS[funcName]);		
 		mainCall(req)
 		.then(function(results) {
 			deferred.resolve(results);
@@ -137,102 +195,5 @@ Controller.prototype.resolveServiceCall = function (serviceCallDescriptor, req, 
 	deferred.promise.nodeify(callback);
 	return deferred.promise;
 };
-
-/**
- * Takes a version string and generates a JS version object.
- * @param {string} versionString - A version string following the format x.y.z - major.minor.bug.
- * @return {object} versionObject - JS object detailing version information.
- * @throws Will throw an error on invalid input (wrong format, non-numerical)
- */
-exports.makeVersionObject = function makeVersionObject(versionString) {
-	var digits = /^\d+$/;
-	var versionDetails = versionString.split('.');
-
-	if (versionDetails.length != 3) {
-		throw new Error("Invalid arguments for makeVersionObject()");
-	}
-	else if ((digits.test(versionDetails[0])
-		|| digits.test(versionDetails[1])
-		|| digits.test(versionDetails[2]))
-		== false) {
-		throw new Error("Invalid arguments for makeVersionObject()");
-	}
-
-	var versionObject = {
-		'major': versionDetails[0],
-		'minor': versionDetails[1],
-		'bug': versionDetails[2]
-	};
-
-	return versionObject;
-}
-
-exports.getController = function getController(areaName, controllerName, versionObj) {
-	var servicesDir = './' + areaName + '/';
-	var services = fs.readdirSync(servicesDir);
-	var baseServiceName = null;
-	var inputVersionString = versionObj.major + '_' + versionObj.minor + '_' + versionObj.bug;
-	for (var sIdx = 0; sIdx < services.length; sIdx++) {
-		var serviceName = services[sIdx].substring(0, services[sIdx].indexOf('_'));
-		var versionString = services[sIdx].substring(services[sIdx].indexOf('_') + 1);
-		versionString = versionString.substring(0, versionString.indexOf('.'));
-
-		if (serviceName.toLowerCase() === controllerName.toLowerCase() && versionString === inputVersionString) {
-			baseServiceName = serviceName;
-			break;
-		}
-	}
-	if (baseServiceName === null) {
-		return null;
-  }
-  
-  try {
-    var serviceCallsPath = servicesDir + baseServiceName + '_' + inputVersionString + '.js';
-    var ServiceCalls = null;
-    try {
-      ServiceCalls = require(serviceCallsPath)[baseServiceName];
-    }
-    catch(e) {
-      let errorObj = new ErrorObj(500,
-                                  'c0010',
-                                  __filename,
-                                  'getController',
-                                  `Error loading controller: ${serviceCallsPath}`,
-                                  'There was a problem executing your request.',
-                                  e
-                                  );
-      console.error(errorObj);
-      return null;
-    }
-
-    var versionOfWS = null;
-    try {
-      versionOfWS = new ServiceCalls(dataAccess, utilities, accessControl, serviceRegistration, settings, endpoints);
-    }
-    catch(e) {
-      let errorObj = new ErrorObj(500,
-                                  'c0011',
-                                  __filename,
-                                  'getController',
-                                  `Error initializing controller: ${serviceCallsPath}`,
-                                  'There was a problem executing your request.',
-                                  e
-                                  );
-      console.error(errorObj);
-    }
-    return versionOfWS;
-  }
-  catch(e) {
-    let errorObj = new ErrorObj(500,
-			'c1006',
-			__filename,
-			'getController',
-			'error loading web service file',
-			'There was a problem with your request.  Please try again.',
-			e
-    );
-    utilities.writeErrorToLog(errorObj);
-  }
-}
 
 exports.Controller = Controller;

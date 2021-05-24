@@ -3,7 +3,6 @@ var fs = require('fs');
 
 var endpointData = null;
 var extensionFile = null;
-var remoteSettings = null;
 var settings;
 
 var Endpoints = function(s, f) {
@@ -80,33 +79,33 @@ var Endpoints = function(s, f) {
 };
 
 
-Endpoints.prototype.reload = function() {
-	var e = this;
-	var deferred = Q.defer();
-	e.init(bucket, file)
-	.then(function(res) {
-		deferred.resolve(res);
-	})
-	.fail(function(err) {
-		if(err !== undefined && err !== null && typeof(err.AddToError) === 'function') {
-			deferred.reject(err.AddToError(__filename, 'reload'));
-		}
-		else {
-			var errorObj = new ErrorObj(500, 
-										'e1001', 
-										__filename, 
-										'reload', 
-										'error reloading endpoints config',
-										'External error',
-										err
-										);
-			deferred.reject(errorObj);
-		}
-	});
+// Endpoints.prototype.reload = function() {
+	// var e = this;
+	// var deferred = Q.defer();
+	// e.init(bucket, file)
+	// .then(function(res) {
+	// 	deferred.resolve(res);
+	// })
+	// .fail(function(err) {
+	// 	if(err !== undefined && err !== null && typeof(err.AddToError) === 'function') {
+	// 		deferred.reject(err.AddToError(__filename, 'reload'));
+	// 	}
+	// 	else {
+	// 		var errorObj = new ErrorObj(500, 
+	// 									'e1001', 
+	// 									__filename, 
+	// 									'reload', 
+	// 									'error reloading endpoints config',
+	// 									'External error',
+	// 									err
+	// 									);
+	// 		deferred.reject(errorObj);
+	// 	}
+	// });
 	
 
-	return deferred.promise;
-}
+	// return deferred.promise;
+// }
 
 Endpoints.prototype.save = function() {
 	var deferred = Q.defer();

@@ -111,7 +111,7 @@ Utilities.prototype.validateUsername = function (newUsername, existingUsername) 
 				var errorObj = new ErrorObj(400,
 					'u0053',
 					__filename,
-					'bsuser',
+					'validateUsername',
 					'a user already exists with the username provided'
 				);
 				deferred.reject(errorObj);

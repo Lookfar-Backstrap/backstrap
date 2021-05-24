@@ -348,7 +348,7 @@ AccessControl.prototype.checkCredentials = (password, userObj) => {
   // IF USER IS LOCKED, BAIL OUT
   if (userObj.is_locked) {
     var errorObj = new ErrorObj(403,
-        'ac0200',
+        'ac0300',
         __filename,
         'signin',
         'Account is locked',
@@ -364,9 +364,9 @@ AccessControl.prototype.checkCredentials = (password, userObj) => {
   var salt = userObj.salt;
   if (salt === null) {
       var errorObj = new ErrorObj(500,
-          'a0025',
+          'a0301',
           __filename,
-          'signIn',
+          'checkCredentials',
           'error retrieving salt for this user'
       );
       deferred.reject(errorObj);
@@ -376,9 +376,9 @@ AccessControl.prototype.checkCredentials = (password, userObj) => {
   var stored_password = userObj.password;
   if (stored_password === null) {
       var errorObj = new ErrorObj(500,
-          'a0026',
+          'a0302',
           __filename,
-          'signIn',
+          'checkCredentials',
           'error retrieving password for this user'
       );
       deferred.reject(errorObj);
@@ -398,7 +398,7 @@ AccessControl.prototype.checkCredentials = (password, userObj) => {
     var errorObj = new ErrorObj(401,
                                 'a0027',
                                 __filename,
-                                'signIn',
+                                'checkCredentials',
                                 'authentication failed'
                               );
     deferred.reject(errorObj);
