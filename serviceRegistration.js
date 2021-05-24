@@ -765,17 +765,6 @@ ServiceRegistration.prototype.getAllServiceCalls = function(callback) {
 	return deferred.promise;
 };
 
-// ====================================
-// GET ALL CONTROLLERS
-// ====================================
-ServiceRegistration.prototype.getControllers = (area, cName) => {
-  var deferred = Q.defer();
-
-  
-
-  return deferred.promise;
-}
-
 
 // ==================================================
 // UTILITY FUNCTIONS
