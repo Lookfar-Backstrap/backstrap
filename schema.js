@@ -49,7 +49,7 @@ module.exports = {
 function createInitialTables(connection) {
 	var deferred = Q.defer();
 
-	var modelTables = ['bsuser', 'session', 'internal_system'];
+	var modelTables = ['bsuser', 'session', 'internal_system', 'analytics'];
 	var linkingTables = [{ 'linking_table': 'bsuser_session', 'left_table': 'bsuser', 'right_table': 'session' }];
 
 	Q.all(modelTables.map(function (mt) {

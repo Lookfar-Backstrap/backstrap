@@ -22,41 +22,6 @@
                 },
                 {
                     "verb": "POST",
-                    "call": "oauth_signIn",
-                    "desc": "Sign in using oauth credentials",
-                    "authRequired": false,
-                    "args": [
-                        {
-                            "name": "auth",
-                            "type": "object",
-                            "isRequired": true,
-                            "description": "An object containing response tokens from oauth provider"
-                        },
-                        {
-                            "name": "service",
-                            "type": "string",
-                            "isRequired": true,
-                            "description": "Name of the OAuth provider"
-                        },
-                        {
-                            "name": "clientInfo",
-                            "type": "string",
-                            "isRequired": false,
-                            "description": "Any additional info about this log in (from browser, from app, etc)"
-                        }
-                    ],
-                    "isUserCreated": false
-                },
-                {
-                    "verb": "POST",
-                    "call": "twitter_oauth_token",
-                    "desc": "Get the initial oauth token from twitter",
-                    "authRequired": false,
-                    "args": [],
-                    "isUserCreated": false
-                },
-                {
-                    "verb": "POST",
                     "call": "startAnonymousSession",
                     "desc": "Obtain a token for an anonymous session",
                     "authRequired": false,
@@ -577,21 +542,6 @@
             "name": "admin",
             "version": "1.0.0",
             "methods": [
-                {
-                    "verb": "GET",
-                    "call": "apiBlueprint",
-                    "desc": "Get valid apib string of _ext and flagged common endpoints",
-                    "authRequired": false,
-                    "args": [
-                        {
-                            "name": "html",
-                            "type": "string",
-                            "isRequired": false,
-                            "description": "return html page of documentation"
-                        }
-                    ],
-                    "isUserCreated": false
-                },
                 {
                     "verb": "GET",
                     "call": "user",
