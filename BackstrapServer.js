@@ -251,14 +251,14 @@ function requestPipeline(req, res, verb) {
   }
   
   var args;
-  if(verb.toLowerCase() === 'get') {
+   if(verb.toLowerCase() === 'get') {
     args = req.query;
   }
   else if(verb.toLowerCase() === 'delete') {
     // CHECK THE BODY FIRST, IF THERE IS NO BODY OR THE BODY IS EMPTY
     // CHECK THE QUERY STRING.
     args = req.body;
-    if (utilities.isNullOrUndefinedOrZeroLength(args)) {
+    if (args == null || args.length === 0) {
       args = {};
     }
     var argKeys = Object.keys(args);

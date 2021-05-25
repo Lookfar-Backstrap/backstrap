@@ -529,8 +529,26 @@ AccessControl.prototype.validateToken = function (tkn, continueWhenInvalid, call
 	}
 
 	dataAccess.getSession(null, tkn)
-  .then(function (find_results) {
-    deferred.resolve({is_valid:true, session:find_results});
+  .then(function (sess) {
+    if(sess) {
+      deferred.resolve({is_valid:true, session:sess});
+    }
+    else {
+      if(continueWhenInvalid) {
+        deferred.resolve({is_valid: false});
+      }
+      else {
+        var errorObj = new ErrorObj(401,
+                                  'ac1005',
+                                  __filename,
+                                  'validateToken',
+                                  'could not find session for this token',
+                                  'unauthorized',
+                                  err
+                                );
+        deferred.reject(errorObj);
+      }
+    }
   })
   .fail(function (err) {
     if(continueWhenInvalid) {

@@ -5,7 +5,6 @@ var fs = require('fs');
 const Stream = require('stream');
 
 var DataAccessExtension = require('./dataAccess_ext.js');
-const { util } = require('chai');
 
 var utilities;
 var pool;
@@ -738,28 +737,35 @@ DataAccess.prototype.findUser = function (id, username, email, connection, callb
     })
   }
   else {
-    let sql = "SELECT data FROM bsuser WHERE (data->>'is_active')::boolean = true";
-    runSql(sql,[],connection)
-    .then((userRes) => {
-      deferred.resolve(userRes.map(u => u.data));
-    })
-    .fail((allUsrErr) => {
-      let errorObj = new ErrorObj(404,
-                                  'da0204',
-                                  __filename,
-                                  'findUser',
-                                  'error finding user',
-                                  'There was a problem with your request',
-                                  allUsrErr
-                                );
-      deferred.reject(errorObj);
-    })
+    deferred.resolve(null);
   }
-    
   
 	deferred.promise.nodeify(callback);
 	return deferred.promise;
 };
+
+DataAccess.prototype.getAllUsers = (connection) => {
+  var deferred = Q.defer();
+
+  let sql = "SELECT data FROM bsuser WHERE (data->>'is_active')::boolean = true";
+  runSql(sql,[],connection)
+  .then((userRes) => {
+    deferred.resolve(userRes.map(u => u.data));
+  })
+  .fail((allUsrErr) => {
+    let errorObj = new ErrorObj(500,
+                                'da0204',
+                                __filename,
+                                'getAllUsers',
+                                'error gettomg users',
+                                'There was a problem with your request',
+                                allUsrErr
+                              );
+    deferred.reject(errorObj);
+  })
+
+  return deferred.promise;
+}
 
 
 DataAccess.prototype.GenerateForgotPasswordToken = (email, username) => {
@@ -871,7 +877,7 @@ DataAccess.prototype.attachUserToSession = attachUserToSession;
 var getUserById = (id, connection) => {
   var deferred = Q.defer();
 
-  if(cid) {
+  if(id) {
     var qry = "SELECT * FROM bsuser WHERE bsuser.data->>'id' = $1 AND (data->>'is_active')::boolean = true";
     var qry_params = [id];
     ExecutePostgresQuery(qry, qry_params, connection)
@@ -916,7 +922,7 @@ var getUserById = (id, connection) => {
 
   return deferred.promise;
 }
-DataAccess.getUserById = getUserById;
+DataAccess.prototype.getUserById = getUserById;
 
 var getUserByUserName = (username, connection) => {
   var deferred = Q.defer();
@@ -1022,7 +1028,7 @@ var getUserByClientId = (cid, connection) => {
   var deferred = Q.defer();
 
   if(cid) {
-    var qry = "SELECT * FROM bsuser WHERE bsuser.data->>'client_id' = $1(data->>'is_active')::boolean = true";
+    var qry = "SELECT * FROM bsuser WHERE bsuser.data->>'client_id' = $1 AND (data->>'is_active')::boolean = true";
     var qry_params = [cid];
     ExecutePostgresQuery(qry, qry_params, connection)
     .then(function (connection) {
@@ -1071,7 +1077,7 @@ DataAccess.prototype.getUserByClientId = getUserByClientId;
 DataAccess.prototype.deleteUser = (uid, connection) => {
   var deferred = Q.defer();
 
-  let sql = "UPDATE bsuser SET data = JSONB_SET(data, '{is_active}', 'false') WHERE id = $1 RETURNING id";
+  let sql = "UPDATE bsuser SET data = JSONB_SET(data, '{is_active}', 'false') WHERE data->>'id' = $1 RETURNING row_id";
   let params = [uid];
 
   runSql(sql, params, connection)

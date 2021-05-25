@@ -203,84 +203,6 @@ Utilities.prototype.getUserFromApiToken = function (apiTkn, callback) {
 	return deferred.promise;
 };
 
-
-Utilities.prototype.FormatStackTraceMessage = function (verb, objType, versionExtension) {
-	return { 'class': objType + versionExtension, 'function': verb + ' ' + objType };
-};
-
-Utilities.prototype.GetUrlForS3 = function (obj, callback) {
-	var deferred = Q.defer();
-
-	var params = { Bucket: obj.resources.s3.bucket, Key: obj.resources.s3.name };
-	obj.resources.s3.getSignedUrl('getObject', params, function (s3_err, s3_res) {
-		if (!s3_err) {
-			deferred.resolve(s3_res);
-		}
-		else {
-			var errorObj = new ErrorObj(500,
-				'u0001',
-				__filename,
-				'GetUrlForS3',
-				'error getting url from s3',
-				'S3 error',
-				s3_err
-			);
-			deferred.reject(errorObj);
-		}
-	});
-
-	deferred.promise.nodeify(callback);
-	return deferred.promise;
-};
-
-Utilities.prototype.GetValidationModel = function(){
-	return {
-		'success': false,
-		Message: '',
-		ValidatedObject: null
-	};
-};
-
-Utilities.prototype.CreateErrorObject = function(httpStatus, className, httpVerb, model,
-errorMessage, errorCode, addtnlResults){
-	var errObj =
-	 {
-		'http_status': httpStatus,
-		'stack_trace': [{'class': className, 'function': httpVerb + ' ' + model}],
-		'message': errorMessage,
-		'err_code': errorCode,
-		'results': addtnlResults
-	};
-	return errObj;
-};
-
-Utilities.prototype.requestHasHeaders = function (req) {
-	return req.headers[settings.data.token_header] !== undefined && req.headers[settings.data.token_header] !== null;
-};
-
-Utilities.prototype.isNullOrUndefinedOrZeroLength = function (meVar) {
-	return meVar == null || meVar.length === 0;
-};
-
-
-Utilities.prototype.StringIsNullOrEmpty = function(stringValue){
-	return stringValue === null || stringValue === '';
-};
-
-//directory name contains version and file contains model and class
-Utilities.prototype.ClassAndModelInfo = function(directoryName, fileName) {
-	var className = path.basename(fileName);
-	var toRemove = directoryName.substring(0,  directoryName.indexOf('Helpers') + 9);
-    var version = directoryName.replace(toRemove, '');
-	version = version.replace('_', '.');
-	version = version.replace('_', '.');
-	return {
-		Class: className,
-		Model: className.replace('.js', '') + ' ' + version,
-		Version: version
-	};
-};
-
 Utilities.prototype.copyFile = function(file_to_copy, destination_path){
 	var deferred = Q.defer();
 	try {
@@ -301,50 +223,12 @@ Utilities.prototype.copyFile = function(file_to_copy, destination_path){
 	return deferred.promise;
 };
 
-function getFileStream(file_to_copy) {
-	var deferred = Q.defer();
-	var getFs = fs.createReadStream(file_to_copy);
-	getFs.on("error", function (err) {
-		var errorObj = new ErrorObj(500,
-			'u0003',
-			__filename,
-			'getFileStream',
-			'error with fs.createReadStream',
-			'External error',
-			err
-		);
-		deferred.reject(errorObj);
-	});
-	getFs.on("open", function (err) {
-		deferred.resolve(getFs);
-	});
-	return deferred.promise;
-};
-
-function getWriteFileStream(destination_path) {
-	var deferred = Q.defer();
-	var writeFs = fs.createWriteStream(destination_path);
-	writeFs.on("error", function (err) {
-		var errorObj = new ErrorObj(500,
-			'u0004',
-			__filename,
-			'getWriteFileStream',
-			'error with fs.createWriteStream',
-			'External error',
-			err
-		);
-		deferred.reject(errorObj);
-	});
-	writeFs.on("open", function (ex) {
-		deferred.resolve(writeFs);
-	});
-	return deferred.promise;
-};
-
-Utilities.prototype.writeToFile = function (file_path, strData) {
+Utilities.prototype.writeToFile = function (file_path, strData, isBinary) {
 	var deferred = Q.defer();
 
-	fs.writeFile(file_path, strData,
+  let binaryArg = isBinary ? 'binary' : null;
+
+	fs.writeFile(file_path, strData, binaryArg,
 		function (write_err) {
 			if (write_err) {
 				var errorObj = new ErrorObj(500,
@@ -362,46 +246,6 @@ Utilities.prototype.writeToFile = function (file_path, strData) {
 			}
 		}
 	);
-
-	return deferred.promise;
-};
-
-Utilities.prototype.writeBinaryToFile = function (file_path, strData) {
-	var deferred = Q.defer();
-
-	mkdirp(path.dirname(file_path), function (err) {
-		if (!err) {
-			fs.writeFile(file_path, strData, 'binary',
-				function (write_err) {
-					if (write_err) {
-						var errorObj = new ErrorObj(500,
-							'u0006',
-							__filename,
-							'writeBinaryToFile',
-							'error with fs.writeToFile',
-							'External error',
-							write_err
-						);
-						deferred.reject(errorObj);
-					}
-					else {
-						deferred.resolve(true);
-					}
-				}
-			);
-		}
-		else {
-			var errorObj = new ErrorObj(500,
-				'u0007',
-				__filename,
-				'writeToFile',
-				'error with mkdirp',
-				'External error',
-				err
-			);
-			deferred.reject(errorObj);
-		}
-	});
 
 	return deferred.promise;
 };
@@ -812,11 +656,6 @@ Utilities.prototype.invalidateSession = function(sessionObj) {
 
   return deferred.promise;
 }
-
-Utilities.prototype.isNullOrUndefined = function(value){
-	return value === null || typeof(value) === 'undefined' || value === undefined;
-};
-
 
 Utilities.prototype.htmlify = function(obj, idx) {
 	if(idx === undefined || idx === null || typeof(idx) !== 'number') {

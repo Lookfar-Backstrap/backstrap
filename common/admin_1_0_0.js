@@ -35,8 +35,25 @@ Admin.prototype.get = {
 			searchObj.email = req.query.email.toLowerCase();
 		}
 
-		dataAccess.findUser(searchObj.id, searchObj.username, searchObj.email)
-    .then(function (userObjs) {
+    // IF THIS NO AGRUMENTS WERE SUPPLIED, GET ALL USERS
+    let getUserCmd = null;
+    if(searchObj.username || searchObj.id || searchObj.email) {
+		  getUserCmd = dataAccess.findUser(searchObj.id, searchObj.username, searchObj.email);
+    }
+    else {
+      getUserCmd = dataAccess.getAllUsers();
+    }
+
+    Q(getUserCmd)
+    .then(function (findRes) {
+      let userObjs = [];
+      if(!Array.isArray(findRes)) {
+        userObjs.push(findRes);
+      }
+      else {
+        userObjs = findRes;
+      }
+
       var formattedUserObjs = [];
       for (var uIdx = 0; uIdx < userObjs.length; uIdx++) {
         var userObj = userObjs[uIdx];
@@ -73,12 +90,26 @@ Admin.prototype.get = {
 	userRole: function (req, callback) {
 		var deferred = Q.defer();
 
-		var username = req.query.username.toLowerCase();
+    var uid = req.query.id || null;
+		var username = req.query.username ? req.query.username.toLowerCase() : null;
+    var email = req.query.email ? req.query.email.toLowerCase() : null;
 
-		dataAccess.getUserByUserName(username)
+		dataAccess.findUser(uid, username, email)
     .then(function (userObj) {
-      var resolveObj = { 'roles': userObj.roles };
-      deferred.resolve(resolveObj);
+      if(userObj) {
+        deferred.resolve({'roles': userObj.roles});
+      }
+      else {
+        let errorObj = new ErrorObj(404,
+                                    'ad0012',
+                                    __filename,
+                                    'userRole',
+                                    'no user found',
+                                    'Error getting user',
+                                    null
+                                  );
+        deferred.reject(errorObj);
+      }
     })
     .fail(function (err) {
       if (err !== undefined && err !== null && typeof (err.AddToError) == 'function') {
@@ -86,14 +117,14 @@ Admin.prototype.get = {
         deferred.reject(err.AddToError(__filename, 'user'));
       }
       else {
-        var errorObj = new ErrorObj(404,
-          'ad0002',
-          __filename,
-          'userRole',
-          'error getting user',
-          'Error getting user',
-          err
-        );
+        let errorObj = new ErrorObj(500,
+                                    'ad0002',
+                                    __filename,
+                                    'userRole',
+                                    'error getting user',
+                                    'Error getting user',
+                                    err
+                                  );
         deferred.reject(errorObj);
       }
     });
@@ -209,17 +240,18 @@ Admin.prototype.post = {
 		deferred.promise.nodeify(callback);
 		return deferred.promise;
 	},
-
 	// ADD A USER ROLE TO A USER
 	userRole: function (req, callback) {
 		var deferred = Q.defer();
 
+    var uid = req.body.user_id;
+    var email = req.body.email;
 		var username = req.body.username.toLowerCase();
 		var role = req.body.role.toLowerCase();
 
 		accessControl.roleExists(role)
 		.then(function() {
-			return dataAccess.getUserByUserName(username);
+			return dataAccess.findUser(uid, username, email);
 		})
 		.then(function(userObj) {
 			if(userObj.roles.indexOf(role)===-1) {
@@ -280,7 +312,7 @@ Admin.prototype.post = {
       let saltedSecret = clientSecret + salt;
       let hashedSecret = crypto.createHash('sha256').update(saltedSecret).digest('hex');
 
-      return [clientSecret, dataAccess.updateJsonbField('bsuser', 'data', {salt: salt, client_secret: hashedSecret}), `data->>'id' = '${usr.id}'`];
+      return [clientSecret, dataAccess.updateJsonbField('bsuser', 'data', {salt: salt, client_secret: hashedSecret}, `data->>'id' = '${usr.id}'`)];
     })
     .spread((clientSecret, usr) => {
       deferred.resolve({client_secret: clientSecret});
@@ -435,11 +467,11 @@ Admin.prototype.patch = {
       return dataAccess.updateJsonbField('bsuser', 'data', existingUser, `data->>'id' = '${existingUser.id}'`);
 		})
 		.then(function(userDbEntity) {
-			delete userDbEntity.password;
-			delete userDbEntity.salt;
+      let user = userDbEntity[0] != null ? userDbEntity[0].data : null;
+			delete user.password;
+			delete user.salt;
 
-			var resolveObj = userDbEntity;
-			deferred.resolve(resolveObj);
+			deferred.resolve(user);
 		})
 		.fail(function(err) {
 			if(err !== undefined && err !== null && typeof(err.AddToError) == 'function') {
@@ -497,12 +529,14 @@ Admin.prototype.delete = {
 	userRole: function (req, callback) {
 		var deferred = Q.defer();
 
+    var uid = req.body.user_id;
 		var username = req.body.username.toLowerCase();
+    var email = req.body.email.toLowerCase();
 		var role = req.body.role.toLowerCase();
 
 		accessControl.roleExists(role)
 		.then(function() {
-			return dataAccess.getUserByUserName(username);
+			return dataAccess.findUser(uid, username, email);
 		})
 		.then(function(userObj) {
 			if(userObj.roles.indexOf(role)!==-1) {

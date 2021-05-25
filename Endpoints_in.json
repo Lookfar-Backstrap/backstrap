@@ -6,14 +6,6 @@
             "methods": [
                 {
                     "verb": "GET",
-                    "call": "defaultUserCheck",
-                    "desc": "Checks to see if this is the first time using backstrap. Ever",
-                    "authRequired": false,
-                    "args": [],
-                    "isUserCreated": false
-                },
-                {
-                    "verb": "GET",
                     "call": "checkToken",
                     "desc": "Checks to see if an api token is valid",
                     "authRequired": true,
@@ -177,33 +169,15 @@
                 },
                 {
                     "verb": "PUT",
-                    "call": "account",
+                    "call": "email",
                     "desc": "Update your bsuser model",
                     "authRequired": true,
                     "args": [
                         {
-                            "name": "username",
-                            "type": "string",
-                            "isRequired": true,
-                            "description": null
-                        },
-                        {
                             "name": "email",
                             "type": "string",
                             "isRequired": true,
-                            "description": "Used for Forgot Password and Welcome Email"
-                        },
-                        {
-                            "name": "first",
-                            "type": "string",
-                            "isRequired": true,
-                            "description": "User's first name"
-                        },
-                        {
-                            "name": "last",
-                            "type": "string",
-                            "isRequired": true,
-                            "description": "User's last name"
+                            "description": ""
                         }
                     ],
                     "isUserCreated": false
@@ -239,6 +213,21 @@
                             "name": "email",
                             "type": "string",
                             "isRequired": false,
+                            "description": null
+                        }
+                    ],
+                    "isUserCreated": false
+                },
+                {
+                    "verb": "POST",
+                    "call": "forgotUsername",
+                    "desc": "get username from email",
+                    "authRequired": false,
+                    "args": [
+                        {
+                            "name": "email",
+                            "type": "string",
+                            "isRequired": true,
                             "description": null
                         }
                     ],
@@ -292,36 +281,6 @@
                             "type": "object",
                             "isRequired": true,
                             "description": "An object with key/values to be saved in the user object"
-                        }
-                    ],
-                    "isUserCreated": false
-                },
-                {
-                    "verb": "GET",
-                    "call": "user",
-                    "desc": "Get user info",
-                    "authRequired": true,
-                    "args": [
-                        {
-                            "name": "username",
-                            "type": "string",
-                            "isRequired": true,
-                            "description": null
-                        }
-                    ],
-                    "isUserCreated": false
-                },
-                {
-                    "verb": "GET",
-                    "call": "userExists",
-                    "desc": "Check if a user exists",
-                    "authRequired": true,
-                    "args": [
-                        {
-                            "name": "username",
-                            "type": "string",
-                            "isRequired": true,
-                            "description": null
                         }
                     ],
                     "isUserCreated": false
@@ -699,9 +658,21 @@
                     "authRequired": true,
                     "args": [
                         {
+                            "name": "id",
+                            "type": "string",
+                            "isRequired": false,
+                            "description": null
+                        },
+                        {
                             "name": "username",
                             "type": "string",
-                            "isRequired": true,
+                            "isRequired": false,
+                            "description": null
+                        },
+                        {
+                            "name": "email",
+                            "type": "string",
+                            "isRequired": false,
                             "description": null
                         }
                     ],
@@ -714,9 +685,21 @@
                     "authRequired": true,
                     "args": [
                         {
+                            "name": "id",
+                            "type": "string",
+                            "isRequired": false,
+                            "description": null
+                        },
+                        {
                             "name": "username",
                             "type": "string",
-                            "isRequired": true,
+                            "isRequired": false,
+                            "description": null
+                        },
+                        {
+                            "name": "email",
+                            "type": "string",
+                            "isRequired": false,
                             "description": null
                         },
                         {
@@ -735,9 +718,21 @@
                     "authRequired": true,
                     "args": [
                         {
+                            "name": "id",
+                            "type": "string",
+                            "isRequired": false,
+                            "description": null
+                        },
+                        {
                             "name": "username",
                             "type": "string",
-                            "isRequired": true,
+                            "isRequired": false,
+                            "description": null
+                        },
+                        {
+                            "name": "email",
+                            "type": "string",
+                            "isRequired": false,
                             "description": null
                         },
                         {

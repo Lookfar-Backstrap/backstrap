@@ -9,6 +9,7 @@ var settings;
 
 var Q = require('q');
 var crypto = require('crypto');
+const e = require('express');
 
 var Accounts = function(db, utils, ac, sr, st) {
     dataAccess = db;
@@ -20,18 +21,17 @@ var Accounts = function(db, utils, ac, sr, st) {
 
 Accounts.prototype.get = {
     checkToken: function(req, callback) {
-        // AUTH HAS ALREADY BEEN CHECKED, THIS TOKEN IS VALID
-        var deferred = Q.defer();
-        
-        deferred.resolve({'success': true});
+      // AUTH HAS ALREADY BEEN CHECKED, THIS TOKEN IS VALID
+      var deferred = Q.defer();
+      
+      deferred.resolve({'success': true});
 
-        deferred.promise.nodeify(callback);
-        return deferred.promise;
+      deferred.promise.nodeify(callback);
+      return deferred.promise;
     },
     profile: function(req, callback) {
         var deferred = Q.defer();
 
-        var token = req.headers[settings.data.token_header];
         var userObj = req.this_user;
         delete userObj.id;
         delete userObj.password;
@@ -44,132 +44,8 @@ Accounts.prototype.get = {
         delete userObj.forgot_password_tokens;
         delete userObj.is_active;
 
-        // ADD EVENT TO SESSION
         deferred.resolve(userObj);
         
-        deferred.promise.nodeify(callback);
-        return deferred.promise;
-    },
-    profileImage: function(req, callback) {
-        var deferred = Q.defer();
-
-		deferred.resolve({});
-
-        deferred.promise.nodeify(callback);
-        return deferred.promise;
-    },
-    user: function(req, callback) {
-        var deferred = Q.defer();
-
-        var username = (typeof (req.query.username) == 'undefined' || req.query.username === null) ? req.query.email.toLowerCase() : req.query.username.toLowerCase();
-        dataAccess.getUserByUserName(username)
-        .then(function(userObj) {
-            delete userObj.password;
-            delete userObj.salt;
-            delete userObj.client_secret;
-            delete userObj.object_type;
-            delete userObj.forgot_password_tokens;
-
-            // ADD EVENT TO SESSION
-            var resolveObj = userObj;
-            deferred.resolve(resolveObj);
-        })
-        .fail(function(err) {
-            if (err !== undefined && err !== null && typeof (err.AddToError) === 'function') {
-                if (err.message === 'no results found' || err.err_code === 'da0109') {
-                    err.setStatus(400);
-                    err.setMessages('user not found', 'User not found');
-                }
-                deferred.reject(err.AddToError(__filename, 'GET user'));
-            }
-            else {
-                var errorObj = new ErrorObj(500,
-                    'a1002',
-                    __filename,
-                    'GET user',
-                    'error getting user',
-                    'Error getting user',
-                    err
-                );
-                deferred.reject(errorObj);
-            }
-        });
-
-        deferred.promise.nodeify(callback);
-        return deferred.promise;
-    },
-    userExists: function(req, callback) {
-        var deferred = Q.defer();
-        req.body = req.query;
-        getUser(req)
-            .then(function() {
-                // ADD EVENT TO SESSION
-                var resolveObj = { 'set_up_pending': false };
-                deferred.resolve(resolveObj);
-            })
-            .fail(function(err) {
-                if (err !== undefined && err !== null && typeof (err.AddToError) === 'function') {
-                    if (err.message === 'no user found' || err.err_code === 'da2000') {
-                        err.setStatus(400);
-                        err.setMessages('user not found', 'User not found');
-                    }
-                    deferred.reject(err.AddToError(__filename, 'GET userExists'));
-                }
-                else {
-                    var errorObj = new ErrorObj(500,
-                        'a1003',
-                        __filename,
-                        'GET userExists',
-                        'error getting user',
-                        'Error getting user',
-                        err
-                    );
-                    deferred.reject(errorObj);
-                }
-            });
-
-        deferred.promise.nodeify(callback);
-        return deferred.promise;
-    },
-    defaultUserCheck: function(req, callback) {
-        var deferred = Q.defer();
-        dataAccess.findAll('bsuser')
-            .then(function(users) {
-                users.forEach(function(user) {
-                    if (user.username === 'bsroot') {
-                        if (user.first === '') {
-                            if (user.forgot_password_tokens.length > 0) {
-                                var token = user['forgot_password_tokens'][0];
-                                deferred.resolve({ 'set_up_pending': true, 'token': token });
-                            }
-                            else {
-                                deferred.resolve({ 'set_up_pending': true, 'token': null });
-                            }
-                        }
-                    }
-                });
-
-                // ADD EVENT TO SESSION
-                var resolveObj = { 'set_up_pending': false };
-                deferred.resolve(resolveObj);
-            })
-            .fail(function(err) {
-                if (err !== undefined && err !== null && typeof (err.AddToError) === 'function') {
-                    deferred.reject(err.AddToError(__filename, 'GET defaultUserCheck'));
-                }
-                else {
-                    var errorObj = new ErrorObj(500,
-                        'a1004',
-                        __filename,
-                        'GET defaultUserCheck',
-                        'error checking if this is default user',
-                        'Error checking if this is default user',
-                        err
-                    );
-                    deferred.reject(errorObj);
-                }
-            });
-
         deferred.promise.nodeify(callback);
         return deferred.promise;
     }
@@ -331,9 +207,9 @@ Accounts.prototype.post = {
       var deferred = Q.defer();
 
       dataAccess.getUserByEmail(req.body.email)
-      .then(function(usersFound) {
-          if (usersFound.length === 1) {
-              if (usersFound[0].is_locked) {
+      .then(function(user) {
+          if (user != null) {
+              if (user.is_locked) {
                   var errorObj = new ErrorObj(403,
                       'a2005',
                       __filename,
@@ -347,7 +223,7 @@ Accounts.prototype.post = {
                   deferred.promise.nodeify(callback);
                   return deferred.promise;
               }
-              return utilities.sendMail(usersFound[0].email, 'Forgot Username?', null, '<h2>Your username is, ' + usersFound[0].username + '</h2>');
+              return utilities.sendMail(user.email, 'Forgot Username?', null, '<h2>Your username is, ' + user.username + '</h2>');
           }
           else {
               var errorObj = new ErrorObj(500,
@@ -402,67 +278,67 @@ Accounts.prototype.post = {
 
         if (validArgs) {
             dataAccess.findUser(null, username, email)
-                .then(function(userObj) {
-                  if (userObj.is_locked) {
-                      var errorObj = new ErrorObj(403,
-                          'a2006',
-                          __filename,
-                          'forgotPassword',
-                          'bsuser is locked',
-                          'Unauthorized',
-                          null
-                      );
-                      deferred.reject(errorObj);
+            .then(function(userObj) {
+              if (userObj.is_locked) {
+                  var errorObj = new ErrorObj(403,
+                      'a2006',
+                      __filename,
+                      'forgotPassword',
+                      'bsuser is locked',
+                      'Unauthorized',
+                      null
+                  );
+                  deferred.reject(errorObj);
 
-                      deferred.promise.nodeify(callback);
-                      return deferred.promise;
-                  }
-                  return [userObj, utilities.getHash(null, null, 48)];
-                })
-                .spread(function(userObj, tkn) {
-                    var reset_link = process.env.reset_password_link || "";
-                    reset_link = (reset_link == "" || reset_link == "FILL_IN") ? "" : reset_link + '?token=';
-                    var message = 'Reset password: ' + reset_link + tkn;
-                    return [userObj, tkn, utilities.sendMail(userObj.email, 'Password Reset', message)];
-                })
-                .spread(function(userObj, tkn, mail_res) {
-                    if (userObj.forgot_password_tokens === undefined || userObj.forgot_password_tokens === null) {
-                        userObj.forgot_password_tokens = [tkn];
-                    }
-                    else {
-                        userObj.forgot_password_tokens.push(tkn);
-                    }
-                    return [tkn, dataAccess.updateJsonbField('bsuser', 'data', userObj, `data->>'id' = '${userObj.id}'`)];
-                })
-                .spread(function(tkn, save_res) {
-                    // ADD EVENT TO SESSION
-                    var resolveObj = { 'success': true };
+                  deferred.promise.nodeify(callback);
+                  return deferred.promise;
+              }
+              return [userObj, utilities.getHash(null, null, 48)];
+            })
+            .spread(function(userObj, tkn) {
+                var reset_link = process.env.reset_password_link || "";
+                reset_link = (reset_link == "" || reset_link == "FILL_IN") ? "" : reset_link + '?token=';
+                var message = 'Reset password: ' + reset_link + tkn;
+                return [userObj, tkn, utilities.sendMail(userObj.email, 'Password Reset', message)];
+            })
+            .spread(function(userObj, tkn, mail_res) {
+                if (userObj.forgot_password_tokens === undefined || userObj.forgot_password_tokens === null) {
+                    userObj.forgot_password_tokens = [tkn];
+                }
+                else {
+                    userObj.forgot_password_tokens.push(tkn);
+                }
+                return [tkn, dataAccess.updateJsonbField('bsuser', 'data', userObj, `data->>'id' = '${userObj.id}'`)];
+            })
+            .spread(function(tkn, save_res) {
+                // ADD EVENT TO SESSION
+                var resolveObj = { 'success': true };
+                deferred.resolve(resolveObj);
+            })
+            .fail(function(err) {
+                if(err != null && err.err_code == 'da0200'){
+                    var resolveObj = { 
+                        'success': true,
+                        'uExists': false
+                    };
                     deferred.resolve(resolveObj);
-                })
-                .fail(function(err) {
-                    if(err != null && err.err_code == 'da0200'){
-                        var resolveObj = { 
-                            'success': true,
-                            'uExists': false
-                        };
-                        deferred.resolve(resolveObj);
-                    }
-                    else if (err != null && typeof (err.AddToError) == 'function') {
-                        err.setMessages('error generating password reset link', 'Problem generating email and link to reset password');
-                        deferred.reject(err.AddToError(__filename, 'forgotPassword'));
-                    }
-                    else {
-                        var errorObj = new ErrorObj(500,
-                            'a1032',
-                            __filename,
-                            'forgotPassword',
-                            'error generating password reset link',
-                            'Problem generating email and link to reset password',
-                            err
-                        );
-                        deferred.reject(errorObj);
-                    }
-                });
+                }
+                else if (err != null && typeof (err.AddToError) == 'function') {
+                    err.setMessages('error generating password reset link', 'Problem generating email and link to reset password');
+                    deferred.reject(err.AddToError(__filename, 'forgotPassword'));
+                }
+                else {
+                    var errorObj = new ErrorObj(500,
+                        'a1032',
+                        __filename,
+                        'forgotPassword',
+                        'error generating password reset link',
+                        'Problem generating email and link to reset password',
+                        err
+                    );
+                    deferred.reject(errorObj);
+                }
+            });
         }
         else {
             var errorObj = new ErrorObj(400,
@@ -555,7 +431,7 @@ Accounts.prototype.post = {
 
         var appendObj = req.body.userprofile;
         var userObj = req.this_user;
-        var immutableKeys = ['object_type', 'username', 'salt', 'password', 'created_at', 'updated_at', 'roles', 'forgot_password_tokens', 'id', 'is_active'];
+        var immutableKeys = ['object_type', 'username', 'salt', 'password', 'created_at', 'updated_at', 'roles', 'forgot_password_tokens', 'id', 'is_active', 'email'];
         var objKeys = Object.keys(appendObj);
         for (var idx = 0; idx < objKeys.length; idx++) {
             if (immutableKeys.indexOf(objKeys[idx]) === -1) {
@@ -675,27 +551,29 @@ Accounts.prototype.patch = {
 };
 
 Accounts.prototype.put = {
-    account: function(req, callback) {
+    email: function(req, callback) {
         var deferred = Q.defer();
 
         var updateUser = req.body;
         var existingUser = req.this_user;
         updateUser.id = existingUser.id;
-        updateUser.object_type = 'bsuser';
         delete updateUser.is_active;
         delete updateUser.password;
 
         utilities.validateEmail(updateUser.email, existingUser.email)
         .then(function() {
-            return utilities.validateUsername(updateUser.username, existingUser.username);
+            return utilities.validateUsername(updateUser.email, existingUser.username);
         })
         .then(function() {
             return dataAccess.updateJsonbField('bsuser', 'data', updateUser, `data->>'id' = '${updateUser.id}'`);
         })
         .then(function(update_res) {
-            // ADD EVENT TO SESSION
-            var resolveObj = update_res;
-            deferred.resolve(resolveObj);
+            if(update_res) {
+              deferred.resolve(update_res[0].data);
+            }
+            else {
+              deferred.resolve(null);
+            }
         })
         .fail(function(err) {
             if (err !== undefined && err !== null && typeof (err.AddToError) === 'function') {
