@@ -360,9 +360,8 @@ Accounts.prototype.post = {
         var password = args.password;
 
         dataAccess.getUserByForgotPasswordToken(tkn)
-        .then(function(userObjs) {
-          if (userObjs !== undefined && userObjs !== null && userObjs.length > 0) {
-              var userObj = userObjs[0];
+        .then(function(userObj) {
+          if (userObj != null) {
               // IF USER IS LOCKED, BAIL OUT
               if (userObj.is_locked) {
                   var errorObj = new ErrorObj(403,

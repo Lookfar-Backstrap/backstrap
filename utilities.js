@@ -273,10 +273,11 @@ Utilities.prototype.sendMail = function (send_to, sbj, bdy, html_bdy, callback) 
 	var mailOptions = {
 		from: settings.data.mail_options.account,
 		to: send_to,
-		subject: sbj,
-		text: bdy,
-		html: html_bdy
+		subject: sbj
 	};
+  if(bdy) mailOptions.text = bdy;
+  if(html_bdy) mailOptions.html = html_bdy;
+
 	mailTransport.sendMail(mailOptions, function (email_err, email_res) {
 		if (!email_err) {
 			deferred.resolve(email_res);

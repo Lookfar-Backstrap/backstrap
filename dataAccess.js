@@ -997,7 +997,6 @@ var getUserByEmail = (email, connection) => {
         deferred.resolve(connection.results[0].data);
       }
       else {
-        console.log('found multiple users');
         var errorObj = new ErrorObj(500,
           'da0165',
           __filename,
@@ -1073,6 +1072,55 @@ var getUserByClientId = (cid, connection) => {
 	return deferred.promise;
 }
 DataAccess.prototype.getUserByClientId = getUserByClientId;
+
+var getUserByForgotPasswordToken = (fptkn, connection) => {
+  var deferred = Q.defer();
+
+  if(fptkn) {
+    var qry = "SELECT * FROM bsuser WHERE bsuser.data->'forgot_password_tokens' ? $1 AND (data->>'is_active')::boolean = true";
+    var qry_params = [fptkn];
+    ExecutePostgresQuery(qry, qry_params, connection)
+    .then(function (connection) {
+      if (connection.results.length === 0) {
+        var errorObj = new ErrorObj(404,
+          'da0164',
+          __filename,
+          'getUserByForgotPasswordToken',
+          'no user found',
+          'Cannot find user.',
+          null
+        );
+        deferred.reject(errorObj);
+      }
+      else if (connection.results.length === 1) {
+        deferred.resolve(connection.results[0].data);
+      }
+      else {
+        var errorObj = new ErrorObj(500,
+          'da0165',
+          __filename,
+          'getUserByForgotPasswordToken',
+          'forgot password token collision',
+          'Found multiple users with that token.',
+          null
+        );
+        deferred.reject(errorObj);
+      }
+    })
+    .fail(function (err) {
+      try {
+        deferred.reject(err.AddToError(__filename, 'getUserByForgotPasswordToken'));
+      }
+      catch(e) {console.log(e)}
+    });
+  }
+  else {
+    deferred.resolve(null);
+  }
+
+  return deferred.promise;
+}
+DataAccess.prototype.getUserByForgotPasswordToken = getUserByForgotPasswordToken;
 
 DataAccess.prototype.deleteUser = (uid, connection) => {
   var deferred = Q.defer();
