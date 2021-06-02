@@ -239,7 +239,7 @@ var commitTransaction = (connection, callback) => {
 DataAccess.prototype.commitTransaction = commitTransaction;
 
 // ROLLBACK A TRANSACTION AND CLOSE THE DATABASE CONNECTION
-var rollbackTransaction = () => {
+var rollbackTransaction = (connection, callback) => {
   var deferred = Q.defer();
 
 	if(connection != null && !connection.isReleased) {
@@ -619,18 +619,22 @@ DataAccess.prototype.GetDeadSessions = function (timeOut, callback) {
 DataAccess.prototype.DeleteSessions = function(dsIds, callback) {
   var deferred = Q.defer();
 
-  var idString = dsIds.join(',');
   var db_connection;
 
   startTransaction()
   .then((db_handle) => {
     db_connection = db_handle;
-    var qry_linking = "DELETE FROM bsuser_session WHERE right_id IN ("+idString+")";
-    return [db_handle, ExecutePostgresQuery(qry_linking, [], db_handle)];
+    let ridSql = "SELECT row_id FROM session WHERE data->>'id' = ANY($1)";
+    return [db_handle, ExecutePostgresQuery(ridSql, [dsIds], db_handle)];
   })
-  .spread((db_handle, qry_res) => {
-    var qry = "DELETE FROM session WHERE row_id IN ("+idString+")";
-    return [db_handle, ExecutePostgresQuery(qry, [], db_handle)];
+  .spread((db_handle, rowIdRes) => {
+    let rowIds = rowIdRes.results.map(r => r.row_id);
+    let qry_linking = "DELETE FROM bsuser_session WHERE right_id = ANY($1)";
+    return [db_handle, rowIds, ExecutePostgresQuery(qry_linking, [rowIds], db_handle)];
+  })
+  .spread((db_handle, rowIds, qry_res) => {
+    let qry = "DELETE FROM session WHERE row_id = ANY($1)";
+    return [db_handle, ExecutePostgresQuery(qry, [rowIds], db_handle)];
   })
   .spread((db_handle, qry_res) => {
     return commitTransaction(db_handle);

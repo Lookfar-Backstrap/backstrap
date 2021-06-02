@@ -179,19 +179,10 @@ Accounts.prototype.post = {
         var deferred = Q.defer();
 
         var token = req.headers[settings.data.token_header];
+        
         dataAccess.getSession(null, token)
-        .then(function(sessions) {
-          return Q.all(sessions.map((s) => {
-            var inner_deferred = Q.defer();
-            utilities.invalidateSession(s)
-            .then(() => {
-              inner_deferred.resolve();
-            })
-            .fail((inner_err) => {
-              inner_deferred.reject(inner_err);
-            })
-            return inner_deferred.promise;
-          }))
+        .then(function(session) {
+          return utilities.invalidateSession(session);
         })
         .then(function(invld_res) {
           deferred.resolve({success: true});
