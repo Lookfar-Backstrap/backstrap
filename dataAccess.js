@@ -616,7 +616,7 @@ DataAccess.prototype.GetDeadSessions = function (timeOut, callback) {
 	return deferred.promise;
 };
 
-DataAccess.prototype.DeleteSessions = function(dsIds, callback) {
+DataAccess.prototype.DeleteSessions = function(dsIds, rIds, callback) {
   var deferred = Q.defer();
 
   var db_connection;
@@ -624,8 +624,13 @@ DataAccess.prototype.DeleteSessions = function(dsIds, callback) {
   startTransaction()
   .then((db_handle) => {
     db_connection = db_handle;
-    let ridSql = "SELECT row_id FROM session WHERE data->>'id' = ANY($1)";
-    return [db_handle, ExecutePostgresQuery(ridSql, [dsIds], db_handle)];
+    if(dsIds) {
+      let ridSql = "SELECT row_id FROM session WHERE data->>'id' = ANY($1)";
+      return [db_handle, ExecutePostgresQuery(ridSql, [dsIds], db_handle)];
+    }
+    else {
+      return [db_handle, {results: rIds.map(r => {return {row_id: r}})}];
+    }
   })
   .spread((db_handle, rowIdRes) => {
     let rowIds = rowIdRes.results.map(r => r.row_id);

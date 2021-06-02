@@ -585,12 +585,11 @@ function checkForInvalidSessions(dataAccess, settings, callback) {
 	//THIS RETURNS STALE SESSIONS
 	dataAccess.GetDeadSessions(settings.data.timeout)
 	.then(function (deadSessions) {
-    var dsIds = [];
+    let rowIds = [];
     // IF LOGGING SESSIONS, WRITE OUT THE DEAD SESSIONS TO
     // THE SESSION LOG
     for(var sIdx = 0; sIdx < deadSessions.length; sIdx++) {
-      let dsid = "'"+deadSessions[sIdx].rid+"'";
-      dsIds.push(dsid);
+      rowIds.push(deadSessions[sIdx].rid);
       
       if(settings.data.session_logging === true) {
         let dsObj = {
@@ -605,8 +604,8 @@ function checkForInvalidSessions(dataAccess, settings, callback) {
       }
     }
 
-    if(dsIds.length > 0) {
-      dataAccess.DeleteSessions(dsIds)
+    if(rowIds.length > 0) {
+      dataAccess.DeleteSessions(null, rowIds)
       .then(function(res) {
         deferred.resolve();
       })
@@ -619,7 +618,11 @@ function checkForInvalidSessions(dataAccess, settings, callback) {
     else {
       deferred.resolve();
     }
-	});
+	})
+  .fail((err) => {
+    console.log(err);
+    deferred.resolve();
+  })
 	deferred.promise.nodeify(callback);
 	return deferred.promise;
 }
