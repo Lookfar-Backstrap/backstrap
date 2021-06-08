@@ -3,6 +3,7 @@ var fs = require('fs');
 var async = require('async');
 var PG = require('pg');
 var crypto = require('crypto');
+const { create } = require('domain');
 var dataAccess;
 
 module.exports = {
@@ -49,134 +50,107 @@ module.exports = {
 function createInitialTables(connection) {
 	var deferred = Q.defer();
 
-	var modelTables = ['bsuser', 'session', 'internal_system', 'analytics'];
-	var linkingTables = [{ 'linking_table': 'bsuser_session', 'left_table': 'bsuser', 'right_table': 'session' }];
+  let createCmds = [];
+  let createSessTable = false;
 
-	Q.all(modelTables.map(function (mt) {
-		var inner_deferred = Q.defer();
-
-		checkForTable(connection, mt)
-			.then(function (tableExists) {
-				if (!tableExists) {
-					createTable(connection, mt)
-						.then(function (ct_res) {
-							inner_deferred.resolve();
-						})
-						.fail(function (ct_err) {
-							if (ct_err !== undefined && ct_err !== null && typeof (ct_err.AddToError) === 'function') {
-								inner_deferred.reject(ct_err.AddToError(__filename, 'createInitialTables'));
-							}
-							else {
-								var errorObj = new ErrorObj(500,
-									'sc1002',
-									__filename,
-									'createInitialTables',
-									'error creating tables',
-									'Database error',
-									ct_err
-								);
-								inner_deferred.reject(errorObj);
-							}
-						});
-				}
-				else {
-					inner_deferred.resolve();
-				}
-			})
-			.fail(function (err) {
-				if (err !== undefined && err !== null && typeof (err.AddToError) === 'function') {
-					inner_deferred.reject(err.AddToError(__filename, 'createInitialTables'));
-				}
-				else {
-					var errorObj = new ErrorObj(500,
-						'sc1003',
-						__filename,
-						'createInitialTables',
-						'error creating tables',
-						'Database error',
-						err
-					);
-					inner_deferred.reject(errorObj);
-				}
-			});
-
-		return inner_deferred.promise;
-	}))
-		.then(function () {
-			return Q.all(linkingTables.map(function (lDetails) {
-				var inner_deferred = Q.defer();
-
-				var tableName = lDetails.linking_table;
-				var leftTable = lDetails.left_table;
-				var rightTable = lDetails.right_table;
-
-				checkForTable(connection, tableName)
-					.then(function (tableExists) {
-						if (tableExists) {
-							inner_deferred.resolve();
-						}
-						else {
-							createLinkingTable(connection, tableName, leftTable, rightTable)
-								.then(function (ct_res) {
-									inner_deferred.resolve();
-								})
-								.fail(function (err) {
-									if (err !== undefined && err !== null && typeof (err.AddToError) === 'function') {
-										inner_deferred.reject(err.AddToError(__filename, 'createInitialTables'));
-									}
-									else {
-										var errorObj = new ErrorObj(500,
-											'sc1004',
-											__filename,
-											'createInitialTables',
-											'error creating tables',
-											'Database error',
-											err
-										);
-										inner_deferred.reject(errorObj);
-									}
-								});
-						}
-					})
-					.fail(function (err) {
-						if (err !== undefined && err !== null && typeof (err.AddToError) === 'function') {
-							inner_deferred.reject(err.AddToError(__filename, 'createInitialTables'));
-						}
-						else {
-							var errorObj = new ErrorObj(500,
-								'sc1005',
-								__filename,
-								'createInitialTables',
-								'error creating tables',
-								'Database error',
-								err
-							);
-							inner_deferred.reject(errorObj);
-						}
-					});
-
-				return inner_deferred.promise;
-			}));
-		})
-		.then(function (ct_res) {
-			deferred.resolve('success');
-		})
-		.fail(function (err) {
-			if (err !== undefined && err !== null && typeof (err.AddToError) === 'function') {
-				deferred.reject(err.AddToError(__filename, 'createInitialTables'));
-			}
-			else {
-				var errorObj = new ErrorObj(500,
-					'sc1006',
-					__filename,
-					'createInitialTables',
-					'error creating tables',
-					'Database error',
-					err
-				);
-				inner_deferred.reject(errorObj);
-			}
-		});
+  checkForTable('bs3_users', connection)
+  .then((usrTblExists) => {
+    if(!usrTblExists) {
+      let usrTblCreate = `CREATE TABLE bs3_users (
+                            id SERIAL PRIMARY KEY NOT NULL,
+                            account_type VARCHAR(16),
+                            username VARCHAR(128) UNIQUE,
+                            email VARCHAR(256) UNIQUE,
+                            locked BOOLEAN,
+                            roles JSONB,
+                            created_at TIMESTAMP,
+                            modified_at TIMESTAMP,
+                            deleted_at TIMESTAMP
+                          )`;
+        createCmds.push(dataAccess.runSql(usrTblCreate, [], connection));
+    }
+    return checkForTable('bs3_credentials', connection);
+  })
+  .then((credTblExists) => {
+    if(!credTblExists) {
+      let credTblCreate = `CREATE TABLE bs3_credentials (
+                            id SERIAL PRIMARY KEY NOT NULL,
+                            salt VARCHAR(128),
+                            password TEXT,
+                            client_id VARCHAR(256) UNIQUE,
+                            client_secret VARCHAR(256),
+                            user_id INTEGER REFERENCES bs3_users(id),
+                            created_at TIMESTAMP,
+                            modified_at TIMESTAMP,
+                            deleted_at TIMESTAMP
+                          )`;
+      createCmds.push(dataAccess.runSql(credTblCreate, [], connection));
+    }
+    return checkForTable('bs3_sessions', connection);
+  })
+  .then((sessTblExists) => {
+    if(!sessTblExists) {
+      let sessTblCreate = `CREATE TABLE bs3_sessions (
+                            id SERIAL PRIMARY KEY NOT NULL,
+                            token VARCHAR(256),
+                            created_at TIMESTAMP,
+                            ended_at TIMESTAMP,
+                            last_touch TIMESTAMP,
+                            user_id INTEGER REFERENCES bs3_users(id),
+                            anonymous BOOLEAN
+                          )`;
+      createCmds.push(dataAccess.runSql(sessTblCreate, [], connection));
+      createSessTable = true;
+    }
+    return Q.all(createCmds);
+  })
+  .then((createRes) => {
+    let idxCmds = [];
+    if(createSessTable) {
+      idxCmds.push(dataAccess.runSql('CREATE INDEX idx_token ON bs3_sessions(token)', [], connection));
+      idxCmds.push(dataAccess.runSql('CREATE INDEX idx_user_id ON bs3_sessions(user_id)', [], connection));
+    }
+    
+    if(idxCmds.length > 0) {
+      Q.all(idxCmds)
+      .then((createIdxRes) => {
+        deferred.resolve({success:true});
+      })
+      .fail((idxErr) => {
+        if(idxErr && typeof(idxErr.AddToError) === 'function') {
+          deferred.reject(idxErr.AddToError(__filename, 'createInitialTables'));
+        }
+        else {
+          let errorObj = new ErrorObj(500,
+                                      'sc2001',
+                                      __filename,
+                                      'createInitialTables',
+                                      'error creating indexes',
+                                      'Problem creating tables',
+                                      idxErr);
+          deferred.reject(errorObj);
+        }
+      });
+    }
+    else {
+      deferred.resolve({success: true});
+    }
+  })
+  .fail((err) => {
+    if(err && typeof(err.AddToError) === 'function') {
+      deferred.reject(err.AddToError(__filename, 'createInitialTables'));
+    }
+    else {
+      let errorObj = new ErrorObj(500,
+                                  'sc2000',
+                                  __filename,
+                                  'createInitialTables',
+                                  'postgres error',
+                                  'Problem creating tables',
+                                  err);
+      deferred.reject(errorObj);
+    }
+  })
 
 	return deferred.promise;
 }
@@ -253,7 +227,7 @@ function createDefaultUser(utilities) {
 	return deferred.promise;
 }
 
-function checkForTable(connection, tableName) {
+function checkForTable(tableName, connection) {
 	var deferred = Q.defer();
 
 	var qry = "SELECT EXISTS ( " +
@@ -285,69 +259,6 @@ function checkForTable(connection, tableName) {
 	return deferred.promise;
 }
 
-function createTable(connection, tableName) {
-	var deferred = Q.defer();
-	var qry = "CREATE TABLE " + tableName + " ( " +
-		"row_id SERIAL PRIMARY KEY, " +
-		"data JSONB NOT NULL);";
-	var qry_params = [];
-	dataAccess.ExecutePostgresQuery(qry, qry_params, connection)
-	.then(function (connecton) {
-		var indexQry  = 'CREATE INDEX ON '+ tableName + " USING gin (data);";
-		return dataAccess.ExecutePostgresQuery(indexQry, [], connection);
-	})
-	.then(function(connection) {
-		deferred.resolve();
-	})
-	.fail(function (err) {
-		var errorObj = new ErrorObj(500,
-			'sc0010',
-			__filename,
-			'createTable',
-			'error creatinng table in postgres',
-			'Database error',
-			err
-		);
-		deferred.reject(errorObj);
-	});
-
-	return deferred.promise;
-}
-
-function createLinkingTable(connection, tableName, leftTable, rightTable) {
-	var deferred = Q.defer();
-	var qry = "CREATE TABLE " + tableName + " ( " +
-		"row_id SERIAL PRIMARY KEY, " +
-		"left_id INT NOT NULL REFERENCES " + leftTable + "(row_id), " +
-		"right_id INT NOT NULL REFERENCES " + rightTable + "(row_id), " +
-		"rel_type TEXT, " +
-		"rel_props JSONB" +
-		");";
-	var qry_params = [];
-
-	dataAccess.ExecutePostgresQuery(qry, qry_params, connection)
-	.then(function (connecton) {
-		var indexQry  = 'CREATE INDEX ON '+ tableName + ' (left_id, right_id); '+
-						'CREATE INDEX ON '+ tableName + '(right_id, left_id);';
-		return dataAccess.ExecutePostgresQuery(indexQry, [], connection);
-	})
-	.then(function(connection) {
-		deferred.resolve();
-	})
-	.fail(function (err) {
-		var errorObj = new ErrorObj(500,
-			'sc0012',
-			__filename,
-			'createLinkingTable',
-			'error creating table in postgres',
-			'Database error',
-			err
-		);
-		deferred.reject(errorObj);
-	});
-
-	return deferred.promise;
-}
 
 function checkDbExists(db_name, db_user, db_pass, db_host, db_port) {
 	var deferred = Q.defer();
