@@ -922,18 +922,12 @@ function createStandardUser(username, email, password = null, exid = null, first
           var saltedPassword = password + salt;
           var hashedPassword = crypto.createHash('sha256').update(saltedPassword).digest('hex');
           var userObj = {
-            'object_type': 'bsuser',
             'account_type': 'native',
-            'id': utilities.getUID(true),
             'username': username,
-            'first': first,
-            'last': last,
             'email': email,
             'salt': salt,
             'password': hashedPassword,
-            'roles': roles,
-            'is_active': true,
-            'is_locked': false
+            'roles': roles
           };
           if(exid) userObj.external_identity_id = exid;
           

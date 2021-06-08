@@ -5,11 +5,13 @@ var PG = require('pg');
 var crypto = require('crypto');
 const { create } = require('domain');
 var dataAccess;
+var accessControl
 
 module.exports = {
-	updateSchema: function (name, user, pass, host, port, utilities) {
+	updateSchema: function (name, user, pass, host, port, utilities, ac) {
 		var deferred = Q.defer();
 		dataAccess = utilities.getDataAccess();
+    accessControl = ac;
 		checkDbExists(name, user, pass, host, port)
 			.then(function () {
 				return dataAccess.getDbConnection();
@@ -157,72 +159,54 @@ function createInitialTables(connection) {
 
 function createDefaultUser(utilities) {
 	var deferred = Q.defer();
-	var qry = "SELECT * FROM bsuser WHERE data #>> '{username}' = 'bsroot'";
+	var qry = "SELECT COUNT(*) FROM bs3_users WHERE LOWER(username) = 'bsroot'";
 	var qry_params = [];
 	dataAccess.ExecutePostgresQuery(qry, qry_params, null)
-		.then(function (connection) {
-			if (connection.results.length === 0) {
-				// FIX THIS PROMISE CHAIN AND ADD A FAIL BLOCK
-				utilities.getUID()
-					.then(function (uid_res) {
-						var cryptoCall = Q.denodeify(crypto.randomBytes);
-						cryptoCall(48)
-							.then(function (buf) {
-								var salt = buf.toString('hex');
-								var saltedPassword = 'abcd@1234' + salt;
-								var hashedPassword = crypto.createHash('sha256').update(saltedPassword).digest('hex');
-								var token = crypto.randomBytes(48).toString('hex');
-								var userObj = {
-									'object_type': 'bsuser',
-									'id': uid_res,
-									'created_at': new Date().toISOString(),
-									'username': 'bsroot',
-									'first': '',
-									'last': '',
-									'email': 'bsroot@backstrap.io',
-									'salt': salt,
-									'password': hashedPassword,
-									'is_active': true,
-									'forgot_password_tokens': [token]
-								};
-								var roles = ['super-user'];
-								userObj['roles'] = roles;
-								qry = "INSERT INTO \"bsuser\"(\"data\") VALUES($1)";
-								qry_params = [userObj];
-								dataAccess.ExecutePostgresQuery(qry, qry_params, null)
-									.then(function (connection) {
-										deferred.resolve(connection);
-									})
-									.fail(function (err) {
-										var errorObj = new ErrorObj(500,
-											'sc1007',
-											__filename,
-											'createDefaultUser',
-											'error creating default user',
-											'Database error',
-											err
-										);
-										deferred.reject(errorObj);
-									})
-							});
-
-					});
-			}
-			else {
-				deferred.resolve(true);
-			}
-		})
-		.fail(function (err) {
-			var errorObj = new ErrorObj(500,
-				'sc1008',
-				__filename,
-				'createDefaultUser',
-				'error creating default user',
-				'Database error',
-				err
-			);
-			deferred.reject(errorObj);
-		});
+  .then(function (connection) {
+    if (parseInt(connection.results[0].count) === 0) {
+      let userParams = {
+        'username': 'bsroot',
+        'first': 'bs3',
+        'last': 'admin',
+        'email': 'bsroot@backstrap.io',
+        'password': 'abcd@1234',
+        'roles': ['super-user']
+      };
+      accessControl.createUser('default', userParams, null, null)
+      .then((createUserRes) => {
+        deferred.resolve(createUserRes);
+      })
+      .fail((createUserErr) => {
+        if(createUserErr && typeof(createUserErr.AddToError) === 'function') {
+          deferred.reject(createUserErr.AddToError(__filename, 'createDefaultUser'));
+        }
+        else {
+          let errorObj = new ErrorObj(500,
+                                      'sc2002',
+                                      __filename,
+                                      'createDefaultUser',
+                                      'error creating bsroot',
+                                      'There was  problem creating the initial user.',
+                                      createUserErr);
+          deferred.reject(errorObj);
+        }
+      });
+    }
+    else {
+      deferred.resolve(true);
+    }
+  })
+  .fail(function (err) {
+    var errorObj = new ErrorObj(500,
+      'sc1008',
+      __filename,
+      'createDefaultUser',
+      'error creating default user',
+      'Database error',
+      err
+    );
+    deferred.reject(errorObj);
+  });
 
 	return deferred.promise;
 }

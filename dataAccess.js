@@ -887,7 +887,7 @@ var getUserById = (id, connection) => {
   var deferred = Q.defer();
 
   if(id) {
-    var qry = "SELECT * FROM bsuser WHERE bsuser.data->>'id' = $1 AND (data->>'is_active')::boolean = true";
+    var qry = "SELECT * FROM bs3_users WHERE id = $1 AND deleted_at IS NULL";
     var qry_params = [id];
     ExecutePostgresQuery(qry, qry_params, connection)
     .then(function (connection) {
@@ -937,7 +937,7 @@ var getUserByUserName = (username, connection) => {
   var deferred = Q.defer();
 
   if(username) {
-    var qry = "SELECT * FROM bsuser WHERE LOWER(bsuser.data->>'username') = LOWER($1) AND (data->>'is_active')::boolean = true";
+    var qry = "SELECT * FROM bs3_users WHERE LOWER(username) = LOWER($1) AND deleted_at IS NULL";
     var qry_params = [username];
     ExecutePostgresQuery(qry, qry_params, connection)
     .then(function (connection) {
@@ -987,7 +987,7 @@ var getUserByEmail = (email, connection) => {
   var deferred = Q.defer();
 
   if(email) {
-    var qry = "SELECT * FROM bsuser WHERE LOWER(bsuser.data->>'email') = LOWER($1) AND (data->>'is_active')::boolean = true";
+    var qry = "SELECT * FROM bs3_users WHERE LOWER(email) = LOWER($1) AND deleted_at IS NULL";
     var qry_params = [email];
     ExecutePostgresQuery(qry, qry_params, connection)
     .then(function (connection) {
@@ -1163,17 +1163,38 @@ DataAccess.prototype.deleteUser = (uid, connection) => {
 
 DataAccess.prototype.createUser = (userObj) => {
   var deferred = Q.defer();
-
-  let sql = `INSERT INTO bsuser(data) VALUES($1) RETURNING *`;
-  let params = [JSON.stringify(userObj)];
-
-  runSql(sql, params)
-  .then((res) => {
-    deferred.resolve(res[0].data);
+  startTransaction()
+  .then((dbHandle) => {
+    let sql = `INSERT INTO bs3_users(account_type, username, email, roles, locked, created_at) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`;
+    let params = [userObj.account_type, userObj.username, userObj.email, JSON.stringify(userObj.roles), false, new Date().toISOString()];
+    return [dbHandle, runSql(sql, params, dbHandle)];
+  })
+  .spread((dbHandle, userRes) => {
+    let sql = `INSERT INTO bs3_credentials(salt, password, created_at, user_id) VALUES($1, $2, $3, $4)`;
+    let params = [userObj.salt, userObj.password, new Date().toISOString(), userRes[0].id];
+    return [dbHandle, userRes[0], runSql(sql, params, dbHandle)];
+  })
+  .spread((dbHandle, usr, credRes) => {
+    return [usr, commitTransaction(dbHandle)];
+  })
+  .spread((usr, commitRes) => {
+    deferred.resolve(usr);
   })
   .fail((err) => {
-    deferred.reject(err.AddToError(__filename, 'createUser'));
-  });
+    if(err && typeof(err.AddToError) === 'function') {
+      deferred.reject(err.AddToError(__filename, 'createUser'));
+    }
+    else {
+      let errorObj = new ErrorObj(500,
+                                  'da3000',
+                                  __filename,
+                                  'createUser',
+                                  'problem creating user',
+                                  'There was a problem creating this user',
+                                  err);
+        deferred.reject(errorObj);
+    }
+  })
 
   return deferred.promise;
 }

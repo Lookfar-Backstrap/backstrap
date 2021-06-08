@@ -96,7 +96,7 @@ accessControl.init('Security.json')
 })
 .then(function(cInit) {
   console.log('Controller initialized');
-  return schemaControl.updateSchema(config.db.name, config.db.user, config.db.pass, config.db.host, config.db.port, utilities)
+  return schemaControl.updateSchema(config.db.name, config.db.user, config.db.pass, config.db.host, config.db.port, utilities, accessControl)
 })
 .then(function(schemaUpd) {
   // CREATE A LOG DIRECTORY IF NEEDED
