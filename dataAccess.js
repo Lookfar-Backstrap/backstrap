@@ -1170,9 +1170,12 @@ DataAccess.prototype.createUser = (userObj) => {
     return [dbHandle, runSql(sql, params, dbHandle)];
   })
   .spread((dbHandle, userRes) => {
-    let sql = `INSERT INTO bs3_credentials(salt, password, created_at, user_id) VALUES($1, $2, $3, $4)`;
-    let params = [userObj.salt, userObj.password, new Date().toISOString(), userRes[0].id];
-    return [dbHandle, userRes[0], runSql(sql, params, dbHandle)];
+    let sql = `INSERT INTO bs3_credentials(salt, password, client_id, client_secret, created_at, user_id) VALUES($1, $2, $3, $4, $5, $6)`;
+    let params = [userObj.salt, userObj.password || null, userObj.client_id || null, userObj.client_secret || null, new Date().toISOString(), userRes[0].id];
+    let outUsr = userRes[0];
+    if(userObj.client_id) outUsr['client_id'] = userObj.client_id;
+    if(userObj.client_id) outUsr['client_secret'] = userObj.client_secret;
+    return [dbHandle, outUsr, runSql(sql, params, dbHandle)];
   })
   .spread((dbHandle, usr, credRes) => {
     return [usr, commitTransaction(dbHandle)];
@@ -1216,6 +1219,44 @@ DataAccess.prototype.updateJsonbField = (tableName, fieldname, updateObj, whereC
   .fail((err) => {
     deferred.reject(err.AddToError(__filename, 'updateJsonbField'));
   })
+
+  return deferred.promise;
+}
+
+DataAccess.prototype.saveApiCredentials = (clientId, salt, hashedSecret, uid) => {
+  var deferred = Q.defer();
+  if(clientId && salt && hashedSecret && uid) {
+    let sql = 'INSERT INTO bs3_credentials(client_id, salt, client_secret, user_id) VALUES($1, $2, $3, $4) RETURNING *';
+    let params = [clientId, salt, hashedSecret, uid];
+    DataAccess.prototype.runSql(sql, params)
+    .then((credRes) => {
+      deferred.resolve(credRes);
+    })
+    .fail((err) => {
+      if(err && typeof(err.AddToError) === 'function') {
+        deferred.reject(err.AddToError(__filename, 'saeApiCredentials'));
+      }
+      else {
+        let errorObj = new ErrorObj(500,
+                                  'da3001',
+                                  __filename,
+                                  'saveApiCredentials',
+                                  'problem saving to db',
+                                  'There was a problem saving credentials',
+                                  err);
+        deferred.reject(errorObj);
+      }
+    })
+  }
+  else {
+    let errorObj = new ErrorObj(500,
+                                'da3000',
+                                __filename,
+                                'saveApiCredentials',
+                                'missing args',
+                                'There was a problem saving credentials');
+    deferred.reject(errorObj);
+  }
 
   return deferred.promise;
 }

@@ -209,7 +209,7 @@ accessControl.init('Security.json')
   // -----------------------------------
   // LAUNCH THE SERVER
   // -----------------------------------
-  const server = http.createServer(app).listen(app.get('port'), function () {
+  const server = http.Server(app).listen(app.get('port'), function () {
     console.log('\n');
     console.log('==============================================');
     console.log('**************** BACKSTRAP 3 *****************')

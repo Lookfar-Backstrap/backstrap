@@ -1,9 +1,4 @@
 var Q = require('q');
-var fs = require('fs');
-var async = require('async');
-var PG = require('pg');
-var crypto = require('crypto');
-const { create } = require('domain');
 var dataAccess;
 var accessControl
 
@@ -65,6 +60,7 @@ function createInitialTables(connection) {
                             email VARCHAR(256) UNIQUE,
                             locked BOOLEAN,
                             roles JSONB,
+                            external_id VARCHAR(256),
                             created_at TIMESTAMP,
                             modified_at TIMESTAMP,
                             deleted_at TIMESTAMP

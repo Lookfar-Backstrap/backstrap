@@ -78,13 +78,13 @@ AccessControl.prototype.init = function (f) {
 AccessControl.prototype.createUser = function(userType, params, apiToken, thisUser) {
   var deferred = Q.defer();
 
-  var username = params.username || params.email;
-  var email = params.email || null;
-  var first = params.first || null;
-  var last = params.last || null;
-  var password = params.password || null;
-  var roles = params.roles || null;
-  var exid = params.external_identity_id || null;
+  if(params) {
+    var username = params.username || params.email;
+    var email = params.email || null;
+    var password = params.password || null;
+    var roles = params.roles || null;
+    var exid = params.external_id || null;
+  }
 
 
   if(userType !== 'api' || thisUser == null) {
@@ -106,13 +106,13 @@ AccessControl.prototype.createUser = function(userType, params, apiToken, thisUs
     case 'api':
       let uid = null;
       if(thisUser) uid = thisUser.id;
-      createUserCmd = createAPIUser(email, first, last, roles, uid);
+      createUserCmd = createAPIUser(email, roles, uid);
       break;
     case 'external-api':
       createUserCmd = createExternalAPIUser(email, exid, first, last, roles);
       break;
     default:
-      createUserCmd = createStandardUser(username, email, password, exid, first, last, roles, apiToken);
+      createUserCmd = createStandardUser(username, email, password, exid, roles, apiToken);
   }
 
   createUserCmd
@@ -900,7 +900,7 @@ AccessControl.prototype.getToken = getSessionToken;
 // =====================================================================
 // UTILITY FUNCTIONS
 // =====================================================================
-function createStandardUser(username, email, password = null, exid = null, first = '', last = '', roles, apiToken = null) {
+function createStandardUser(username, email, password = null, exid = null, roles, apiToken = null) {
   var deferred = Q.defer();
 
   var cryptoCall = Q.denodeify(crypto.randomBytes);
@@ -942,17 +942,12 @@ function createStandardUser(username, email, password = null, exid = null, first
       }
       else if(exid) {
         var userObj = {
-          'object_type': 'bsuser',
           'account_type': 'external',
-          'id': utilities.getUID(true),
           'username': email,
-          'first': first,
-          'last': last,
           'email': email,
           'roles': roles,
-          'is_active': true,
-          'is_locked': false,
-          'external_identity_id': exid
+          'locked': false,
+          'external_id': exid
         };
         return dataAccess.createUser(userObj);
       }
@@ -1019,12 +1014,10 @@ function createStandardUser(username, email, password = null, exid = null, first
   return deferred.promise;
 }
 
-function createAPIUser(email, first, last, roles, parentAccountId) {
+function createAPIUser(email, roles, parentAccountId) {
   var deferred = Q.defer();
   
   roles = roles || ['default-user'];
-  first = first || '';
-  last = last || '';
   email = email || null;
 
   let validateEmailOrSkip;
@@ -1055,33 +1048,34 @@ function createAPIUser(email, first, last, roles, parentAccountId) {
       var saltedSecret = creds.clientSecret + creds.salt;
       var hashedSecret = crypto.createHash('sha256').update(saltedSecret).digest('hex');
 
-      var userObj = {
-          'object_type': 'bsuser',
+      let nextCmd;
+      if(parentAccountId){
+        nextCmd = dataAccess.saveApiCredentials(creds.clientId, creds.salt, hashedSecret, parentAccountId);
+      }
+      else {
+        var userObj = {
           'account_type': 'api',
-          'id': utilities.getUID(),
+          'email': email,
           'client_id': creds.clientId,
-          'first': first,
-          'last': last,
           'salt': creds.salt,
           'client_secret': hashedSecret,
           'roles': roles,
-          'is_active': true,
-          'is_locked': false
-      };
-      if(parentAccountId) {
-        userObj.parent_account_id = parentAccountId;
+          'locked': false
+        };
+        nextCmd = dataAccess.createUser(userObj);
+      }
+      return [creds.clientSecret, nextCmd];
+  })
+  .spread(function(clientSecret, userOrCreds) {
+      if(userOrCreds.hasOwnProperty('email')) {
+        delete userOrCreds.id;
+        delete userOrCreds.salt;
+        userOrCreds.client_secret = clientSecret;
+        deferred.resolve(userOrCreds);
       }
       else {
-        userObj.email = email;
+        deferred.resolve({client_id: userOrCreds.clientId, client_secret: userOrCreds.clientSecret});
       }
-      return [creds.clientSecret, dataAccess.createUser(userObj)];
-  })
-  .spread(function(clientSecret, userObj) {
-      delete userObj.id;
-      delete userObj.salt;
-      userObj.client_secret = clientSecret;
-
-      deferred.resolve(userObj);
   })
   .fail(function(err) {
       if (err !== undefined && err !== null && typeof (err.AddToError) == 'function') {
