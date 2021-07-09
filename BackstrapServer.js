@@ -24,7 +24,7 @@ var DataAccess = require('./dataAccess').DataAccess;
 var ServiceRegistration = require('./serviceRegistration').ServiceRegistration;
 var Controller = require('./controller').Controller;		// GETS THE CORRECT WEB SERVICE FILE AND ROUTES CALLS
 var Utilities = require('./utilities').Utilities;
-var AccessControl = require('./accessControl').AccessControl;
+var AccessControl =  require('./accessControl');
 var schemaControl = require('./schema.js');
 
 // ---------------------------------
@@ -67,7 +67,6 @@ var endpoints;
 var dataAccess;
 var serviceRegistration;
 var utilities;
-var accessControl;
 var mainController;
 
 var errorLog;
@@ -87,16 +86,15 @@ console.log('DataAccess initialized');
 utilities.setDataAccess(dataAccess);
 serviceRegistration = new ServiceRegistration(dataAccess, endpoints);
 console.log('ServiceRegistration initialized');
-accessControl = new AccessControl(utilities, settings, dataAccess);
-accessControl.init('Security.json')
+AccessControl.init(utilities, settings, dataAccess, 'Security.json')
 .then(function (aclRes) {
   console.log('AccessControl initialized');
-  mainController = new Controller(dataAccess, utilities, accessControl, serviceRegistration, settings, endpoints);
+  mainController = new Controller(dataAccess, utilities, AccessControl, serviceRegistration, settings, endpoints);
   return mainController.init();
 })
 .then(function(cInit) {
   console.log('Controller initialized');
-  return schemaControl.updateSchema(config.db.name, config.db.user, config.db.pass, config.db.host, config.db.port, utilities, accessControl)
+  return schemaControl.updateSchema(config.db.name, config.db.user, config.db.pass, config.db.host, config.db.port, utilities, AccessControl)
 })
 .then(function(schemaUpd) {
   // CREATE A LOG DIRECTORY IF NEEDED
@@ -116,7 +114,7 @@ accessControl.init('Security.json')
   
   // EVERYTHING IS INITIALIZED.  RUN ANY INITIALIZATION CODE
   try {
-    require('./onInit').run(dataAccess, utilities, accessControl, serviceRegistration, settings);
+    require('./onInit').run(dataAccess, utilities, AccessControl, serviceRegistration, settings);
   }
   catch(onInitErr) {
     if(onInitErr && onInitErr.code === 'MODULE_NOT_FOUND') {
@@ -295,7 +293,7 @@ function requestPipeline(req, res, verb) {
     // IF THERE IS A BACKSTRAP STYLE AUTH HEADER OR NEITHER A BACKSTRAP AUTH HEADER NOR BASIC/BEARER AUTH HEADER 
     if(req.headers[settings.data.token_header] != null || 
         (req.headers[settings.data.token_header] == null && req.headers['authorization'] == null)) {
-      return [sc, accessControl.validateToken(req.headers[settings.data.token_header], continueWhenInvalid)];
+      return [sc, AccessControl.validateToken(req.headers[settings.data.token_header], continueWhenInvalid)];
     }
     // OTHERWISE THIS IS BASIC OR BEARER AUTH
     // BASIC AUTH IS BACKSTRAP NATIVE API USERS
@@ -303,10 +301,10 @@ function requestPipeline(req, res, verb) {
     else {
       [authType] = req.headers['authorization'].split(' ');
       if(authType.toLowerCase() === 'basic') {
-        return [sc, accessControl.validateBasicAuth(req.headers['authorization'], continueWhenInvalid)];
+        return [sc, AccessControl.validateBasicAuth(req.headers['authorization'], continueWhenInvalid)];
       }
       else if(authType.toLowerCase() === 'bearer') {
-        return [sc, accessControl.validateJwt(req.headers['authorization'], continueWhenInvalid)];
+        return [sc, AccessControl.validateJwt(req.headers['authorization'], continueWhenInvalid)];
       }
       else {
         if(continueWhenInvalid) {
@@ -392,7 +390,7 @@ function requestPipeline(req, res, verb) {
       req.this_user = userOrNull;
     }
     if (sc.authRequired) {
-      return [sc, validTokenResponse, accessControl.verifyAccess(req, sc)];
+      return [sc, validTokenResponse, AccessControl.verifyAccess(req, sc)];
     }
     else {
       return [sc, validTokenResponse];
