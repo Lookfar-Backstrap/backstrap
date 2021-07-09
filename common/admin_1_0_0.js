@@ -299,11 +299,8 @@ Admin.prototype.post = {
     var clientId = req.body.client_id;
     var cryptoCall = Q.denodeify(crypto.randomBytes);
 
-    dataAccess.getUserByClientId(clientId)
-    .then((usr) => {
-      return [usr, cryptoCall(24)];
-    })
-    .spread((usr, buf) => {
+    cryptoCall(24)
+    .then((buf) => {
       let clientSecret = buf.toString('hex');
       return [usr, clientSecret, cryptoCall(48)];
     })
@@ -312,9 +309,9 @@ Admin.prototype.post = {
       let saltedSecret = clientSecret + salt;
       let hashedSecret = crypto.createHash('sha256').update(saltedSecret).digest('hex');
 
-      return [clientSecret, dataAccess.updateJsonbField('bsuser', 'data', {salt: salt, client_secret: hashedSecret}, `data->>'id' = '${usr.id}'`)];
+      return [clientSecret, dataAccess.updateApiCredentials(clientId, salt, hashedSecret)];
     })
-    .spread((clientSecret, usr) => {
+    .spread((clientSecret, updRes) => {
       deferred.resolve({client_secret: clientSecret});
     })
     .fail((err) => {

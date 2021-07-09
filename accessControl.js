@@ -19,7 +19,6 @@ var authSigningKey;
 const jwt = require('./jwt.js');
 
 var AccessControlExtension = require('./accessControl_ext.js');
-const { util } = require('chai');
 
 var AccessControl = function (util, s, d) {
   utilities = util;
@@ -298,35 +297,18 @@ AccessControl.prototype.signIn = (params, apiToken) => {
   })
   .spread((userObj, tkn, validTokenRes) => {
       var sess = null;
-      if (validTokenRes.is_valid === true && validTokenRes.session.is_anonymous === true && validTokenRes.session.username === 'anonymous') {
+      if (validTokenRes.is_valid === true && validTokenRes.session.anonymous === true) {
           sess = validTokenRes.session;
-          sess.username = username;
-          return [userObj, tkn, true, dataAccess.updateJsonbField('session', 'data', sess, `data->>'id' = '${sess.id}'`)];
+
+          return [userObj, tkn, dataAccess.attachUserToSession(userObj.id, sess.id)];
       }
       else {
-          return [userObj, tkn, false];
-      }
-  })
-  .spread((userObj, tkn, isNewAnonSess, sessRes) => {
-      if (isNewAnonSess) {
-        let sess = sessRes[0] ? sessRes[0].data : null;
-        return [userObj, tkn, dataAccess.attachUserToSession(userObj, sess)];
-      }
-      else {
-        return [userObj, tkn];
+          return [userObj, tkn];
       }
   })
   .spread((userObj, tkn) => {
-      var returnObj = {};
-      returnObj[settings.data.token_header] = tkn;
-      var uiKeys = Object.keys(userObj);
-      for (var uiIdx = 0; uiIdx < uiKeys.length; uiIdx++) {
-        if(!['password', 'salt', 'object_type', 'created_at', 'updated_at', 'forgot_password_tokens', 'is_active'].includes(uiKeys[uiIdx])) {
-          returnObj[uiKeys[uiIdx]] = userObj[uiKeys[uiIdx]];
-        }
-      }
-
-      deferred.resolve(returnObj);
+      userObj[settings.data.token_header] = tkn;
+      deferred.resolve(userObj);
   })
   .fail((err) => {
     var errorObj = new ErrorObj(401,
@@ -360,49 +342,52 @@ AccessControl.prototype.checkCredentials = (password, userObj) => {
     deferred.promise.nodeify(callback);
     return deferred.promise;
   }
-  // GOT A USER, MAKE SURE THERE IS A STORED SALT
-  var salt = userObj.salt;
-  if (salt === null) {
-      var errorObj = new ErrorObj(500,
-          'a0301',
-          __filename,
-          'checkCredentials',
-          'error retrieving salt for this user'
-      );
-      deferred.reject(errorObj);
-      deferred.promise.nodeify(callback);
-      return deferred.promise;
-  }
-  var stored_password = userObj.password;
-  if (stored_password === null) {
-      var errorObj = new ErrorObj(500,
-          'a0302',
-          __filename,
-          'checkCredentials',
-          'error retrieving password for this user'
-      );
-      deferred.reject(errorObj);
-      deferred.promise.nodeify(callback);
-      return deferred.promise;
-  }
+  // GOT A USER, GRAB THE ACTIVE CREDS
+  dataAccess.getCredentialsForUser(userObj.id)
+  .then((credRes) => {
+    let foundValidCreds = false;
+    for(let cIdx = 0; cIdx < credRes.length; cIdx++) {
+      let curCred = credRes[cIdx];
+      if(curCred.password != null && curCred.salt != null) {
+        let salt = curCred.salt;
+        let stored_password = curCred.password;
 
-  // SALT AND HASH PASSWORD
-  var saltedPassword = password + userObj.salt;
-  var hashedPassword = crypto.createHash('sha256').update(saltedPassword).digest('hex');
+        // SALT AND HASH PASSWORD
+        var saltedPassword = password + salt;
+        var hashedPassword = crypto.createHash('sha256').update(saltedPassword).digest('hex');
 
-  // CHECK IF HASHES MATCH
-  if (hashedPassword === stored_password) {
+        // CHECK IF HASHES MATCH
+        if (hashedPassword === stored_password) {
+            foundValidCreds = true;
+            break;
+        }
+      }
+    }
+    if(foundValidCreds) {
       deferred.resolve();
-  }
-  else {
-    var errorObj = new ErrorObj(401,
+    }
+    else {
+      var errorObj = new ErrorObj(401,
+                                  'a0027',
+                                  __filename,
+                                  'checkCredentials',
+                                  'authentication failed'
+                                );
+      deferred.reject(errorObj);
+    }
+  })
+  .fail((err) => {
+    let errorObj = new ErrorObj(401,
                                 'a0027',
                                 __filename,
                                 'checkCredentials',
                                 'authentication failed'
                               );
+    let eLogObj = JSON.parse(JSON.stringify(errorObj));
+    eLogObj.results = err;
+    utilities.writeErrorToLog(eLogObj);
     deferred.reject(errorObj);
-  }
+  });
 
   return deferred.promise;
 }
@@ -412,33 +397,11 @@ AccessControl.prototype.startSession = (userObj, clientInfo) => {
 
   getSessionToken()
   .then((tkn) => {
-    var rightNow = new Date();
     if(userObj != null) {
-      var sessionObj = {
-          'object_type': 'session',
-          'id': utilities.getUID(true),
-          'token': tkn,
-          'username': userObj.username ? userObj.username : userObj.email,
-          'user_id': userObj.id,
-          'started_at': rightNow,
-          'client_info': clientInfo || null,
-          'last_touch': rightNow
-      };
-      return dataAccess.startSession(userObj, sessionObj);
+      return dataAccess.startSession(tkn, userObj.id, clientInfo, false);
     }
     else {
-      var sessionObj = {
-          'object_type': 'session',
-          'id': utilities.getUID(true),
-          'token': tkn,
-          "is_anonymous": true,
-          'username': 'anonymous',
-          'user_id': userObj.id,
-          'started_at': rightNow,
-          'client_info': clientInfo || null,
-          'last_touch': rightNow
-      };
-      return dataAccess.startSession(userObj, sessionObj);
+      return dataAccess.startSession(tkn, null, clientInfo, true);
     }
   })
   .then((newSess) => {
@@ -590,7 +553,7 @@ AccessControl.prototype.validateBasicAuth = function(authHeader, continueWhenInv
   if(authType.toLowerCase() === 'basic') {
     let [clientId, clientSecret] = Buffer.from(authToken, 'base64').toString().split(':');
     if(clientId && clientSecret) {
-      dataAccess.getUserByClientId(clientId)
+      dataAccess.getUserByClientId(clientId, true)
       .then((usr) => {
         if(!usr.is_locked) {
           let saltedSecret = clientSecret + usr.salt;
@@ -1186,7 +1149,7 @@ function createExternalAPIUser(email, exid, first, last, roles) {
   first = first || '';
   last = last || '';
   email = email || null;
-  exud = exid || null;
+  exid = exid || null;
 
   var validEmailRegex = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
   if (!validEmailRegex.test(email)) {
@@ -1214,22 +1177,17 @@ function createExternalAPIUser(email, exid, first, last, roles) {
 
   utilities.validateEmail(email)
   .then(function() {
-    let qry = "SELECT data from bsuser where data->>'external_identity_id' = $1";
+    let qry = "SELECT COUNT(*) FROM bs3_users WHERE external_id = $1 AND deleted_at IS NULL";
     let params = [exid];
     return dataAccess.runSql(qry, params);
   })
   .then((usrRes) => {
-    if(usrRes.length == 0) {
+    if(usrRes[0].count == 0) {
       var userObj = {
-          'object_type': 'bsuser',
           'account_type': 'external-api',
-          'id': utilities.getUID(true),
-          'first': first,
-          'last': last,
           'email': email,
           'roles': roles,
-          'external_identity_id': exid,
-          'is_active': true,
+          'external_id': exid,
           'is_locked': false
       };
       return dataAccess.createUser(userObj);

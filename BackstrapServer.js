@@ -359,7 +359,7 @@ function requestPipeline(req, res, verb) {
       else {
         if(settings.data.access_logging === true) accessLogEvent.client_id = validTokenResponse.client_id;
 
-        dataAccess.getUserByClientId(validTokenResponse.client_id)
+        dataAccess.getUserByClientId(validTokenResponse.client_id, false)
         .then(function(usr) {
           inner_deferred.resolve(usr);
         })
@@ -583,29 +583,29 @@ function printObject(obj) {
 function checkForInvalidSessions(dataAccess, settings, callback) {
 	var deferred = Q.defer();
 	//THIS RETURNS STALE SESSIONS
-	dataAccess.GetDeadSessions(settings.data.timeout)
+	dataAccess.GetDeadSessions(settings.data.timeout, true)
 	.then(function (deadSessions) {
-    let rowIds = [];
+    let ids = [];
     // IF LOGGING SESSIONS, WRITE OUT THE DEAD SESSIONS TO
     // THE SESSION LOG
     for(var sIdx = 0; sIdx < deadSessions.length; sIdx++) {
-      rowIds.push(deadSessions[sIdx].rid);
+      ids.push(deadSessions[sIdx].id);
       
       if(settings.data.session_logging === true) {
         let dsObj = {
-          session_id: deadSessions[sIdx].data.id,
-          token: deadSessions[sIdx].data.token,
-          user_id: deadSessions[sIdx].data.user_id,
-          started_at: deadSessions[sIdx].data.started_at,
-          ended_at: new Date()
+          session_id: deadSessions[sIdx].id,
+          token: deadSessions[sIdx].token,
+          user_id: deadSessions[sIdx].user_id,
+          started_at: deadSessions[sIdx].created_at,
+          ended_at: deadSessions[sIdx].ended_at
         }
         var logEntry = JSON.stringify(dsObj)+'\n';
         sessionLog.write(logEntry);
       }
     }
 
-    if(rowIds.length > 0) {
-      dataAccess.DeleteSessions(null, rowIds)
+    if(ids.length > 0) {
+      dataAccess.DeleteSessions(ids)
       .then(function(res) {
         deferred.resolve();
       })

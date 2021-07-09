@@ -590,6 +590,7 @@ var runSql = (sqlStatement, params, connection, isStreaming) => {
                                   'psql error',
                                   'There was a problem with your request.',
                                   err);
+      deferred.reject(errorObj);
     }
 	});
 
@@ -599,11 +600,12 @@ DataAccess.prototype.runSql = runSql;
 
 
 // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-DataAccess.prototype.GetDeadSessions = function (timeOut, callback) {
+DataAccess.prototype.GetDeadSessions = function (timeOut, markAsEnded, callback) {
 	var deferred = Q.defer();
 	var minutes = "'" + timeOut + " minutes'";
-	var qry = "select row_id as rid, data from session where (data->>'last_touch')::timestamp with time zone < (NOW() - INTERVAL " + minutes + ")";
+	var qry = "select * from bs3_sessions where last_touch < (NOW() - INTERVAL " + minutes + ")";
 	var qry_params = [];
+  if(markAsEnded) qry = "UPDATE bs3_sessions SET ended_at = NOW() WHERE last_touch < (NOW() - INTERVAL " + minutes + ") RETURNING *";
 	ExecutePostgresQuery(qry, qry_params, null)
 	.then(function (connection) {
 		deferred.resolve(connection.results);
@@ -616,42 +618,16 @@ DataAccess.prototype.GetDeadSessions = function (timeOut, callback) {
 	return deferred.promise;
 };
 
-DataAccess.prototype.DeleteSessions = function(dsIds, rIds, callback) {
+DataAccess.prototype.DeleteSessions = function(dsIds, callback) {
   var deferred = Q.defer();
 
-  var db_connection;
-
-  startTransaction()
-  .then((db_handle) => {
-    db_connection = db_handle;
-    if(dsIds) {
-      let ridSql = "SELECT row_id FROM session WHERE data->>'id' = ANY($1)";
-      return [db_handle, ExecutePostgresQuery(ridSql, [dsIds], db_handle)];
-    }
-    else {
-      return [db_handle, {results: rIds.map(r => {return {row_id: r}})}];
-    }
-  })
-  .spread((db_handle, rowIdRes) => {
-    let rowIds = rowIdRes.results.map(r => r.row_id);
-    let qry_linking = "DELETE FROM bsuser_session WHERE right_id = ANY($1)";
-    return [db_handle, rowIds, ExecutePostgresQuery(qry_linking, [rowIds], db_handle)];
-  })
-  .spread((db_handle, rowIds, qry_res) => {
-    let qry = "DELETE FROM session WHERE row_id = ANY($1)";
-    return [db_handle, ExecutePostgresQuery(qry, [rowIds], db_handle)];
-  })
-  .spread((db_handle, qry_res) => {
-    return commitTransaction(db_handle);
-  })
-  .then(() => {
+  let qry = "DELETE FROM bs3_sessions WHERE ids = ANY($1)";
+  ExecutePostgresQuery(qry, [dsIds])
+  .then((delRes) => {
     deferred.resolve();
   })
   .fail((err) => {
-    rollbackTransaction(db_connection)
-    .finally(() => {
-      deferred.reject(err);
-    })
+    deferred.reject(err);
   });
 
   deferred.promise.nodeify(callback);
@@ -662,75 +638,21 @@ DataAccess.prototype.DeleteSessions = function(dsIds, rIds, callback) {
 DataAccess.prototype.findUser = function (id, username, email, connection, callback) {
 	var deferred = Q.defer();
 
+  if(!id) id = null;
+  if(!username) username = null;
+  if(!email) email = null;
+
   if(id || username || email) {
-    getUserById(id, connection)
-    .then((usr) => {
-      if(!usr) {
-        getUserByUserName(username, connection)
-        .then(function (usr) {
-          if(!usr) {
-            getUserByEmail(email, connection)
-            .then((usr) => {
-              if(usr) {
-                deferred.resolve(usr);
-              }
-              else {
-                let errorObj = new ErrorObj(404,
-                                            'da0200',
-                                            __filename,
-                                            'findUser',
-                                            'no user found',
-                                            'No user found.',
-                                            null
-                                          );
-                deferred.reject(errorObj);
-              }
-            })
-            .fail((emailErr) => {
-              if(emailErr && typeof(emailErr.AddToError) === 'function') {
-                deferred.reject(emailErr.AddToError(__filename, 'find user'));
-              }
-              else {
-                let errorObj = new ErrorObj(404,
-                                            'da0201',
-                                            __filename,
-                                            'findUser',
-                                            'error finding user',
-                                            'There was a problem with your request',
-                                            emailErr
-                                          );
-                  deferred.reject(errorObj);
-              }
-            })
-          }
-          else {
-            deferred.resolve(usr);
-          }
-        })
-        .fail((usernameErr) => {
-          if(usernameErr && typeof(usernameErr.AddToError) === 'function') {
-            deferred.reject(usernameErr.AddToError(__filename, 'find user'));
-          }
-          else {
-            let errorObj = new ErrorObj(404,
-                                        'da0202',
-                                        __filename,
-                                        'findUser',
-                                        'error finding user',
-                                        'There was a problem with your request',
-                                        usernameErr
-                                      );
-            deferred.reject(errorObj);
-          }
-        })
-      }
-      else {
-        deferred.resolve(usr);
-      }
+    let sql = "SELECT * FROM bs3_users WHERE (id = $1 OR LOWER(username) = LOWER($2) OR LOWER(email) = LOWER($3)) AND deleted_at IS NULL";
+    let params = [id, username, email];
+
+    ExecutePostgresQuery(sql, params, connection)
+    .then((userRes) => {
+      deferred.resolve(userRes.results)
     })
-    .fail((idErr) => {
-      if(usernameErr && typeof(usernameErr.AddToError) === 'function') {
-        deferred.reject(usernameErr.AddToError(__filename, 'find user'));
+    .fail((err) => {
+      if(err && typeof(err.AddToError) === 'function') {
+        deferred.reject(err.AddToError(__filename, 'find user'));
       }
       else {
         let errorObj = new ErrorObj(404,
@@ -739,11 +661,11 @@ DataAccess.prototype.findUser = function (id, username, email, connection, callb
                                     'findUser',
                                     'error finding user',
                                     'There was a problem with your request',
-                                    idErr
+                                    err
                                   );
         deferred.reject(errorObj);
       }
-    })
+    });
   }
   else {
     deferred.resolve(null);
@@ -756,7 +678,7 @@ DataAccess.prototype.findUser = function (id, username, email, connection, callb
 DataAccess.prototype.getAllUsers = (connection) => {
   var deferred = Q.defer();
 
-  let sql = "SELECT data FROM bsuser WHERE (data->>'is_active')::boolean = true";
+  let sql = "SELECT * FROM bs3_users WHERE deleted_at IS NULL";
   runSql(sql,[],connection)
   .then((userRes) => {
     deferred.resolve(userRes.map(u => u.data));
@@ -779,6 +701,9 @@ DataAccess.prototype.getAllUsers = (connection) => {
 
 DataAccess.prototype.GenerateForgotPasswordToken = (email, username) => {
   var deferred = Q.defer();
+
+  let sql = "SELECT * FROM bs3_users WHERE LOWER(username) = LOWER($1) OR LOWER(email) = LOWER($2)";
+
 
   DataAccess.prototype.findUser(null, username, email)
   .then(function (userObj) {
@@ -821,7 +746,7 @@ DataAccess.prototype.GenerateForgotPasswordToken = (email, username) => {
 DataAccess.prototype.getActiveTokens = () => {
   var deferred = Q.defer();
 
-  let sql = "SELECT data->>'token' FROM session";
+  let sql = "SELECT token FROM bs3_sessions WHERE ended_at IS NULL";
   runSql(sql, [])
   .then((tokenRes) => {
     deferred.resolve(tokenRes.map(tknObj => tknObj.token));
@@ -834,29 +759,16 @@ DataAccess.prototype.getActiveTokens = () => {
 }
 
 
-DataAccess.prototype.startSession = (userObj, sessionObj) => {
+DataAccess.prototype.startSession = (token, userId, clientInfo, isAnonymous, connection) => {
   var deferred = Q.defer();
 
-  utilities.getUID()
-  .then((uid) => {
-    sessionObj.id = uid;
-    return startTransaction();
-  })
-  .then((dbHandle) => {
-    let sql = "INSERT INTO session(data) VALUES($1) RETURNING *";
-    return [dbHandle, runSql(sql, [sessionObj], dbHandle)];
-  })
-  .spread((dbHandle, sessRes) => {
-    let sess = sessRes[0].data;
-    let sessRowId = sessRes[0].row_id;
-    let sql = "INSERT INTO bsuser_session(left_id, right_id) VALUES((SELECT row_id FROM bsuser WHERE data->>'id' = $1), $2)";
-    return [dbHandle, sess, runSql(sql, [userObj.id, sessRowId], dbHandle)];
-  })
-  .spread((dbHandle, sess, insRes) => {
-    return [sess, commitTransaction(dbHandle)];
-  })
-  .spread((sess) => {
-    deferred.resolve(sess);
+  if(isAnonymous == null) isAnonymous = false;
+  let sql = "INSERT INTO bs3_sessions(token, user_id, client_info, anonymous, created_at, last_touch) VALUES($1, $2, $3, $4, NOW(), NOW()) RETURNING *";
+  let params = [token, userId, clientInfo, isAnonymous]
+
+  runSql(sql, params, connection)
+  .then((sessRes) => {
+    deferred.resolve(sessRes[0]);
   })
   .fail((err) => {
     deferred.reject(err.AddToError(__filename, 'startSession', 'Problem starting up a new session'));
@@ -864,24 +776,6 @@ DataAccess.prototype.startSession = (userObj, sessionObj) => {
   
   return deferred.promise;
 }
-
-var attachUserToSession = (userObj, sessionObj, connection) => {
-  var deferred = Q.defer();
-
-  let sql = "INSERT INTO bsuser_session(left_id, right_id) VALUES((SELECT row_id FROM bsuser WHERE data->>'id' = $1), (SELECT row_id FROM session WHERE data->>'id' = $2))";
-  let params = [userObj.id, sessionObj.id];
-  runSql(sql, params, connection)
-  .then((res) => {
-    deferred.resolve({success:true});
-  })
-  .fail((attachErr) => {
-    deferred.reject(attachErr.AddToError(__filename, 'attachUserToSession', 'Problem attaching user to session'));
-  })
-
-  return deferred.promise;
-}
-DataAccess.prototype.attachUserToSession = attachUserToSession;
-
 
 var getUserById = (id, connection) => {
   var deferred = Q.defer();
@@ -1032,11 +926,13 @@ var getUserByEmail = (email, connection) => {
 }
 DataAccess.prototype.getUserByEmail = getUserByEmail;
 
-var getUserByClientId = (cid, connection) => {
+var getUserByClientId = (cid, includeCreds, connection) => {
   var deferred = Q.defer();
 
   if(cid) {
-    var qry = "SELECT * FROM bsuser WHERE bsuser.data->>'client_id' = $1 AND (data->>'is_active')::boolean = true";
+    var qry = "SELECT usr.*";
+    if(includeCreds) qry += ", creds.salt, creds.client_secret"; 
+    qry += " FROM bs3_users usr JOIN bs3_credentials creds WHERE creds.client_id = $1 AND deleted_at IS NULL";
     var qry_params = [cid];
     ExecutePostgresQuery(qry, qry_params, connection)
     .then(function (connection) {
@@ -1055,13 +951,12 @@ var getUserByClientId = (cid, connection) => {
         deferred.resolve(connection.results[0].data);
       }
       else {
-        console.log('found multiple users');
-        var errorObj = new ErrorObj(500,
+        let errorObj = new ErrorObj(500,
           'da0167',
           __filename,
           'getUserByClientId',
           '',
-          'Found multiple users with that user name.',
+          'Found multiple users with that client id.',
           null
         );
         deferred.reject(errorObj);
@@ -1080,13 +975,63 @@ var getUserByClientId = (cid, connection) => {
 
 	return deferred.promise;
 }
+
 DataAccess.prototype.getUserByClientId = getUserByClientId;
+
+var getUserByExternalIdentityId = (exid, connection) => {
+  var deferred = Q.defer();
+
+  let sql = "SELECT * FROM bs3_users WHERE external_id = $1 AND deleted_at IS NULL";
+  let params = [exid];
+  runSql(sql, params, connection)
+  .then((usersRes) => {
+    if (usersRes.length === 0) {
+      let errorObj = new ErrorObj(404,
+        'da3166',
+        __filename,
+        'getUserByExternalIdentityId',
+        'no user found',
+        'Cannot find user.',
+        null
+      );
+      deferred.reject(errorObj);
+    }
+    else if (usersRes.length === 1) {
+      deferred.resolve(usersRes[0].data);
+    }
+    else {
+      let errorObj = new ErrorObj(500,
+        'da3167',
+        __filename,
+        'getUserByExternalIdentityId',
+        '',
+        'Found multiple users with that external id.',
+        null
+      );
+      deferred.reject(errorObj);
+    }
+  })
+  .fail((err) => {
+    var errorObj = new ErrorObj(500,
+                                'da3170',
+                                __filename,
+                                'getUserByExternalIdentityId',
+                                '',
+                                'Found multiple users with that client id.',
+                                null
+                              );
+    deferred.reject(errorObj);
+  });
+
+  return deferred.promise;
+}
+DataAccess.prototype.getUserByExternalIdentityId = getUserByExternalIdentityId;
 
 var getUserByForgotPasswordToken = (fptkn, connection) => {
   var deferred = Q.defer();
 
   if(fptkn) {
-    var qry = "SELECT * FROM bsuser WHERE bsuser.data->'forgot_password_tokens' ? $1 AND (data->>'is_active')::boolean = true";
+    var qry = "SELECT * FROM bs3_users bu INNER JOIN bs3_credentials bc ON bc.user_id = bu.id WHERE bc.forgot_password_tokens ? $1 AND deleted_at IS NULL";
     var qry_params = [fptkn];
     ExecutePostgresQuery(qry, qry_params, connection)
     .then(function (connection) {
@@ -1134,7 +1079,7 @@ DataAccess.prototype.getUserByForgotPasswordToken = getUserByForgotPasswordToken
 DataAccess.prototype.deleteUser = (uid, connection) => {
   var deferred = Q.defer();
 
-  let sql = "UPDATE bsuser SET data = JSONB_SET(data, '{is_active}', 'false') WHERE data->>'id' = $1 RETURNING row_id";
+  let sql = "UPDATE bs3_users SET deleted_at = NOW() WHERE id = $1 RETURNING id";
   let params = [uid];
 
   runSql(sql, params, connection)
@@ -1165,8 +1110,8 @@ DataAccess.prototype.createUser = (userObj) => {
   var deferred = Q.defer();
   startTransaction()
   .then((dbHandle) => {
-    let sql = `INSERT INTO bs3_users(account_type, username, email, roles, locked, created_at) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`;
-    let params = [userObj.account_type, userObj.username, userObj.email, JSON.stringify(userObj.roles), false, new Date().toISOString()];
+    let sql = `INSERT INTO bs3_users(account_type, username, email, roles, external_id, locked, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`;
+    let params = [userObj.account_type, userObj.username, userObj.email, JSON.stringify(userObj.roles), userObj.external_id, false, new Date().toISOString()];
     return [dbHandle, runSql(sql, params, dbHandle)];
   })
   .spread((dbHandle, userRes) => {
@@ -1234,7 +1179,7 @@ DataAccess.prototype.saveApiCredentials = (clientId, salt, hashedSecret, uid) =>
     })
     .fail((err) => {
       if(err && typeof(err.AddToError) === 'function') {
-        deferred.reject(err.AddToError(__filename, 'saeApiCredentials'));
+        deferred.reject(err.AddToError(__filename, 'saveApiCredentials'));
       }
       else {
         let errorObj = new ErrorObj(500,
@@ -1261,24 +1206,62 @@ DataAccess.prototype.saveApiCredentials = (clientId, salt, hashedSecret, uid) =>
   return deferred.promise;
 }
 
+DataAccess.prototype.updateApiCredentials = (clientId, salt, hashedSecret) => {
+  var deferred = Q.defer();
+  if(clientId && salt && hashedSecret && uid) {
+    let sql = 'UPDATE bs3_credentials SET salt = $2, client_secret = $3 WHERE client_id = $1 RETURNING id';
+    let params = [clientId, salt, hashedSecret];
+    DataAccess.prototype.runSql(sql, params)
+    .then((credRes) => {
+      deferred.resolve(credRes);
+    })
+    .fail((err) => {
+      if(err && typeof(err.AddToError) === 'function') {
+        deferred.reject(err.AddToError(__filename, 'updateApiCredentials'));
+      }
+      else {
+        let errorObj = new ErrorObj(500,
+                                  'da3101',
+                                  __filename,
+                                  'updateApiCredentials',
+                                  'problem saving to db',
+                                  'There was a problem saving credentials',
+                                  err);
+        deferred.reject(errorObj);
+      }
+    })
+  }
+  else {
+    let errorObj = new ErrorObj(500,
+                                'da3000',
+                                __filename,
+                                'saveApiCredentials',
+                                'missing args',
+                                'There was a problem saving credentials');
+    deferred.reject(errorObj);
+  }
+
+  return deferred.promise;
+}
+
 DataAccess.prototype.getSession = (sid, tkn) => {
   var deferred = Q.defer();
 
-  let sql = "SELECT * FROM session WHERE";
+  let sql = "SELECT * FROM bs3_sessions WHERE";
   let params = [];
   if(sid) {
-    sql += " data->>'id' = $1";
+    sql += " id = $1";
     params.push(sid);
   }
   else if(tkn) {
-    sql += " data->>'token' = $1";
+    sql += " token = $1";
     params.push(tkn);
   }
 
   runSql(sql, params)
   .then((sessRes) => {
     if(sessRes.length === 1) {
-      deferred.resolve(sessRes[0].data);
+      deferred.resolve(sessRes[0]);
     }
     else if(sessRes.length === 0) {
       deferred.resolve(null);
@@ -1311,21 +1294,22 @@ DataAccess.prototype.getSession = (sid, tkn) => {
 DataAccess.prototype.getUserBySession = (sid, tkn) => {
   var deferred = Q.defer();
 
-  let sql = "SELECT bsuser.* FROM bsuser INNER JOIN bsuser_session bsus ON bsuser.row_id = bsus.left_id INNER JOIN session ON session.row_id = bsus.right_id WHERE";
+  let sql = "SELECT bu.* FROM bs3_users bu JOIN bs3_sessions bs ON bu.id = bs.user_id WHERE bs.ended_at IS NULL AND"
+
   let params = [];
   if(sid) {
-    sql += " session.data->>'id' = $1";
+    sql += " bs.id = $1";
     params.push(sid);
   }
   else if(tkn) {
-    " session.data->>'token' = $1";
+    " bs.token = $1";
     params.push(tkn);
   }
 
   runSql(sql, params)
   .then((sessRes) => {
     if(sessRes.length === 1) {
-      deferred.resolve(sessRes[0].data);
+      deferred.resolve(sessRes[0]);
     }
     else if(sessRes.length === 0) {
       deferred.resolve(null);
@@ -1355,5 +1339,50 @@ DataAccess.prototype.getUserBySession = (sid, tkn) => {
   return deferred.promise;
 }
 
+DataAccess.prototype.attachUserToSession = (uid, sid) => {
+  let deferred = Q.defer();
+
+  let sql = "UPDATE bs3_sessions SET user_id = $1 WHERE id = $2";
+  runSql(sql, [uid, sid])
+  .then((updRes) => {
+    deferred.resolve({success:true});
+  })
+  .fail((err) => {
+    let errorObj = new ErrorObj(500,
+                                'da0090',
+                                __filename,
+                                'attachUserToSession',
+                                'db error',
+                                'There was a problem with your request',
+                                err);
+    deferred.reject(errorObj);
+  });
+
+  return deferred.promise;
+}
+
+DataAccess.prototype.getCredentialsForUser = (userId, connection) => {
+  var deferred = Q.defer();
+
+  let sql = "SELECT * FROM bs3_credentials WHERE user_id = $1 AND deleted_at IS NULL";
+  let params = [userId];
+
+  runSql(sql, params, connection)
+  .then((credRes) => {
+    deferred.resolve(credRes);
+  })
+  .fail((err) => {
+    let errorObj = new ErrorObj(500,
+                                'da0100',
+                                __filename,
+                                'getCredentialsForUser',
+                                'db error',
+                                'There was a problem with your request',
+                                err);
+    deferred.reject(errorObj);
+  });
+
+  return deferred.promise;
+}
 
 exports.DataAccess = DataAccess;

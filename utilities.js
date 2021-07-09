@@ -171,8 +171,8 @@ Utilities.prototype.getUserFromApiToken = function (apiTkn, callback) {
   
   dataAccess.getSession(null, apiTkn)
   .then(function (sessionObj) {
-    if(sessionObj.is_anonymous) {
-      return {'object_type': 'bsuser', 'username': 'anonymous'};
+    if(sessionObj.anonymous) {
+      return {'username': 'anonymous'};
     }
     else {
       return dataAccess.getUserBySession(sessionObj.id);

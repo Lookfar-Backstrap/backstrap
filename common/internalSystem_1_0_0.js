@@ -125,7 +125,6 @@ InternalSystem.prototype.post = {
 			console.log('----------------------------------------------');
 			console.log('');
 
-			// ADD EVENT TO SESSION
 			var resolveObj = {'success': true};
 			deferred.resolve(resolveObj);
 		})
