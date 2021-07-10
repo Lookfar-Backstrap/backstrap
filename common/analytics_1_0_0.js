@@ -28,7 +28,7 @@ Analytics.prototype.post = {
 		var deferred = Q.defer();
 
 		var eventDescriptor = req.body.event_descriptor;
-		var tkn = req.headers[settings.data.token_header];
+		var tkn = req.headers[settings.token_header];
 
 		utilities.logEvent(tkn, eventDescriptor)
 		.then(function(logEvent_res) {

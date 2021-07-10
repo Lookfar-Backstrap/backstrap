@@ -31,7 +31,7 @@ var DataAccess = function (dbConfig, util, settings) {
   
   // IF THERE IS A SERVICES DIRECTORY SPECIFIED IN Settings.json
   // RUN THROUGH IT AND INSTANTIATE EACH SERVICE FILE
-  let serviceDir = settings.data.data_service_directory;
+  let serviceDir = settings.data_service_directory;
   if(serviceDir != null) {
     let services = fs.readdirSync(serviceDir);
     services.forEach((serviceFile) => {

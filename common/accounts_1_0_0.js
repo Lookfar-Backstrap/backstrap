@@ -56,7 +56,7 @@ Accounts.prototype.post = {
         var deferred = Q.defer();
         var body = req.body;
 
-        var apiToken = req.headers[settings.data.token_header] || null;
+        var apiToken = req.headers[settings.token_header] || null;
         accessControl.signIn(body, apiToken)
         .then((res) => {
           deferred.resolve(res);
@@ -71,7 +71,7 @@ Accounts.prototype.post = {
     signUp: function(req, callback) {
         var deferred = Q.defer();
 
-        var apiToken = req.headers[settings.data.token_header] || null;
+        var apiToken = req.headers[settings.token_header] || null;
         // ONLY INITIALIZE A USER WITH 'default-user' ROLE
         if(req.body.roles) req.body.roles = null;
 
@@ -178,7 +178,7 @@ Accounts.prototype.post = {
     signOut: function(req, callback) {
         var deferred = Q.defer();
 
-        var token = req.headers[settings.data.token_header];
+        var token = req.headers[settings.token_header];
         
         dataAccess.getSession(null, token)
         .then(function(session) {

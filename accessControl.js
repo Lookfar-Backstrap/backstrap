@@ -15,7 +15,7 @@ class AccessControl {
     this.utilities = null;
     this.settings = null;
     this.dataAccess = null;
-    this.securityObj = null;
+    this.roles = null;
     this.file = null;
     this.authSigningKey = null;
     this.extension = null;
@@ -27,19 +27,20 @@ class AccessControl {
     this.utilities = util;
     this.settings = s;
     this.dataAccess = d;
-    this.extension = new AccessControlExtension(this, util, s);
+    this.extension = new AccessControlExtension(this);
     this.file = f;
     try {
       if(this.file.substring(0,2) !== './') this.file = './'+this.file;
-      this.securityObj = require(this.file);
-      AccessControl.prototype.data = this.securityObj;
+      let fileData = require(this.file);
+      this.roles = fileData['roles'];
 
-      if(this.settings.data.identity && this.settings.data.identity.provider && this.settings.data.identity.provider.toLowerCase() === 'auth0') {
-        let keyUrl = this.settings.data.identity.key_url || null;
-        let kid = this.settings.data.identity.kid || null;
+      if(this.settings.identity && this.settings.identity.provider && this.settings.identity.provider.toLowerCase() === 'auth0') {
+        let keyUrl = this.settings.identity.key_url || null;
+        let kid = this.settings.identity.kid || null;
         jwt.getKey(keyUrl, kid)
         .then((key) => {
           this.authSigningKey = key;
+          Object.freeze(this);
           deferred.resolve(true);
         })
         .fail((keyErr) => {
@@ -152,8 +153,8 @@ class AccessControl {
 
       // WE HAVE A TOKEN
       if(token) {
-        let keyUrl = this.settings.data.identity.key_url || null;
-        let kid = this.settings.data.identity.kid || null;
+        let keyUrl = this.settings.identity.key_url || null;
+        let kid = this.settings.identity.kid || null;
         jwt.getKey(keyUrl, kid)
         .then((key) => {
           return jwt.verifyToken(token, key);
@@ -232,8 +233,8 @@ class AccessControl {
       var inner_deferred = Q.defer();
 
       // NATIVE SIGNIN -- USE OUR DB
-      if(this.settings.data.identity == null || this.settings.data.identity.length === 0 || 
-        (this.settings.data.identity.provider != null && this.settings.data.identity.provider.toLowerCase() === 'native')) {
+      if(this.settings.identity == null || this.settings.identity.length === 0 || 
+        (this.settings.identity.provider != null && this.settings.identity.provider.toLowerCase() === 'native')) {
         
         AccessControl.prototype.checkCredentials(password, userObj)
         .then(() => {
@@ -245,7 +246,7 @@ class AccessControl {
         });
       }
       // EXTERNAL SIGNIN -- TOKEN HAS ALREADY BEEN CHECKED, JUST PASS ALONG
-      else if(this.settings.data.identity.provider != null && this.settings.data.identity.provider.toLowerCase() === 'auth0') {
+      else if(this.settings.identity.provider != null && this.settings.identity.provider.toLowerCase() === 'auth0') {
         if(token) {
           inner_deferred.resolve(userObj)
         }
@@ -305,7 +306,7 @@ class AccessControl {
         }
     })
     .spread((userObj, tkn) => {
-        userObj[this.settings.data.token_header] = tkn;
+        userObj[this.settings.token_header] = tkn;
         deferred.resolve(userObj);
     })
     .fail((err) => {
@@ -446,9 +447,9 @@ class AccessControl {
 
   save() {
     var deferred = Q.defer();
-	
+    let fileData = { roles: this.roles };
     var fswrite = Q.denodeify(fs.writeFile);
-    fswrite(this.file, JSON.stringify(this.data, null, 4))
+    fswrite(this.file, JSON.stringify(fileData, null, 4))
       .then(function (write_res) {
         deferred.resolve(true);
       })
@@ -748,8 +749,8 @@ class AccessControl {
       for (var roleIdx = 0; roleIdx < userObj.roles.length; roleIdx++) {
         var userRole = userObj.roles[roleIdx];
         allRolesLoop:
-        for (var allRolesIdx = 0; allRolesIdx < this.securityObj.roles.length; allRolesIdx++) {
-          var securityRole = this.securityObj.roles[allRolesIdx];
+        for (var allRolesIdx = 0; allRolesIdx < this.roles.length; allRolesIdx++) {
+          var securityRole = this.roles[allRolesIdx];
 
           if (userRole === securityRole.name) {
 
@@ -818,8 +819,8 @@ class AccessControl {
 
     roleName = roleName.toLowerCase();
     var allRoles = [];
-    for (var rIdx = 0; rIdx < this.securityObj.roles.length; rIdx++) {
-      allRoles.push(this.securityObj.roles[rIdx].name.toLowerCase());
+    for (var rIdx = 0; rIdx < this.roles.length; rIdx++) {
+      allRoles.push(this.roles[rIdx].name.toLowerCase());
     }
 
     if (allRoles.indexOf(roleName) !== -1) {

@@ -27,7 +27,7 @@ var Utilities = function (s) {
 	this.extension = {};
   
   let mailAuth = {};
-  let mo = settings.data.mail_options;
+  let mo = settings.mail_options;
   if(mo) {
     if(mo.user) mailAuth.user = mo.user;
     if(mo.pass) mailAuth.pass = mo.pass;
@@ -271,7 +271,7 @@ Utilities.prototype.sendMail = function (send_to, sbj, bdy, html_bdy, callback) 
 	var deferred = Q.defer();
 
 	var mailOptions = {
-		from: settings.data.mail_options.account,
+		from: settings.mail_options.account,
 		to: send_to,
 		subject: sbj
 	};
@@ -310,7 +310,7 @@ Utilities.prototype.sendMailTemplate = function (send_to, sbj, template_name, ar
 		args = {};
 	}
 
-	var templatePath = path.resolve(__dirname, settings.data.mail_options.template_directory + template_name);
+	var templatePath = path.resolve(__dirname, settings.mail_options.template_directory + template_name);
 	var txtPath = templatePath + '.txt';
 	var htmlPath = templatePath + '.html';
 
@@ -342,7 +342,7 @@ Utilities.prototype.sendMailTemplate = function (send_to, sbj, template_name, ar
 						htmlBody = replaceTemplateValues(html_data, args);
 
 						var mailOptions = {
-							from: settings.data.mail_options.account,
+							from: settings.mail_options.account,
 							to: send_to,
 							subject: sbj,
 							text: txtBody,
@@ -398,7 +398,7 @@ Utilities.prototype.sendMailTemplate = function (send_to, sbj, template_name, ar
 			if (!txt_err) {
 				txtBody = replaceTemplateValues(txt_data, args);
 				var mailOptions = {
-					from: settings.data.mail_options.account,
+					from: settings.mail_options.account,
 					to: send_to,
 					subject: sbj,
 					text: txtBody
@@ -439,7 +439,7 @@ Utilities.prototype.sendMailTemplate = function (send_to, sbj, template_name, ar
 			if (!html_err) {
 				htmlBody = replaceTemplateValues(html_data, args);
 				var mailOptions = {
-					from: settings.data.mail_options.account,
+					from: settings.mail_options.account,
 					to: send_to,
 					subject: sbj,
 					html: htmlBody
@@ -477,7 +477,7 @@ Utilities.prototype.sendMailTemplate = function (send_to, sbj, template_name, ar
 	}
 	else {
 		// WE COULDN'T FIND THIS TEMPLATE.  TRY USING THE DEFAULT
-		templatePath = settings.data.mail_options.template_directory + 'default';
+		templatePath = settings.mail_options.template_directory + 'default';
 		txtPath = templatePath + '.txt';
 		htmlPath = templatePath + '.html';
 		fs.readFile(txtPath, 'utf8', function (txt_err, txt_data) {
@@ -489,7 +489,7 @@ Utilities.prototype.sendMailTemplate = function (send_to, sbj, template_name, ar
 						// FOUND BOTH THE TXT AND HTML DEFAULT TEMPLATES
 						htmlBody = replaceTemplateValues(html_data, args);
 						var mailOptions = {
-							from: settings.data.mail_options.account,
+							from: settings.mail_options.account,
 							to: send_to,
 							subject: sbj,
 							text: txtBody,
@@ -516,7 +516,7 @@ Utilities.prototype.sendMailTemplate = function (send_to, sbj, template_name, ar
 						// FOUND DEFAULT TXT TEMPLATE, BUT NO HTML TEMPLATE
 						txtBody = replaceTemplateValues(txt_data, args);
 						var mailOptions = {
-							from: settings.data.mail_options.account,
+							from: settings.mail_options.account,
 							to: send_to,
 							subject: sbj,
 							text: txtBody
@@ -546,7 +546,7 @@ Utilities.prototype.sendMailTemplate = function (send_to, sbj, template_name, ar
 						// FOUND THE HTML DEFAULT TEMPLATE, BUT NO TXT TEMPLATE
 						htmlBody = replaceTemplateValues(html_data, args);
 						var mailOptions = {
-							from: settings.data.mail_options.account,
+							from: settings.mail_options.account,
 							to: send_to,
 							subject: sbj,
 							html: htmlBody
@@ -637,7 +637,7 @@ Utilities.prototype.invalidateSession = function(sessionObj) {
 
   dataAccess.DeleteSessions([sessionObj.id])
   .then(() => {
-    if(settings.data.session_logging === true) {
+    if(settings.session_logging === true) {
       let dsObj = {
         session_id: sessionObj.id,
         token: sessionObj.token,

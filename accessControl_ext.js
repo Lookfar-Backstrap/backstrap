@@ -1,9 +1,14 @@
 var Q = require('q');
 
-var AccessControlExtension = function(ac, util, s) {
-	this.utilities = util;
-	this.settings = s;
-	this.accessControl = ac;
+class AccessControlExtension {
+  constructor(ac){
+    this.accessControl = ac;
+    this.utilities = ac.utilities;
+    this.settings = ac.settings;
+  }
+
+
 }
 
+var instance
 module.exports = AccessControlExtension;

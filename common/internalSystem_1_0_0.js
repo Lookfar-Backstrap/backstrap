@@ -33,7 +33,7 @@ InternalSystem.prototype.get = {
 	},
 	headerTokenKey: function(req, callback) {
 		var deferred = Q.defer();
-		var tokenKey = settings.data.token_header;
+		var tokenKey = settings.token_header;
 
 		var resolveObj = {"header_token_key": tokenKey};
 		deferred.resolve(resolveObj);

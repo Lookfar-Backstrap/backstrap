@@ -18,7 +18,7 @@ console.log('==================================================');
 
 require('./ErrorObj');
 
-var Settings = require('./settings').Settings;
+var Settings = require('./settings');
 var Endpoints = require('./endpoints').Endpoints;
 var DataAccess = require('./dataAccess').DataAccess;
 var ServiceRegistration = require('./serviceRegistration').ServiceRegistration;
@@ -74,22 +74,21 @@ var sessionLog;
 var accessLog;
 var eventLog;
 
-var settings = new Settings('Settings.json');
 console.log('Settings initialized');
-utilities = new Utilities(settings);
+utilities = new Utilities(Settings);
 console.log('Utilities initialized');
-endpoints = new Endpoints(settings, 'Endpoints_in.json');
+endpoints = new Endpoints(Settings, 'Endpoints_in.json');
 console.log('Endpoints initialized');
-dataAccess = new DataAccess(config, utilities, settings);
+dataAccess = new DataAccess(config, utilities, Settings);
 console.log('DataAccess initialized');
 //NOW SET THE DATA ACCESS VAR IN UTILITIES
 utilities.setDataAccess(dataAccess);
 serviceRegistration = new ServiceRegistration(dataAccess, endpoints);
 console.log('ServiceRegistration initialized');
-AccessControl.init(utilities, settings, dataAccess, 'Security.json')
+AccessControl.init(utilities, Settings, dataAccess, 'Security.json')
 .then(function (aclRes) {
   console.log('AccessControl initialized');
-  mainController = new Controller(dataAccess, utilities, AccessControl, serviceRegistration, settings, endpoints);
+  mainController = new Controller(dataAccess, utilities, AccessControl, serviceRegistration, Settings, endpoints);
   return mainController.init();
 })
 .then(function(cInit) {
@@ -107,14 +106,14 @@ AccessControl.init(utilities, settings, dataAccess, 'Security.json')
   console.log('Log files opened');
 
   // SERVER PORT
-  app.set('port', process.env.PORT || settings.data.server_port);
+  app.set('port', process.env.PORT || Settings.port);
 
   // STARTUP THE SESSION INVALIDATION -- CHECK EVERY X MINUTES
-  var invalidSessionTimer = setInterval(function () { checkForInvalidSessions(dataAccess, settings) }, settings.data.timeout_check * 60000);
+  var invalidSessionTimer = setInterval(function () { checkForInvalidSessions(dataAccess, Settings) }, Settings.timeout_check * 60000);
   
   // EVERYTHING IS INITIALIZED.  RUN ANY INITIALIZATION CODE
   try {
-    require('./onInit').run(dataAccess, utilities, AccessControl, serviceRegistration, settings);
+    require('./onInit').run(dataAccess, utilities, AccessControl, serviceRegistration, Settings);
   }
   catch(onInitErr) {
     if(onInitErr && onInitErr.code === 'MODULE_NOT_FOUND') {
@@ -217,9 +216,9 @@ AccessControl.init(utilities, settings, dataAccess, 'Security.json')
     console.log('');
   });
   
-  if(settings.data.server_timeout != null) server.timeout = parseInt(settings.data.server_timeout);
-  if(settings.data.keep_alive_timeout != null) server.keepAliveTimeout = parseInt(settings.data.keep_alive_timeout);
-  if(settings.data.headers_timeout != null) server.headersTimeout = parseInt(settings.data.headers_timeout);
+  if(Settings.server_timeout != null) server.timeout = parseInt(Settings.server_timeout);
+  if(Settings.keep_alive_timeout != null) server.keepAliveTimeout = parseInt(Settings.keep_alive_timeout);
+  if(Settings.headers_timeout != null) server.headersTimeout = parseInt(Settings.headers_timeout);
 })
 .fail(function (err) {
   console.log('Initialization Failure');
@@ -237,8 +236,8 @@ function requestPipeline(req, res, verb) {
   var controller = params.controller;
   var serviceCall
   if(!params.serviceCall) {
-    if(settings.data.index_service_call != null) {
-      serviceCall = settings.data.index_service_call;
+    if(Settings.index_service_call != null) {
+      serviceCall = Settings.index_service_call;
     }
     else {
       serviceCall = "index";
@@ -272,7 +271,7 @@ function requestPipeline(req, res, verb) {
   var version = params.version;
 
   var accessLogEvent;
-  if(settings.data.access_logging === true) {
+  if(Settings.access_logging === true) {
     var endpointString = area+'/'+controller+'/'+serviceCall+'/'+version;
     var ips = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
     accessLogEvent = {
@@ -291,9 +290,9 @@ function requestPipeline(req, res, verb) {
     }
 
     // IF THERE IS A BACKSTRAP STYLE AUTH HEADER OR NEITHER A BACKSTRAP AUTH HEADER NOR BASIC/BEARER AUTH HEADER 
-    if(req.headers[settings.data.token_header] != null || 
-        (req.headers[settings.data.token_header] == null && req.headers['authorization'] == null)) {
-      return [sc, AccessControl.validateToken(req.headers[settings.data.token_header], continueWhenInvalid)];
+    if(req.headers[Settings.token_header] != null || 
+        (req.headers[Settings.token_header] == null && req.headers['authorization'] == null)) {
+      return [sc, AccessControl.validateToken(req.headers[Settings.token_header], continueWhenInvalid)];
     }
     // OTHERWISE THIS IS BASIC OR BEARER AUTH
     // BASIC AUTH IS BACKSTRAP NATIVE API USERS
@@ -329,7 +328,7 @@ function requestPipeline(req, res, verb) {
 
       // SEE IF THIS IS BACKSTRAP STYLE AUTH OR BASIC/BEARER AUTH
       if(validTokenResponse.hasOwnProperty('session')) {
-        if(settings.data.access_logging === true) accessLogEvent.session_id = validTokenResponse.session.id;
+        if(Settings.access_logging === true) accessLogEvent.session_id = validTokenResponse.session.id;
 
         dataAccess.getUserBySession(validTokenResponse.session.id)
         .then(function(usr) {
@@ -355,7 +354,7 @@ function requestPipeline(req, res, verb) {
         inner_deferred.resolve(validTokenResponse.user);
       }
       else {
-        if(settings.data.access_logging === true) accessLogEvent.client_id = validTokenResponse.client_id;
+        if(Settings.access_logging === true) accessLogEvent.client_id = validTokenResponse.client_id;
 
         dataAccess.getUserByClientId(validTokenResponse.client_id, false)
         .then(function(usr) {
@@ -412,7 +411,7 @@ function requestPipeline(req, res, verb) {
     // IF ACCESS LOGGING IS ENABLED.  ADD THE END TIMESTAMP
     // AND RESPONSE STATUS NUM TO THE ACCESS LOG EVENT AND
     // WRITE IT TO THE LOG
-    if(settings.data.access_logging === true) {
+    if(Settings.access_logging === true) {
       accessLogEvent.end_timestamp = new Date().toISOString();
       accessLogEvent.http_status = 200;
       let logEntry = JSON.stringify(accessLogEvent)+'\n';
@@ -444,7 +443,7 @@ function requestPipeline(req, res, verb) {
     // IF ACCESS LOGGING IS ENABLED.  ADD THE END TIMESTAMP
     // AND RESPONSE STATUS NUM TO THE ACCESS LOG EVENT AND
     // WRITE IT TO THE LOG
-    if(settings.data.access_logging === true) {
+    if(Settings.access_logging === true) {
       accessLogEvent.end_timestamp = new Date().toISOString();
       accessLogEvent.http_status = err.http_status;
       let logEntry = JSON.stringify(accessLogEvent)+'\n';
@@ -476,10 +475,10 @@ function changeErrorLogs() {
   var newErrorLog = fs.createWriteStream(errorLogPath, {flags:'a'});
   var newEventLog = fs.createWriteStream(eventLogPath, {flags:'a'});
   var newAccessLog = null;
-  if(settings.data.access_logging === true)
+  if(Settings.access_logging === true)
     newAccessLog = fs.createWriteStream(accessLogPath, {flags:'a'});
   var newSessionLog = null;
-  if(settings.data.session_logging === true)
+  if(Settings.session_logging === true)
     newSessionLog = fs.createWriteStream(sessionLogPath, {flags:'a'});
 
 
@@ -489,7 +488,7 @@ function changeErrorLogs() {
   if(eventLog != null) eventLog.end();
   eventLog = newEventLog;
 
-  if(settings.data.access_logging === true) {
+  if(Settings.access_logging === true) {
     if(accessLog != null) accessLog.end();
     accessLog = newAccessLog;
   }
@@ -497,7 +496,7 @@ function changeErrorLogs() {
     accessLog = null;
   }
 
-  if(settings.data.session_logging === true) {
+  if(Settings.session_logging === true) {
     if(sessionLog != null) sessionLog.end();
     sessionLog = newSessionLog;
   }
@@ -508,7 +507,7 @@ function changeErrorLogs() {
 
   // DELETE LOGS OLDER THAN today - log_rotation_period
   var evictionDate = new Date();
-  evictionDate.setDate(evictionDate.getDate()-settings.data.log_rotation_period);
+  evictionDate.setDate(evictionDate.getDate()-Settings.log_rotation_period);
   evictionDate.setHours(0,0,0,0);
   fs.readdir('./logs/', (err, files) => {
     if(!err) {
@@ -578,10 +577,10 @@ function printObject(obj) {
 // ----------------------------------------
 // CHECK FOR SESSIONS WHICH HAVE TIMED OUT
 // ----------------------------------------
-function checkForInvalidSessions(dataAccess, settings, callback) {
+function checkForInvalidSessions(dataAccess, Settings, callback) {
 	var deferred = Q.defer();
 	//THIS RETURNS STALE SESSIONS
-	dataAccess.GetDeadSessions(settings.data.timeout, true)
+	dataAccess.GetDeadSessions(Settings.timeout, true)
 	.then(function (deadSessions) {
     let ids = [];
     // IF LOGGING SESSIONS, WRITE OUT THE DEAD SESSIONS TO
@@ -589,7 +588,7 @@ function checkForInvalidSessions(dataAccess, settings, callback) {
     for(var sIdx = 0; sIdx < deadSessions.length; sIdx++) {
       ids.push(deadSessions[sIdx].id);
       
-      if(settings.data.session_logging === true) {
+      if(Settings.session_logging === true) {
         let dsObj = {
           session_id: deadSessions[sIdx].id,
           token: deadSessions[sIdx].token,
