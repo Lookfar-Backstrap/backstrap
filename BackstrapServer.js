@@ -25,7 +25,7 @@ var ServiceRegistration = require('./serviceRegistration').ServiceRegistration;
 var Controller = require('./controller').Controller;		// GETS THE CORRECT WEB SERVICE FILE AND ROUTES CALLS
 var Utilities = require('./utilities').Utilities;
 var AccessControl =  require('./accessControl');
-var schemaControl = require('./schema.js');
+var SchemaControl = require('./schema.js');
 
 // ---------------------------------
 // SETUP EXPRESS
@@ -93,7 +93,8 @@ AccessControl.init(utilities, Settings, dataAccess, 'Security.json')
 })
 .then(function(cInit) {
   console.log('Controller initialized');
-  return schemaControl.updateSchema(config.db.name, config.db.user, config.db.pass, config.db.host, config.db.port, utilities, AccessControl)
+  SchemaControl.init(dataAccess, AccessControl)
+  return SchemaControl.update(config.db.name, config.db.user, config.db.pass, config.db.host, config.db.port)
 })
 .then(function(schemaUpd) {
   // CREATE A LOG DIRECTORY IF NEEDED
