@@ -23,9 +23,9 @@ var Endpoints = require('./endpoints').Endpoints;
 var DataAccess = require('./dataAccess').DataAccess;
 var ServiceRegistration = require('./serviceRegistration').ServiceRegistration;
 var Controller = require('./controller').Controller;		// GETS THE CORRECT WEB SERVICE FILE AND ROUTES CALLS
-var Utilities = require('./utilities').Utilities;
+var Utilities = require('./utilities');
 var AccessControl =  require('./accessControl');
-var SchemaControl = require('./schema.js');
+var SchemaControl = require('./schemaControl.js');
 
 // ---------------------------------
 // SETUP EXPRESS
@@ -58,7 +58,7 @@ if(process.env.DEBUG_MODE != null && (process.env.DEBUG_MODE === true || process
 }
 
 
-//Settings File, contains DB params
+//Config File, contains DB params
 var nodeEnv = process.env.NODE_ENV || 'local';
 var configFile = './dbconfig/dbconfig.' + nodeEnv + '.js';
 var config = require(configFile);
@@ -66,7 +66,6 @@ var config = require(configFile);
 var endpoints;
 var dataAccess;
 var serviceRegistration;
-var utilities;
 var mainController;
 
 var errorLog;
@@ -75,20 +74,20 @@ var accessLog;
 var eventLog;
 
 console.log('Settings initialized');
-utilities = new Utilities(Settings);
+Utilities.init(Settings);
 console.log('Utilities initialized');
 endpoints = new Endpoints(Settings, 'Endpoints_in.json');
 console.log('Endpoints initialized');
-dataAccess = new DataAccess(config, utilities, Settings);
+dataAccess = new DataAccess(config, Utilities, Settings);
 console.log('DataAccess initialized');
 //NOW SET THE DATA ACCESS VAR IN UTILITIES
-utilities.setDataAccess(dataAccess);
+Utilities.setDataAccess(dataAccess);
 serviceRegistration = new ServiceRegistration(dataAccess, endpoints);
 console.log('ServiceRegistration initialized');
-AccessControl.init(utilities, Settings, dataAccess, 'Security.json')
+AccessControl.init(Utilities, Settings, dataAccess, 'Security.json')
 .then(function (aclRes) {
   console.log('AccessControl initialized');
-  mainController = new Controller(dataAccess, utilities, AccessControl, serviceRegistration, Settings, endpoints);
+  mainController = new Controller(dataAccess, Utilities, AccessControl, serviceRegistration, Settings, endpoints);
   return mainController.init();
 })
 .then(function(cInit) {
@@ -103,7 +102,7 @@ AccessControl.init(utilities, Settings, dataAccess, 'Security.json')
   if(!fs.existsSync('./logs')) fs.mkdirSync('./logs');
   
   changeErrorLogs();
-  utilities.setLogs(eventLog, errorLog, sessionLog);
+  Utilities.setLogs(eventLog, errorLog, sessionLog);
   console.log('Log files opened');
 
   // SERVER PORT
@@ -114,7 +113,7 @@ AccessControl.init(utilities, Settings, dataAccess, 'Security.json')
   
   // EVERYTHING IS INITIALIZED.  RUN ANY INITIALIZATION CODE
   try {
-    require('./onInit').run(dataAccess, utilities, AccessControl, serviceRegistration, Settings);
+    require('./onInit').run(dataAccess, Utilities, AccessControl, serviceRegistration, Settings);
   }
   catch(onInitErr) {
     if(onInitErr && onInitErr.code === 'MODULE_NOT_FOUND') {

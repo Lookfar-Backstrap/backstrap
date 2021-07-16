@@ -18,16 +18,16 @@ class SchemaControl {
 		this.#checkDbExists(name, user, pass, host, port)
 			.then(function () {
 				return this.dataAccess.getDbConnection();
-			})
+			}.bind(this))
 			.then(function (connection) {
 				return [connection, this.#createInitialTables(connection)];
-			})
+			}.bind(this))
 			.spread(function (connection, res) {
 				return [res, this.dataAccess.closeDbConnection(connection)];
-			})
+			}.bind(this))
 			.spread(function (commit_res) {
 				return [this.#createDefaultUser()];
-			})
+			}.bind(this))
 			.then(function (res) {
 				deferred.resolve(res);
 			})

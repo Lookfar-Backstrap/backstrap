@@ -109,5 +109,5 @@ class Settings {
   }
 }
 
-let instance = new Settings();
-exports.Settings = instance;
+const instance = new Settings();
+module.exports = instance;
