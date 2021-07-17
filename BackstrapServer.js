@@ -19,9 +19,9 @@ console.log('==================================================');
 require('./ErrorObj');
 
 var Settings = require('./settings');
-var Endpoints = require('./endpoints').Endpoints;
+var Endpoints = require('./endpoints');
 var DataAccess = require('./dataAccess').DataAccess;
-var ServiceRegistration = require('./serviceRegistration').ServiceRegistration;
+var ServiceRegistration = require('./serviceRegistration');
 var Controller = require('./controller').Controller;		// GETS THE CORRECT WEB SERVICE FILE AND ROUTES CALLS
 var Utilities = require('./utilities');
 var AccessControl =  require('./accessControl');
@@ -63,9 +63,7 @@ var nodeEnv = process.env.NODE_ENV || 'local';
 var configFile = './dbconfig/dbconfig.' + nodeEnv + '.js';
 var config = require(configFile);
 
-var endpoints;
 var dataAccess;
-var serviceRegistration;
 var mainController;
 
 var errorLog;
@@ -76,18 +74,18 @@ var eventLog;
 console.log('Settings initialized');
 Utilities.init(Settings);
 console.log('Utilities initialized');
-endpoints = new Endpoints(Settings, 'Endpoints_in.json');
+Endpoints.init(Settings);
 console.log('Endpoints initialized');
 dataAccess = new DataAccess(config, Utilities, Settings);
 console.log('DataAccess initialized');
 //NOW SET THE DATA ACCESS VAR IN UTILITIES
 Utilities.setDataAccess(dataAccess);
-serviceRegistration = new ServiceRegistration(dataAccess, endpoints);
+ServiceRegistration.init(Endpoints);
 console.log('ServiceRegistration initialized');
 AccessControl.init(Utilities, Settings, dataAccess, 'Security.json')
 .then(function (aclRes) {
   console.log('AccessControl initialized');
-  mainController = new Controller(dataAccess, Utilities, AccessControl, serviceRegistration, Settings, endpoints);
+  mainController = new Controller(dataAccess, Utilities, AccessControl, ServiceRegistration, Settings, Endpoints);
   return mainController.init();
 })
 .then(function(cInit) {
@@ -113,7 +111,7 @@ AccessControl.init(Utilities, Settings, dataAccess, 'Security.json')
   
   // EVERYTHING IS INITIALIZED.  RUN ANY INITIALIZATION CODE
   try {
-    require('./onInit').run(dataAccess, Utilities, AccessControl, serviceRegistration, Settings);
+    require('./onInit').run(dataAccess, Utilities, AccessControl, ServiceRegistration, Settings);
   }
   catch(onInitErr) {
     if(onInitErr && onInitErr.code === 'MODULE_NOT_FOUND') {
@@ -282,7 +280,7 @@ function requestPipeline(req, res, verb) {
     };
   }
 
-  serviceRegistration.serviceCallExists(serviceCall, area, controller, verb, version)
+  ServiceRegistration.serviceCallExists(serviceCall, area, controller, verb, version)
   .then(function (sc) {
     let continueWhenInvalid = false;
     if (!sc.authRequired) {
@@ -396,7 +394,7 @@ function requestPipeline(req, res, verb) {
     }
   })
   .spread(function (sc, validTokenResponse) {
-    return [sc, validTokenResponse, serviceRegistration.validateArguments(serviceCall, area, controller, verb, version, args)];
+    return [sc, validTokenResponse, ServiceRegistration.validateArguments(serviceCall, area, controller, verb, version, args)];
   })
   .spread(function (sc, validTokenResponse) {
     return [validTokenResponse, mainController.resolveServiceCall(sc, req)];

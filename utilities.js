@@ -87,7 +87,7 @@ class Utilities {
   setDataAccess(da) {
     this.dataAccess = da;
     if(this.extension !== undefined && this.extension !== null) {
-      this.extension = new UtilitiesExtension(this, da, this.settings);
+      this.extension = new UtilitiesExtension(this);
     }
   }
 

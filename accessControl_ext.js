@@ -10,5 +10,4 @@ class AccessControlExtension {
 
 }
 
-var instance
 module.exports = AccessControlExtension;

@@ -22,11 +22,11 @@ var init = () => {
 
   let hasErrors = false;
   controllers = {};
-  var areas = Object.keys(endpoints.data);
-	for(var aIdx = 0; aIdx < areas.length; aIdx++) {
-		var areaName = areas[aIdx];
+  var areaNames = Object.keys(endpoints.areas);
+	for(var aIdx = 0; aIdx < areaNames.length; aIdx++) {
+		var areaName = areaNames[aIdx];
     controllers[areaName] = {};
-		var controllerArray = endpoints.data[areas[aIdx]];
+		var controllerArray = endpoints.areas[areaNames[aIdx]];
 		for(var cIdx = 0; cIdx < controllerArray.length; cIdx++) {
 			var controllerObj = controllerArray[cIdx];
 			var controllerName = controllerObj.name;

@@ -1,9 +1,11 @@
 var Q = require('q');
 
-var UtilitiesExtension = function(u, da, s) {
-	this.dataAccess = da;
-	this.settings = s;
-	this.utilities = u;
+class UtilitiesExtension {
+  constructor(u) {
+    this.utilities = u;
+    this.dataAccess = u.dataAccess;
+    this.settings = u.settings;
+  }
 }
 
 module.exports = UtilitiesExtension;
