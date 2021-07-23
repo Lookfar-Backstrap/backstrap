@@ -20,9 +20,9 @@ require('./ErrorObj');
 
 var Settings = require('./settings');
 var Endpoints = require('./endpoints');
-var DataAccess = require('./dataAccess').DataAccess;
+var DataAccess = require('./dataAccess');
 var ServiceRegistration = require('./serviceRegistration');
-var Controller = require('./controller').Controller;		// GETS THE CORRECT WEB SERVICE FILE AND ROUTES CALLS
+var Controller = require('./controller');		// GETS THE CORRECT WEB SERVICE FILE AND ROUTES CALLS
 var Utilities = require('./utilities');
 var AccessControl =  require('./accessControl');
 var SchemaControl = require('./schemaControl.js');
@@ -63,9 +63,6 @@ var nodeEnv = process.env.NODE_ENV || 'local';
 var configFile = './dbconfig/dbconfig.' + nodeEnv + '.js';
 var config = require(configFile);
 
-var dataAccess;
-var mainController;
-
 var errorLog;
 var sessionLog;
 var accessLog;
@@ -76,21 +73,20 @@ Utilities.init(Settings);
 console.log('Utilities initialized');
 Endpoints.init(Settings);
 console.log('Endpoints initialized');
-dataAccess = new DataAccess(config, Utilities, Settings);
+DataAccess.init(config, Utilities, Settings);
 console.log('DataAccess initialized');
 //NOW SET THE DATA ACCESS VAR IN UTILITIES
-Utilities.setDataAccess(dataAccess);
+Utilities.setDataAccess(DataAccess);
 ServiceRegistration.init(Endpoints);
 console.log('ServiceRegistration initialized');
-AccessControl.init(Utilities, Settings, dataAccess, 'Security.json')
+AccessControl.init(Utilities, Settings, DataAccess, 'Security.json')
 .then(function (aclRes) {
   console.log('AccessControl initialized');
-  mainController = new Controller(dataAccess, Utilities, AccessControl, ServiceRegistration, Settings, Endpoints);
-  return mainController.init();
+  return Controller.init(DataAccess, Utilities, AccessControl, ServiceRegistration, Settings, Endpoints);
 })
 .then(function(cInit) {
   console.log('Controller initialized');
-  SchemaControl.init(dataAccess, AccessControl)
+  SchemaControl.init(DataAccess, AccessControl)
   return SchemaControl.update(config.db.name, config.db.user, config.db.pass, config.db.host, config.db.port)
 })
 .then(function(schemaUpd) {
@@ -107,11 +103,11 @@ AccessControl.init(Utilities, Settings, dataAccess, 'Security.json')
   app.set('port', process.env.PORT || Settings.port);
 
   // STARTUP THE SESSION INVALIDATION -- CHECK EVERY X MINUTES
-  var invalidSessionTimer = setInterval(function () { checkForInvalidSessions(dataAccess, Settings) }, Settings.timeout_check * 60000);
+  var invalidSessionTimer = setInterval(function () { checkForInvalidSessions(DataAccess, Settings) }, Settings.timeout_check * 60000);
   
   // EVERYTHING IS INITIALIZED.  RUN ANY INITIALIZATION CODE
   try {
-    require('./onInit').run(dataAccess, Utilities, AccessControl, ServiceRegistration, Settings);
+    require('./onInit').run(DataAccess, Utilities, AccessControl, ServiceRegistration, Settings);
   }
   catch(onInitErr) {
     if(onInitErr && onInitErr.code === 'MODULE_NOT_FOUND') {
@@ -328,7 +324,7 @@ function requestPipeline(req, res, verb) {
       if(validTokenResponse.hasOwnProperty('session')) {
         if(Settings.access_logging === true) accessLogEvent.session_id = validTokenResponse.session.id;
 
-        dataAccess.getUserBySession(validTokenResponse.session.id)
+        DataAccess.getUserBySession(validTokenResponse.session.id)
         .then(function(usr) {
           inner_deferred.resolve(usr);
         })
@@ -354,7 +350,7 @@ function requestPipeline(req, res, verb) {
       else {
         if(Settings.access_logging === true) accessLogEvent.client_id = validTokenResponse.client_id;
 
-        dataAccess.getUserByClientId(validTokenResponse.client_id, false)
+        DataAccess.getUserByClientId(validTokenResponse.client_id, false)
         .then(function(usr) {
           inner_deferred.resolve(usr);
         })
@@ -397,13 +393,13 @@ function requestPipeline(req, res, verb) {
     return [sc, validTokenResponse, ServiceRegistration.validateArguments(serviceCall, area, controller, verb, version, args)];
   })
   .spread(function (sc, validTokenResponse) {
-    return [validTokenResponse, mainController.resolveServiceCall(sc, req)];
+    return [validTokenResponse, Controller.resolveServiceCall(sc, req)];
   })
   .spread(function (validTokenResponse, results) {
     if(validTokenResponse.session != null) {
       let session = validTokenResponse.session;
       session.last_touch = new Date().toISOString();
-      dataAccess.updateJsonbField('session', 'data', session, `data->>'id' = '${session.id}'`).then()
+      DataAccess.updateJsonbField('session', 'data', session, `data->>'id' = '${session.id}'`).then()
     }
 
     // IF ACCESS LOGGING IS ENABLED.  ADD THE END TIMESTAMP
@@ -575,10 +571,10 @@ function printObject(obj) {
 // ----------------------------------------
 // CHECK FOR SESSIONS WHICH HAVE TIMED OUT
 // ----------------------------------------
-function checkForInvalidSessions(dataAccess, Settings, callback) {
+function checkForInvalidSessions(DataAccess, Settings, callback) {
 	var deferred = Q.defer();
 	//THIS RETURNS STALE SESSIONS
-	dataAccess.GetDeadSessions(Settings.timeout, true)
+	DataAccess.GetDeadSessions(Settings.timeout, true)
 	.then(function (deadSessions) {
     let ids = [];
     // IF LOGGING SESSIONS, WRITE OUT THE DEAD SESSIONS TO
@@ -600,7 +596,7 @@ function checkForInvalidSessions(dataAccess, Settings, callback) {
     }
 
     if(ids.length > 0) {
-      dataAccess.DeleteSessions(ids)
+      DataAccess.DeleteSessions(ids)
       .then(function(res) {
         deferred.resolve();
       })

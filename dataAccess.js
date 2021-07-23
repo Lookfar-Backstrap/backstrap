@@ -6,9 +6,6 @@ const Stream = require('stream');
 
 var DataAccessExtension = require('./dataAccess_ext.js');
 
-var utilities;
-var pool;
-
 
 class DataAccess {
   #pool = null;
@@ -30,11 +27,11 @@ class DataAccess {
       max: dbConfig.db.max_connections || 1000
     });
 
-    this.extension = new DataAccessExtension(this, dbConfig);
+    this.extension = new DataAccessExtension(this);
   
   // IF THERE IS A SERVICES DIRECTORY SPECIFIED IN Settings.json
   // RUN THROUGH IT AND INSTANTIATE EACH SERVICE FILE
-  let serviceDir = settings.data_service_directory;
+  let serviceDir = this.settings.data_service_directory;
   if(serviceDir != null) {
     let services = fs.readdirSync(serviceDir);
     services.forEach((serviceFile) => {
@@ -53,7 +50,7 @@ class DataAccess {
   }
   }
 
-  CheckForDatabase(db_name, callback) {
+  CheckForDatabase(db_name) {
     var deferred = Q.defer();
     
     var qry_params = [];
@@ -70,17 +67,16 @@ class DataAccess {
       deferred.resolve(false);
     })
   
-    deferred.promise.nodeify(callback);
     return deferred.promise;
   }
 
-  CreateDatabase(db_name, callback) {
+  CreateDatabase(db_name) {
     var deferred = Q.defer();
     
     var qryString = 'CREATE DATABASE ' + db_name;
     var qryParams = [];
     
-    ExecutePostgresQuery(qryString, qryParams, null)
+    this.ExecutePostgresQuery(qryString, qryParams, null)
     .then(res => {
       deferred.resolve(res);
     })
@@ -88,15 +84,14 @@ class DataAccess {
       deferred.resolve(err);
     })
   
-    deferred.promise.nodeify(callback);
     return deferred.promise;
   }
 
   // START A CONNECTION TO THE DATABASE TO USE FUNCTIONS 
-  getDbConnection(callback) {
+  getDbConnection() {
     var deferred = Q.defer();
 
-    pool.connect((err, client, done) => {
+    this.#pool.connect((err, client, done) => {
       if (!err) {
         deferred.resolve({ 'client': client, 'release': done, 'transactional': false, 'results': [], isReleased: false });
       }
@@ -113,12 +108,11 @@ class DataAccess {
       }
     });
 
-    deferred.promise.nodeify(callback);
     return deferred.promise;
   }
 
   // CLOSE A CONNECTION TO THE DATABASE AFTER USING FUNCTIONS
-  closeDbConnection(connection, callback) {
+  closeDbConnection(connection) {
     var deferred = Q.defer();
     if(connection != null && !connection.isReleased) {
       try {
@@ -142,15 +136,14 @@ class DataAccess {
       deferred.resolve(true);
     }
 
-    deferred.promise.nodeify(callback);
     return deferred.promise;
   }
 
   // GET A CONNECTION TO THE DATABASE AND START A TRANSACTION
-  startTransaction(callback) {
+  startTransaction() {
     var deferred = Q.defer();
 
-    getDbConnection()
+    this.getDbConnection()
     .then(function (connection) {
       //SET TRANSACTIONAL
       connection['transactional'] = true;
@@ -181,12 +174,11 @@ class DataAccess {
       deferred.reject(errorObj);
     });
 
-    deferred.promise.nodeify(callback);
     return deferred.promise;
   }
 
   // COMMIT A TRANSACTION AND CLOSE THE DATABASE CONNECTION
-  commitTransaction(connection, callback) {
+  commitTransaction(connection) {
     var deferred = Q.defer();
 
     connection.client.query('COMMIT', (err) => {
@@ -199,7 +191,7 @@ class DataAccess {
           'Database error',
           err
         );
-        releaseConnection(connection);
+        this.releaseConnection(connection);
         deferred.reject(errorObj);
       }
       else {
@@ -216,12 +208,11 @@ class DataAccess {
       }
     });
 
-    deferred.promise.nodeify(callback);
     return deferred.promise;
   }
 
   // ROLLBACK A TRANSACTION AND CLOSE THE DATABASE CONNECTION
-  rollbackTransaction(connection, callback) {
+  rollbackTransaction(connection) {
     var deferred = Q.defer();
 
     if(connection != null && !connection.isReleased) {
@@ -291,16 +282,15 @@ class DataAccess {
       deferred.resolve();
     }
 
-    deferred.promise.nodeify(callback);
     return deferred.promise;
   }
 
   // THIS FUNCTION IS USED SO ONE FUNCTION CAN RESOLVE THE CURRENT CONNECTION STATE AND RETURN A CONNECTION
-  resolveDbConnection(connection, callback) {
+  resolveDbConnection(connection) {
     var deferred = Q.defer();
     
     if(connection == null) {
-      getDbConnection()
+      this.getDbConnection()
       .then(function(db_connection) {
         deferred.resolve(db_connection);
       })
@@ -320,7 +310,6 @@ class DataAccess {
       deferred.resolve(connection);
     }
 
-    deferred.promise.nodeify(callback);
     return deferred.promise;
   }
 
@@ -330,7 +319,7 @@ class DataAccess {
 
     if(connection != null && !connection.isReleased) {
       if(connection.transactional) {
-        rollbackTransaction(connection)
+        this.rollbackTransaction(connection)
         .then(function(rollback_res) {
           delete connection.transactional;
           deferred.resolve();
@@ -373,7 +362,7 @@ class DataAccess {
   // ================================================================================
   //THIS FUNCTION GLOBALIZES ALL QUERIES (SELECT) AND NON QUERIES (INSERT UPDATE DELETE ETC)
   //CONDITIONALLY CREATES AND DESTROYS CONNECTIONS DEPENDING IF THEY ARE TRANSACTIONAL OR NOT
-  ExecutePostgresQuery(query, params, connection, isStreaming, callback) {
+  ExecutePostgresQuery(query, params, connection, isStreaming) {
     var deferred = Q.defer();
     var pg_query = query;
     //THE QUERY CONFIG OBJECT DOES NOT WORK IF THERE IS AN EMPTY ARRAY OF PARAMS
@@ -384,7 +373,9 @@ class DataAccess {
       }
     }
 
-    resolveDbConnection(connection)
+    var that = this;
+
+    this.resolveDbConnection(connection)
     .then(function(db_connection) {
 
       // PERFORM THE QUERY
@@ -397,7 +388,7 @@ class DataAccess {
           // THIS IS A ONE-OFF AND WE MUST SHUT DOWN THE CONNECTION WE MADE
           // BEFORE RETURNING THE RESULTS
           if(connection == null) {
-            releaseConnection(db_connection)
+            that.releaseConnection(db_connection)
             .then(function() {
               deferred.resolve(db_connection);
             });
@@ -436,7 +427,7 @@ class DataAccess {
             // IF THIS IS PART OF A TRANSACTIONAL SEQUENCE, WE NEED TO ROLL BACK
             // AND FAIL OUT
             if(db_connection.transactional) {
-              rollbackTransaction(db_connection)
+              this.rollbackTransaction(db_connection)
               .then(function(rollback_res) {
                 var errorObj = new ErrorObj(500,
                               'da0502',
@@ -505,7 +496,7 @@ class DataAccess {
 
         stream.on('error', (streamErr) => {
           if(db_connection.transactional === true) {
-            rollbackTransaction(db_connection)
+            this.rollbackTransaction(db_connection)
             .finally(function() {
               outStream.destroy(streamErr);
             });
@@ -538,7 +529,6 @@ class DataAccess {
       deferred.reject(errorObj);
     });
 
-    deferred.promise.nodeify(callback);
     return deferred.promise;
   }
 
@@ -546,7 +536,7 @@ class DataAccess {
   runSql(sqlStatement, params, connection, isStreaming) {
     var deferred = Q.defer();
     
-    ExecutePostgresQuery(sqlStatement, params, connection, isStreaming)
+    this.ExecutePostgresQuery(sqlStatement, params, connection, isStreaming)
     .then(function (connection) {
       deferred.resolve(connection.results);
     })
@@ -569,13 +559,13 @@ class DataAccess {
     return deferred.promise;
   }
 
-  GetDeadSessions(timeOut, markAsEnded, callback) {
+  GetDeadSessions(timeOut, markAsEnded) {
     var deferred = Q.defer();
     var minutes = "'" + timeOut + " minutes'";
     var qry = "select * from bs3_sessions where last_touch < (NOW() - INTERVAL " + minutes + ")";
     var qry_params = [];
     if(markAsEnded) qry = "UPDATE bs3_sessions SET ended_at = NOW() WHERE last_touch < (NOW() - INTERVAL " + minutes + ") RETURNING *";
-    ExecutePostgresQuery(qry, qry_params, null)
+    this.ExecutePostgresQuery(qry, qry_params, null)
     .then(function (connection) {
       deferred.resolve(connection.results);
     })
@@ -583,15 +573,14 @@ class DataAccess {
       deferred.reject(err.AddToError(__filename, 'GetDeadSessions'));
     });
   
-    deferred.promise.nodeify(callback);
     return deferred.promise;
   }
 
-  DeleteSessions(dsIds, callback) {
+  DeleteSessions(dsIds) {
     var deferred = Q.defer();
   
     let qry = "DELETE FROM bs3_sessions WHERE ids = ANY($1)";
-    ExecutePostgresQuery(qry, [dsIds])
+    this.ExecutePostgresQuery(qry, [dsIds])
     .then((delRes) => {
       deferred.resolve();
     })
@@ -599,11 +588,10 @@ class DataAccess {
       deferred.reject(err);
     });
   
-    deferred.promise.nodeify(callback);
     return deferred.promise;
   }
 
-  findUser(id, username, email, connection, callback) {
+  findUser(id, username, email, connection) {
     var deferred = Q.defer();
   
     if(!id) id = null;
@@ -614,7 +602,7 @@ class DataAccess {
       let sql = "SELECT * FROM bs3_users WHERE (id = $1 OR LOWER(username) = LOWER($2) OR LOWER(email) = LOWER($3)) AND deleted_at IS NULL";
       let params = [id, username, email];
   
-      ExecutePostgresQuery(sql, params, connection)
+      this.ExecutePostgresQuery(sql, params, connection)
       .then((userRes) => {
         deferred.resolve(userRes.results)
       })
@@ -639,7 +627,6 @@ class DataAccess {
       deferred.resolve(null);
     }
     
-    deferred.promise.nodeify(callback);
     return deferred.promise;
   }
 
@@ -647,7 +634,7 @@ class DataAccess {
     var deferred = Q.defer();
   
     let sql = "SELECT * FROM bs3_users WHERE deleted_at IS NULL";
-    runSql(sql,[],connection)
+    this.runSql(sql,[],connection)
     .then((userRes) => {
       deferred.resolve(userRes.map(u => u.data));
     })
@@ -712,7 +699,7 @@ class DataAccess {
     var deferred = Q.defer();
   
     let sql = "SELECT token FROM bs3_sessions WHERE ended_at IS NULL";
-    runSql(sql, [])
+    this.runSql(sql, [])
     .then((tokenRes) => {
       deferred.resolve(tokenRes.map(tknObj => tknObj.token));
     })
@@ -730,7 +717,7 @@ class DataAccess {
     let sql = "INSERT INTO bs3_sessions(token, user_id, client_info, anonymous, created_at, last_touch) VALUES($1, $2, $3, $4, NOW(), NOW()) RETURNING *";
     let params = [token, userId, clientInfo, isAnonymous]
   
-    runSql(sql, params, connection)
+    this.runSql(sql, params, connection)
     .then((sessRes) => {
       deferred.resolve(sessRes[0]);
     })
@@ -747,7 +734,7 @@ class DataAccess {
     if(id) {
       var qry = "SELECT * FROM bs3_users WHERE id = $1 AND deleted_at IS NULL";
       var qry_params = [id];
-      ExecutePostgresQuery(qry, qry_params, connection)
+      this.ExecutePostgresQuery(qry, qry_params, connection)
       .then(function (connection) {
         if (connection.results.length === 0) {
           var errorObj = new ErrorObj(404,
@@ -796,7 +783,7 @@ class DataAccess {
     if(username) {
       var qry = "SELECT * FROM bs3_users WHERE LOWER(username) = LOWER($1) AND deleted_at IS NULL";
       var qry_params = [username];
-      ExecutePostgresQuery(qry, qry_params, connection)
+      this.ExecutePostgresQuery(qry, qry_params, connection)
       .then(function (connection) {
         if (connection.results.length === 0) {
           var errorObj = new ErrorObj(404,
@@ -845,7 +832,7 @@ class DataAccess {
     if(email) {
       var qry = "SELECT * FROM bs3_users WHERE LOWER(email) = LOWER($1) AND deleted_at IS NULL";
       var qry_params = [email];
-      ExecutePostgresQuery(qry, qry_params, connection)
+      this.ExecutePostgresQuery(qry, qry_params, connection)
       .then(function (connection) {
         if (connection.results.length === 0) {
           var errorObj = new ErrorObj(404,
@@ -895,7 +882,7 @@ class DataAccess {
       if(includeCreds) qry += ", creds.salt, creds.client_secret"; 
       qry += " FROM bs3_users usr JOIN bs3_credentials creds WHERE creds.client_id = $1 AND deleted_at IS NULL";
       var qry_params = [cid];
-      ExecutePostgresQuery(qry, qry_params, connection)
+      this.ExecutePostgresQuery(qry, qry_params, connection)
       .then(function (connection) {
         if (connection.results.length === 0) {
           var errorObj = new ErrorObj(404,
@@ -942,7 +929,7 @@ class DataAccess {
   
     let sql = "SELECT * FROM bs3_users WHERE external_id = $1 AND deleted_at IS NULL";
     let params = [exid];
-    runSql(sql, params, connection)
+    this.runSql(sql, params, connection)
     .then((usersRes) => {
       if (usersRes.length === 0) {
         let errorObj = new ErrorObj(404,
@@ -991,7 +978,7 @@ class DataAccess {
     if(fptkn) {
       var qry = "SELECT * FROM bs3_users bu INNER JOIN bs3_credentials bc ON bc.user_id = bu.id WHERE bc.forgot_password_tokens ? $1 AND deleted_at IS NULL";
       var qry_params = [fptkn];
-      ExecutePostgresQuery(qry, qry_params, connection)
+      this.ExecutePostgresQuery(qry, qry_params, connection)
       .then(function (connection) {
         if (connection.results.length === 0) {
           var errorObj = new ErrorObj(404,
@@ -1039,7 +1026,7 @@ class DataAccess {
     let sql = "UPDATE bs3_users SET deleted_at = NOW() WHERE id = $1 RETURNING id";
     let params = [uid];
   
-    runSql(sql, params, connection)
+    this.runSql(sql, params, connection)
     .then((delRes) => {
       if(delRes.length > 0) {
         deferred.resolve({success: true});
@@ -1069,7 +1056,7 @@ class DataAccess {
     .then((dbHandle) => {
       let sql = `INSERT INTO bs3_users(account_type, username, email, roles, external_id, locked, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`;
       let params = [userObj.account_type, userObj.username, userObj.email, JSON.stringify(userObj.roles), userObj.external_id, false, new Date().toISOString()];
-      return [dbHandle, runSql(sql, params, dbHandle)];
+      return [dbHandle, this.runSql(sql, params, dbHandle)];
     })
     .spread((dbHandle, userRes) => {
       let sql = `INSERT INTO bs3_credentials(salt, password, client_id, client_secret, created_at, user_id) VALUES($1, $2, $3, $4, $5, $6)`;
@@ -1077,7 +1064,7 @@ class DataAccess {
       let outUsr = userRes[0];
       if(userObj.client_id) outUsr['client_id'] = userObj.client_id;
       if(userObj.client_id) outUsr['client_secret'] = userObj.client_secret;
-      return [dbHandle, outUsr, runSql(sql, params, dbHandle)];
+      return [dbHandle, outUsr, this.runSql(sql, params, dbHandle)];
     })
     .spread((dbHandle, usr, credRes) => {
       return [usr, commitTransaction(dbHandle)];
@@ -1114,7 +1101,7 @@ class DataAccess {
     sql += ` RETURNING *`;
     let params = [JSON.stringify(updateObj)];
   
-    runSql(sql, params)
+    this.runSql(sql, params)
     .then((updRes) => {
       deferred.resolve(updRes);
     })
@@ -1130,7 +1117,7 @@ class DataAccess {
     if(clientId && salt && hashedSecret && uid) {
       let sql = 'INSERT INTO bs3_credentials(client_id, salt, client_secret, user_id) VALUES($1, $2, $3, $4) RETURNING *';
       let params = [clientId, salt, hashedSecret, uid];
-      DataAccess.prototype.runSql(sql, params)
+      this.runSql(sql, params)
       .then((credRes) => {
         deferred.resolve(credRes);
       })
@@ -1168,7 +1155,7 @@ class DataAccess {
     if(clientId && salt && hashedSecret && uid) {
       let sql = 'UPDATE bs3_credentials SET salt = $2, client_secret = $3 WHERE client_id = $1 RETURNING id';
       let params = [clientId, salt, hashedSecret];
-      DataAccess.prototype.runSql(sql, params)
+      this.runSql(sql, params)
       .then((credRes) => {
         deferred.resolve(credRes);
       })
@@ -1215,7 +1202,7 @@ class DataAccess {
       params.push(tkn);
     }
   
-    runSql(sql, params)
+    this.runSql(sql, params)
     .then((sessRes) => {
       if(sessRes.length === 1) {
         deferred.resolve(sessRes[0]);
@@ -1263,7 +1250,7 @@ class DataAccess {
       params.push(tkn);
     }
   
-    runSql(sql, params)
+    this.runSql(sql, params)
     .then((sessRes) => {
       if(sessRes.length === 1) {
         deferred.resolve(sessRes[0]);
@@ -1300,7 +1287,7 @@ class DataAccess {
     let deferred = Q.defer();
   
     let sql = "UPDATE bs3_sessions SET user_id = $1 WHERE id = $2";
-    runSql(sql, [uid, sid])
+    this.runSql(sql, [uid, sid])
     .then((updRes) => {
       deferred.resolve({success:true});
     })
@@ -1324,7 +1311,7 @@ class DataAccess {
     let sql = "SELECT * FROM bs3_credentials WHERE user_id = $1 AND deleted_at IS NULL";
     let params = [userId];
   
-    runSql(sql, params, connection)
+    this.runSql(sql, params, connection)
     .then((credRes) => {
       deferred.resolve(credRes);
     })
@@ -1342,7 +1329,6 @@ class DataAccess {
     return deferred.promise;
   }
 }
-
 
 const instance = new DataAccess();
 module.exports = instance;

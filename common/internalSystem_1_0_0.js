@@ -1,27 +1,38 @@
 // ===============================================================================
 // INTERNAL SYSTEM WEB SERVICE CALLS v1.0.0
 // ===============================================================================
-var dataAccess;
-var utilities;
-var accessControl;
-var serviceRegistration;
-var settings;
-var models;
 var Q = require('q');
 var os = require('os');
 var fs = require('fs')
 
-var InternalSystem = function(da, utils, ac, sr, st) {
-	dataAccess = da;
-	utilities = utils;
-	accessControl = ac;
-	serviceRegistration = sr;
-	settings = st;
-};
+class InternalSystem {
+  constructor(da, utils, ac, sr, st) {
+    this.dataAccess = da;
+    this.utilities = utils;
+    this.accessControl = ac;
+    this.serviceRegistration = sr;
+    this.settings = st;
 
-InternalSystem.prototype.get = {
-	version: function(req, callback) {
-		var deferred = Q.defer();
+    this.get = {
+      version: this.#version,
+      headerTokenKey: this.#headerTokenKey,
+      health: this.#health,
+      endpoint: this.#endpoint
+    };
+    this.post = {
+      reload: this.#reload,
+      endpoint: this.#post_endpoint
+    };
+    this.patch = {
+      endpoint: this.#patch_endpoint
+    };
+    this.delete = {
+      endpoint: this.#delete_endpoint
+    };
+  }
+
+  #version(req, callback) {
+    var deferred = Q.defer();
 		var pkgJson = JSON.parse(fs.readFileSync('package.json', 'utf8'))
 		var version = pkgJson.version;
 		
@@ -30,8 +41,9 @@ InternalSystem.prototype.get = {
 
 		deferred.promise.nodeify(callback);
 		return deferred.promise;
-	},
-	headerTokenKey: function(req, callback) {
+  }
+
+  #headerTokenKey(req, callback) {
 		var deferred = Q.defer();
 		var tokenKey = settings.token_header;
 
@@ -40,8 +52,9 @@ InternalSystem.prototype.get = {
 
 		deferred.promise.nodeify(callback);
 		return deferred.promise;
-	},
-	endpoint: function(req, callback) {
+	}
+
+  #endpoint(req, callback) {
 		var deferred = Q.defer();
 		serviceRegistration.getAllServiceCalls()
 		.then(function(serviceCalls) {
@@ -68,8 +81,9 @@ InternalSystem.prototype.get = {
 
 		deferred.promise.nodeify(callback);
 		return deferred.promise;
-	},
-	health: function(req, callback) {
+	}
+
+  #health(req, callback) {
 		var deferred = Q.defer();
 
 		var interfaces = os.networkInterfaces();
@@ -95,10 +109,8 @@ InternalSystem.prototype.get = {
 		deferred.promise.nodeify(callback);
 		return deferred.promise;
 	}
-};
 
-InternalSystem.prototype.post = {
-	reload: function(req, callback) {
+  #reload(req, callback) {
 		var deferred = Q.defer();
 		console.log('----------------------------------------------');
 		console.log('----------------------------------------------');
@@ -114,10 +126,6 @@ InternalSystem.prototype.post = {
 		})
 		.then(function(set_res) {
 			console.log('Settings reloaded');
-			return models.reload();
-		})
-		.then(function(mod_res) {
-			console.log('Models reloaded');
 			return serviceRegistration.reload();
 		})
 		.then(function(sr_res) {
@@ -148,8 +156,9 @@ InternalSystem.prototype.post = {
 
 		deferred.promise.nodeify(callback);
 		return deferred.promise;
-	},
-	endpoint: function(req, callback) {
+	}
+
+  #post_endpoint(req, callback) {
 		var deferred = Q.defer();
 		var inputArgs = req.body;
 		var call = inputArgs.call;
@@ -189,14 +198,8 @@ InternalSystem.prototype.post = {
 		deferred.promise.nodeify(callback);
 		return deferred.promise;
 	}
-};
 
-InternalSystem.prototype.put = {
-
-};
-
-InternalSystem.prototype.patch = {
-	endpoint: function(req, callback) {
+  #patch_endpoint(req, callback) {
 		var deferred = Q.defer();
 		var inputArgs = req.body;
 		var call = inputArgs.call;
@@ -236,10 +239,8 @@ InternalSystem.prototype.patch = {
 		deferred.promise.nodeify(callback);
 		return deferred.promise;
 	}
-};
 
-InternalSystem.prototype.delete = {
-	endpoint: function(req, callback) {
+  #delete_endpoint(req, callback) {
 		var deferred = Q.defer();
 		var inputArgs = req.body;
 		var call = inputArgs.call;
@@ -277,6 +278,6 @@ InternalSystem.prototype.delete = {
 		deferred.promise.nodeify(callback);
 		return deferred.promise;
 	}
-};
+}
 
-exports.internalSystem = InternalSystem;
+module.exports = InternalSystem;
