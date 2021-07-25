@@ -1328,6 +1328,52 @@ class DataAccess {
   
     return deferred.promise;
   }
+
+  updateCredentialsForUser(userId, salt, password, clientSecret, forgotPasswordToken, connection) {
+    var deferred = Q.defer();
+
+    let params = [];
+    let sql = "UPDATE credentials SET modified_at = NOW() ";
+    if(salt) {
+      params.push(salt);
+      sql += `, salt = $${params.length} `;
+    }
+    if(password) {
+      params.push(password);
+      sql += `, password = $${params.length} `;
+    }
+    if(clientSecret) {
+      params.push(clientSecret);
+      sql += `, client_secret = $${params.length} `;
+    }
+    if(forgotPasswordToken) {
+      if(forgotPasswordToken === 'RESET') {
+        sql = `, forgotPassword = []'::jsonb`;
+      }
+      else {
+        sql += `, forgotPassword = forgotPassword || '["${forgotPasswordToken}"]'::jsonb `;
+      }
+    }
+    params.push(userId);
+    sql += `WHERE user_id = $${params.length}`;
+
+    this.runSql(sql, params, connection)
+    .then((updRes) => {
+      deferred.resolve(updRes);
+    })
+    .fail((err) => {
+      let errorObj = new ErrorObj(500,
+                                  'da0110',
+                                  __filename,
+                                  'updateCredentialsForUser',
+                                  'db error',
+                                  'There was a problem with your request',
+                                  err);
+      deferred.reject(errorObj);
+    });
+
+    return deferred.promise;
+  }
 }
 
 const instance = new DataAccess();
