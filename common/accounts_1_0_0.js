@@ -35,7 +35,9 @@ class Accounts {
     this.patch = {
       password: this.#updatePassword
     };
-    this.put = {};
+    this.put = {
+      email: this.#updateEmail
+    };
     this.delete = {
       account: this.#deleteUser
     };
@@ -476,9 +478,45 @@ class Accounts {
   }
 
   #updateEmail(req, callback) {
-    // **************
-    // HERE HERE HERE
-    // **************
+    var deferred = Q.defer();
+
+    var updateUser = req.body;
+    var existingUser = req.this_user;
+
+    utilities.validateEmail(updateUser.email, existingUser.email)
+    .then(function() {
+        return utilities.validateUsername(updateUser.email, existingUser.username);
+    })
+    .then(function() {
+      return dataAccess.updateUserInfo(existingUser.id, null, null, updateUser.email);
+    })
+    .then(function(updateRes) {
+        if(updateRes) {
+          deferred.resolve(updateRes);
+        }
+        else {
+          deferred.resolve(null);
+        }
+    })
+    .fail(function(err) {
+        if (err !== undefined && err !== null && typeof (err.AddToError) === 'function') {
+            deferred.reject(err.AddToError(__filename, 'PUT bsuser'));
+        }
+        else {
+            var errorObj = new ErrorObj(500,
+                'a00051',
+                __filename,
+                'bsuser',
+                'error updating bsuser',
+                'Error updating bsuser',
+                err
+            );
+            deferred.reject(errorObj);
+        }
+    });
+
+    deferred.promise.nodeify(callback);
+    return deferred.promise;
   }
 
   #deleteUser(req, callback) {
@@ -510,55 +548,5 @@ class Accounts {
     return deferred.promise;
   }
 }
-
-// **************
-// HERE HERE HERE
-// **************
-Accounts.prototype.put = {
-    email: function(req, callback) {
-        var deferred = Q.defer();
-
-        var updateUser = req.body;
-        var existingUser = req.this_user;
-        updateUser.id = existingUser.id;
-        delete updateUser.is_active;
-        delete updateUser.password;
-
-        utilities.validateEmail(updateUser.email, existingUser.email)
-        .then(function() {
-            return utilities.validateUsername(updateUser.email, existingUser.username);
-        })
-        .then(function() {
-            return dataAccess.updateJsonbField('bsuser', 'data', updateUser, `data->>'id' = '${updateUser.id}'`);
-        })
-        .then(function(update_res) {
-            if(update_res) {
-              deferred.resolve(update_res[0].data);
-            }
-            else {
-              deferred.resolve(null);
-            }
-        })
-        .fail(function(err) {
-            if (err !== undefined && err !== null && typeof (err.AddToError) === 'function') {
-                deferred.reject(err.AddToError(__filename, 'PUT bsuser'));
-            }
-            else {
-                var errorObj = new ErrorObj(500,
-                    'a00051',
-                    __filename,
-                    'bsuser',
-                    'error updating bsuser',
-                    'Error updating bsuser',
-                    err
-                );
-                deferred.reject(errorObj);
-            }
-        });
-
-        deferred.promise.nodeify(callback);
-        return deferred.promise;
-    }
-};
 
 module.exports = Accounts;

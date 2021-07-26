@@ -56,7 +56,7 @@ class InternalSystem {
 
   #endpoint(req, callback) {
 		var deferred = Q.defer();
-		serviceRegistration.getAllServiceCalls()
+		this.serviceRegistration.getAllServiceCalls()
 		.then(function(serviceCalls) {
 			var resolveObj = {available: true, endpoints: serviceCalls};
 			deferred.resolve(resolveObj);
@@ -126,7 +126,7 @@ class InternalSystem {
 		})
 		.then(function(set_res) {
 			console.log('Settings reloaded');
-			return serviceRegistration.reload();
+			return this.serviceRegistration.reload();
 		})
 		.then(function(sr_res) {
 			console.log('Service Registration reloaded');
@@ -169,9 +169,9 @@ class InternalSystem {
 		var args = inputArgs.args;
 		var authRequired = inputArgs.authRequired;
 		var description = inputArgs.description;
-		serviceRegistration.registerServiceCall(call, area, controller, verb, version, args, authRequired, description)
+		this.serviceRegistration.registerServiceCall(call, area, controller, verb, version, args, authRequired, description)
 		.then(function(registration_result) {
-			return serviceRegistration.getAllServiceCalls();
+			return this.serviceRegistration.getAllServiceCalls();
 		})
 		.then(function(serviceCalls) {
 			var resolveObj = {endpoints: serviceCalls};
@@ -210,9 +210,9 @@ class InternalSystem {
 		var args = inputArgs.args;
 		var authRequired = inputArgs.authRequired;
 		var description = inputArgs.description;
-		serviceRegistration.updateServiceCall(call, area, controller, verb, version, args, authRequired, description)
+		this.serviceRegistration.updateServiceCall(call, area, controller, verb, version, args, authRequired, description)
 		.then(function(update_result) {
-			return serviceRegistration.getAllServiceCalls();
+			return this.serviceRegistration.getAllServiceCalls();
 		})
 		.then(function(serviceCalls) {
 			var resolveObj = {endpoints: serviceCalls};
@@ -249,9 +249,9 @@ class InternalSystem {
 		var verb = inputArgs.verb;
 		var version = inputArgs.version;
 
-		serviceRegistration.deleteServiceCall(call, area, controller, verb, version)
+		this.serviceRegistration.deleteServiceCall(call, area, controller, verb, version)
 		.then(function(delete_res) {
-			return serviceRegistration.getAllServiceCalls();
+			return this.serviceRegistration.getAllServiceCalls();
 		})
 		.then(function(serviceCalls) {
 			var resolveObj = {endpoints: serviceCalls};

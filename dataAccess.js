@@ -1332,30 +1332,30 @@ class DataAccess {
   updateCredentialsForUser(userId, salt, password, clientSecret, forgotPasswordToken, connection) {
     var deferred = Q.defer();
 
-    let params = [];
-    let sql = "UPDATE credentials SET modified_at = NOW() ";
+    let params = [userId];
+    let sql = "UPDATE credentials SET modified_at = NOW()";
     if(salt) {
       params.push(salt);
-      sql += `, salt = $${params.length} `;
+      sql += `, salt = $${params.length}`;
     }
     if(password) {
       params.push(password);
-      sql += `, password = $${params.length} `;
+      sql += `, password = $${params.length}`;
     }
     if(clientSecret) {
       params.push(clientSecret);
-      sql += `, client_secret = $${params.length} `;
+      sql += `, client_secret = $${params.length}`;
     }
     if(forgotPasswordToken) {
       if(forgotPasswordToken === 'RESET') {
         sql = `, forgotPassword = []'::jsonb`;
       }
       else {
-        sql += `, forgotPassword = forgotPassword || '["${forgotPasswordToken}"]'::jsonb `;
+        sql += `, forgotPassword = forgotPassword || '["${forgotPasswordToken}"]'::jsonb`;
       }
     }
     params.push(userId);
-    sql += `WHERE user_id = $${params.length}`;
+    sql += ` WHERE user_id = $1`;
 
     this.runSql(sql, params, connection)
     .then((updRes) => {
@@ -1372,6 +1372,60 @@ class DataAccess {
       deferred.reject(errorObj);
     });
 
+    return deferred.promise;
+  }
+
+  updateUserInfo(userId, locked, roles, email, exId) {
+    var deferred = Q.defer();
+
+    let params = [userId];
+    let sql = 'UPDATE bs3_users SET modified_at = NOW()';
+    if(locked) {
+      params.push(locked);
+      sql += `, locked = $${params.length}`;
+    }
+    if(roles) {
+     params.push(JSON.stringify(roles));
+     sql += `, roles = $${params.length}`; 
+    }
+    if(email) {
+      params.push(email);
+      sql += `, email = $${params.length}`;
+    }
+    if(exId) {
+      params.push(exId);
+      sql += `, external_id = $${params.length}`;
+    }
+
+    sql += ` WHERE user_id = $1 RETURNING *`;
+
+    this.runSql(sql, params)
+    .then((res) => {
+      if(res.lentgth > 0) {
+        deferred.resolve(res[0]);
+      }
+      else {
+        let errorObj = new ErrorObj(500,
+                                    'da0121',
+                                    __filename,
+                                    'updateUserInfo',
+                                    'no user updated',
+                                    'There was a problem update user info',
+                                    null);
+        deferred.reject(errorObj);
+      }
+    })
+    .fail((err) => {
+      let errorObj = new ErrorObj(500,
+                                  'da0120',
+                                  __filename,
+                                  'updateUserInfo',
+                                  'db error',
+                                  'There was a problem with your request',
+                                  err);
+      deferred.reject(errorObj);
+    });
+    
     return deferred.promise;
   }
 }

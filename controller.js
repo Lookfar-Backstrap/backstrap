@@ -44,12 +44,7 @@ class Controller {
         let filePath = `./${areaName}/${controllerName}_${controllerVersion.replace(/\./g, '_')}.js`;
         let thisController = null;
         try {
-          if(controllerName === 'internalSystem') {
-            thisController = require(filePath);
-          }
-          else {
-            thisController = require(filePath)[controllerName];
-          }
+          thisController = require(filePath);
         }
         catch(e) {
           let errorObj = new ErrorObj(500,

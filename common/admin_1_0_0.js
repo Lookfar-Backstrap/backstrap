@@ -9,19 +9,25 @@ var settings;
 var models;
 var endpoints;
 
+class Admin {
+  constructor(da, utils, ac, sr, st) {
+    this.dataAccess = da;
+    this.utilities = utils;
+    this.accessControl = ac;
+    this.serviceRegistration = sr;
+    this.settings = st;
 
-var Admin = function (da, util, ac, sr, st, m, e) {
-	dataAccess = da;
-	utilities = util;
-	accessControl = ac;
-	serviceRegistration = sr;
-	settings = st;
-	models = m;
-	endpoints = e;
-};
+    this.get = {
+      user: this.#getUser,
+      userRole: this.#getUserRole
+    };
+    this.post = {};
+    this.patch = {};
+    this.put = {};
+    this.delete = {};
+  }
 
-Admin.prototype.get = {
-	user: function (req, callback) {
+  #getUser(req, callback) {
 		var deferred = Q.defer();
 
 		var searchObj = {};
@@ -85,9 +91,9 @@ Admin.prototype.get = {
 
 		deferred.promise.nodeify(callback);
 		return deferred.promise;
-	},
-	// GET A USER'S ROLES
-	userRole: function (req, callback) {
+	}
+
+  #getUserRole(req, callback) {
 		var deferred = Q.defer();
 
     var uid = req.query.id || null;
@@ -132,8 +138,12 @@ Admin.prototype.get = {
 		deferred.promise.nodeify(callback);
 		return deferred.promise;
 	}
-};
+}
 
+
+// ========================
+// HERE HERE HERE
+// ========================
 Admin.prototype.post = {
 	// AMALGAMATION OF POST common/accounts/signup/1.0.0 AND POST common/accounts/profile/1.0.0
 	user: function (req, callback) {
