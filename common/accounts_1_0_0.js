@@ -1,12 +1,6 @@
 // ===============================================================================
 // ACCOUNTS WEB SERVICE CALLS v1.0.0
 // ===============================================================================
-var dataAccess;
-var utilities;
-var accessControl;
-var serviceRegistration;
-var settings;
-
 var Q = require('q');
 var crypto = require('crypto');
 
@@ -57,8 +51,8 @@ class Accounts {
     var deferred = Q.defer();
     var body = req.body;
 
-    var apiToken = req.headers[settings.token_header] || null;
-    accessControl.signIn(body, apiToken)
+    var apiToken = req.headers[this.settings.token_header] || null;
+    this.accessControl.signIn(body, apiToken)
     .then((res) => {
       deferred.resolve(res);
     })
@@ -73,12 +67,12 @@ class Accounts {
   #signUp(req, callback) {
     var deferred = Q.defer();
 
-    var apiToken = req.headers[settings.token_header] || null;
+    var apiToken = req.headers[this.settings.token_header] || null;
     // ONLY INITIALIZE A USER WITH 'default-user' ROLE
     if(req.body.roles) req.body.roles = null;
 
     // CREATE THE USER
-    accessControl.createUser('standard', req.body, apiToken)
+    this.accessControl.createUser('standard', req.body, apiToken)
     .then((usr) => {
       deferred.resolve(usr);
     })
@@ -107,7 +101,7 @@ class Accounts {
     if(req.body.roles) req.body.roles = null;
 
     // CREATE THE USER
-    accessControl.createUser('api', req.body)
+    this.accessControl.createUser('api', req.body)
     .then((usr) => {
       deferred.resolve(usr);
     })
@@ -142,7 +136,7 @@ class Accounts {
       if(validRoles.length === 0) validRoles = ['default-user'];
       req.body.roles = validRoles;
     }
-    accessControl.createUser('api', req.body, null, req.this_user)
+    this.accessControl.createUser('api', req.body, null, req.this_user)
     .then((usr) => {
       deferred.resolve(usr);
     })
@@ -167,11 +161,11 @@ class Accounts {
   #signOut(req, callback) {
     var deferred = Q.defer();
 
-    var token = req.headers[settings.token_header];
+    var token = req.headers[this.settings.token_header];
     
-    dataAccess.getSession(null, token)
+    this.dataAccess.getSession(null, token)
     .then(function(session) {
-      return utilities.invalidateSession(session);
+      return this.utilities.invalidateSession(session);
     })
     .then(function(invld_res) {
       deferred.resolve({success: true});
@@ -275,7 +269,7 @@ class Accounts {
               deferred.promise.nodeify(callback);
               return deferred.promise;
           }
-          return [userObj, utilities.getHash(null, null, 48)];
+          return [userObj, this.utilities.getHash(null, null, 48)];
         })
         .spread(function(userObj, tkn) {
             var reset_link = process.env.reset_password_link || "";
@@ -284,7 +278,7 @@ class Accounts {
             return [userObj, tkn, this.utilities.sendMail(userObj.email, 'Password Reset', message)];
         })
         .spread(function(userObj, tkn, mail_res) {
-          return dataAccess.updateCredentialsForUser(userObj.id, null, null, null, tkn);
+          return this.dataAccess.updateCredentialsForUser(userObj.id, null, null, null, tkn);
         })
         .then(function(saveRes) {
             var resolveObj = { 'success': true };
@@ -335,7 +329,7 @@ class Accounts {
     var tkn = args.token;
     var password = args.password;
 
-    dataAccess.getUserByForgotPasswordToken(tkn)
+    this.dataAccess.getUserByForgotPasswordToken(tkn)
     .then(function(userObj) {
       if (userObj != null) {
           // IF USER IS LOCKED, BAIL OUT
@@ -371,7 +365,7 @@ class Accounts {
         var salt = buf.toString('hex');
         var saltedPassword = password + salt;
         var hashedPassword = crypto.createHash('sha256').update(saltedPassword).digest('hex');
-        return dataAccess.updateCredentialsForUser(userObj.id, salt, hashedPassword, null, 'RESET');
+        return this.dataAccess.updateCredentialsForUser(userObj.id, salt, hashedPassword, null, 'RESET');
     })
     .then(function() {
         var resolveObj = { 'success': true };
@@ -404,7 +398,7 @@ class Accounts {
 
     // ACCESS CONTROL'S startSession() CREATES AN ANONYMOUS SESSION IF
     // YOU DO NOT PASS IT A USER OBJECT AS THE FIRST ARGUMENT
-    accessControl.startSession()
+    this.accessControl.startSession()
     .then(function(sess_res) {
         // ADD EVENT TO SESSION
         var resolveObj = sess_res;
@@ -452,7 +446,7 @@ class Accounts {
           var saltedPassword = req.body.password + existingUser.salt;
           var hashedPassword = crypto.createHash('sha256').update(saltedPassword).digest('hex');
 
-          dataAccess.updateCredentialsForUser(existingUser.id, null, hashedPassword)
+          this.dataAccess.updateCredentialsForUser(existingUser.id, null, hashedPassword)
           .then(function(updatedUser) {
             deferred.resolve();
           })
@@ -483,12 +477,12 @@ class Accounts {
     var updateUser = req.body;
     var existingUser = req.this_user;
 
-    utilities.validateEmail(updateUser.email, existingUser.email)
+    this.utilities.validateEmail(updateUser.email, existingUser.email)
     .then(function() {
-        return utilities.validateUsername(updateUser.email, existingUser.username);
+        return this.utilities.validateUsername(updateUser.email, existingUser.username);
     })
     .then(function() {
-      return dataAccess.updateUserInfo(existingUser.id, null, null, updateUser.email);
+      return this.dataAccess.updateUserInfo(existingUser.id, null, null, updateUser.email);
     })
     .then(function(updateRes) {
         if(updateRes) {
@@ -522,7 +516,7 @@ class Accounts {
   #deleteUser(req, callback) {
     var deferred = Q.defer();
 
-    dataAccess.deleteUser(req.this_user.id)
+    this.dataAccess.deleteUser(req.this_user.id)
     .then(function() {
         deferred.resolve();
     })

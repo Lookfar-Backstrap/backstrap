@@ -1,14 +1,6 @@
 var Q = require('q');
 var crypto = require('crypto');
 
-var dataAccess;
-var utilities;
-var accessControl;
-var serviceRegistration;
-var settings;
-var models;
-var endpoints;
-
 class Admin {
   constructor(da, utils, ac, sr, st) {
     this.dataAccess = da;
@@ -21,10 +13,18 @@ class Admin {
       user: this.#getUser,
       userRole: this.#getUserRole
     };
-    this.post = {};
-    this.patch = {};
+    this.post = {
+      user: this.#createUser,
+      userRole: this.#addUserRole
+    };
+    this.patch = {
+      user: this.#updateUser
+    };
     this.put = {};
-    this.delete = {};
+    this.delete = {
+      user: this.#deleteUser,
+      userRole: this.#deleteUserRole
+    };
   }
 
   #getUser(req, callback) {
@@ -138,24 +138,14 @@ class Admin {
 		deferred.promise.nodeify(callback);
 		return deferred.promise;
 	}
-}
 
-
-// ========================
-// HERE HERE HERE
-// ========================
-Admin.prototype.post = {
-	// AMALGAMATION OF POST common/accounts/signup/1.0.0 AND POST common/accounts/profile/1.0.0
-	user: function (req, callback) {
-		var deferred = Q.defer();
+  #createUser(req, callback) {
+    var deferred = Q.defer();
 
 		var username = req.body.username.toLowerCase();
 		var password = req.body.password;
-		var first = (req.body.first == null ? '' : req.body.first);
-		var last = (req.body.last == null ? '' : req.body.last);
 		var roles = (req.body.roles == null ? ['default-user'] : req.body.roles);
 		var email = req.body.email;
-		var userProfile = (req.body.userprofile === undefined || req.body.userprofile === null) ? {} : req.body.userprofile;
 
 		var validEmailRegex = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
 		if(!validEmailRegex.test(email)){
@@ -182,9 +172,9 @@ Admin.prototype.post = {
 			return deferred.promise;
 		}
 
-		utilities.validateEmail(email)
+		this.utilities.validateEmail(email)
 		.then(function(){
-			return utilities.validateUsername(username);
+			return this.utilities.validateUsername(username);
 		})
 		.then(function(){
 			var cryptoCall = Q.denodeify(crypto.randomBytes);
@@ -196,30 +186,14 @@ Admin.prototype.post = {
 			var hashedPassword = crypto.createHash('sha256').update(saltedPassword).digest('hex');
 
 			var userObj = {
-				'object_type': 'bsuser',
-        'id': utilities.getUID(true),
 				'account_type': 'native',
 				'username': username,
-				'first': first,
-				'last': last,
 				'email': email,
 				'salt': salt,
 				'password': hashedPassword,
 				'roles': roles,
-				'is_active': true,
-				'is_locked': false
+				'locked': false
 			};
-
-
-			var immutableKeys = ['object_type', 'username', 'salt', 'password', 'created_at', 'modified_at', 'roles', 'is_active'];
-			var objKeys  = Object.keys(userProfile);
-			for(var idx = 0; idx < objKeys.length; idx++) {
-				if(immutableKeys.indexOf(objKeys[idx])===-1) {
-					var k = objKeys[idx];
-					var v = userProfile[k];
-					userObj[k] = v;
-				}
-			}
 
 			return dataAccess.createUser(userObj);
 		})
@@ -249,34 +223,31 @@ Admin.prototype.post = {
 
 		deferred.promise.nodeify(callback);
 		return deferred.promise;
-	},
-	// ADD A USER ROLE TO A USER
-	userRole: function (req, callback) {
-		var deferred = Q.defer();
+  }
+
+  #addUserRole(req, callback) {
+    var deferred = Q.defer();
 
     var uid = req.body.user_id;
     var email = req.body.email;
 		var username = req.body.username.toLowerCase();
 		var role = req.body.role.toLowerCase();
 
-		accessControl.roleExists(role)
+		this.accessControl.roleExists(role)
 		.then(function() {
 			return dataAccess.findUser(uid, username, email);
 		})
 		.then(function(userObj) {
-			if(userObj.roles.indexOf(role)===-1) {
+			if(!userObj.roles.includes(role)) {
 				userObj.roles.push(role);
-				return dataAccess.updateJsonbField('bsuser', 'data', {roles:userObj.roles}, `data->>'id' = '${userObj.id}'`);
+        return this.dataAccess.updateUserInfo(userObj.id, null, userObj.roles, null, null);
 			}
 			else {
-				var innerPromise = Q.defer();
-				innerPromise.resolve(userObj);
-				return innerPromise;
-			}
+        return null;
+      }
 		})
 		.then(function() {
-			var resolveObj = {'success': true};
-			deferred.resolve(resolveObj);
+			deferred.resolve({'success': true});
 		})
 		.fail(function(err) {
 			if(err !== undefined && err !== null && typeof(err.AddToError) == 'function') {
@@ -302,53 +273,10 @@ Admin.prototype.post = {
 
 		deferred.promise.nodeify(callback);
 		return deferred.promise;
-  },
-  resetClientSecret: function(req, callback) {
-    var deferred = Q.defer();
-
-    var clientId = req.body.client_id;
-    var cryptoCall = Q.denodeify(crypto.randomBytes);
-
-    cryptoCall(24)
-    .then((buf) => {
-      let clientSecret = buf.toString('hex');
-      return [usr, clientSecret, cryptoCall(48)];
-    })
-    .spread((usr, clientSecret, buf) => {
-      let salt = buf.toString('hex');
-      let saltedSecret = clientSecret + salt;
-      let hashedSecret = crypto.createHash('sha256').update(saltedSecret).digest('hex');
-
-      return [clientSecret, dataAccess.updateApiCredentials(clientId, salt, hashedSecret)];
-    })
-    .spread((clientSecret, updRes) => {
-      deferred.resolve({client_secret: clientSecret});
-    })
-    .fail((err) => {
-      var errorObj = new ErrorObj(500,
-                                  'ad0020',
-                                  __filename,
-                                  'POST resetClientSecret',
-                                  'error resetting client secret',
-                                  'Error resetting client secret',
-                                  err
-                              );
-      deferred.reject(errorObj);
-    });
-
-
-    deferred.promise.nodeify(callback);
-    return deferred.promise;
   }
-};
 
-Admin.prototype.put = {
-
-};
-
-Admin.prototype.patch = {
-	user: function (req, callback) {
-		var deferred = Q.defer();
+  #updateUser(req, callback) {
+    var deferred = Q.defer();
 
 		var username;
 		if (req.body.username !== undefined) {
@@ -370,16 +298,9 @@ Admin.prototype.patch = {
 		}
 
 		var password = req.body.password;
-		var first = (req.body.first === null) ? '' : req.body.first;
-		var last = (req.body.last === null) ? '' : req.body.last;
-		var roles = (req.body.roles === null) ? ['default-user'] : req.body.roles;
-		var email = req.body.email;
-		var isLocked = req.body.is_locked;
-
-		var userProfile;
-		if (req.body.userprofile !== undefined) {
-			userProfile = (req.body.userprofile === null) ? {} : req.body.userprofile;
-		}
+		var roles = req.body.roles || null;
+		var email = req.body.email || null;
+		var locked = req.body.locked || null;
 
 		if(email){
 			var validEmailRegex = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
@@ -399,7 +320,7 @@ Admin.prototype.patch = {
 		dataAccess.getUserById(req.body.id)
 		.then(function(existingUser) {
 			if(username) {
-				return [existingUser, utilities.validateUsername(username, existingUser.username)];
+				return [existingUser, this.utilities.validateUsername(username, existingUser.username)];
 			}
 			else {
 				return [existingUser];
@@ -407,17 +328,13 @@ Admin.prototype.patch = {
 		})
 		.spread(function(existingUser){
 			if(email) {
-				return [existingUser, utilities.validateEmail(email, existingUser.email)];
+				return [existingUser, this.utilities.validateEmail(email, existingUser.email)];
 			}
 			else {
 				return [existingUser];
 			}
 		})
 		.spread(function(existingUser){
-			if(username !== undefined) {
-				existingUser.username = username;
-			}
-
 			if(password !== undefined) {
 				var cryptoCall = Q.denodeify(crypto.randomBytes);
 				return [existingUser, cryptoCall(48)];
@@ -427,58 +344,22 @@ Admin.prototype.patch = {
 			}
 		})
 		.spread(function(existingUser, buf) {
+      var salt = null;
+      var hashedPassword = null;
 			if(buf !== undefined && password != null) {
-				var salt = buf.toString('hex');
-				var saltedPassword = password + salt;
-				var hashedPassword = crypto.createHash('sha256').update(saltedPassword).digest('hex');
-				existingUser.salt = salt;
-				existingUser.password = hashedPassword;
+        salt = buf.toString('hex');
+				let saltedPassword = password + salt;
+				hashedPassword = crypto.createHash('sha256').update(saltedPassword).digest('hex');
 			}
 
-			if(first !== undefined) {
-				existingUser.first = first;
-			}
-
-			if(last !== undefined) {
-				existingUser.last = last;
-			}
-
-			if(roles !== undefined) {
-				existingUser.roles = roles;
-			}
-
-			if(email !== undefined) {
-				existingUser.email = email;
-			}
-
-			if(isLocked !== undefined) {
-				existingUser.is_locked = isLocked;
-			}
-
-			var immutableKeys = ['object_type', 'username', 'salt', 'password', 'created_at', 'modified_at', 'roles', 'is_active'];
-			var objKeys;
-			if(userProfile === undefined) {
-				objKeys = [];
-			}
-			else {
-				objKeys = Object.keys(userProfile);
-			}
-			for(var idx = 0; idx < objKeys.length; idx++) {
-				if(immutableKeys.indexOf(objKeys[idx])===-1) {
-					var k = objKeys[idx];
-					var v = userProfile[k];
-					existingUser[k] = v;
-				}
-			}
-
-      return dataAccess.updateJsonbField('bsuser', 'data', existingUser, `data->>'id' = '${existingUser.id}'`);
+      let updCmds = [this.dataAccess.updateUserInfo(existingUser.id, locked, roles, email, username)];
+      if(password && salt) {
+        updCmds.push(this.dataAccess.updateCredentailsForUser(existingUser.id));
+      }
+      return Q.all(updCmds);
 		})
-		.then(function(userDbEntity) {
-      let user = userDbEntity[0] != null ? userDbEntity[0].data : null;
-			delete user.password;
-			delete user.salt;
-
-			deferred.resolve(user);
+		.then(function(resArray) {
+			deferred.resolve(resArray[0]);
 		})
 		.fail(function(err) {
 			if(err !== undefined && err !== null && typeof(err.AddToError) == 'function') {
@@ -500,12 +381,10 @@ Admin.prototype.patch = {
 
 		deferred.promise.nodeify(callback);
 		return deferred.promise;
-	}
-};
+  }
 
-Admin.prototype.delete = {
-	user: function (req, callback) {
-		var deferred = Q.defer();
+  #deleteUser(req, callback) {
+    var deferred = Q.defer();
 
     dataAccess.deleteUser(req.body.id)
     .then(function (del_res) {
@@ -531,34 +410,31 @@ Admin.prototype.delete = {
 
 		deferred.promise.nodeify(callback);
 		return deferred.promise;
-	},
-	// DELETE A USER'S ROLE
-	userRole: function (req, callback) {
-		var deferred = Q.defer();
+  }
+
+  #deleteUserRole(req, callback) {
+    var deferred = Q.defer();
 
     var uid = req.body.user_id;
 		var username = req.body.username.toLowerCase();
     var email = req.body.email.toLowerCase();
 		var role = req.body.role.toLowerCase();
 
-		accessControl.roleExists(role)
+		this.accessControl.roleExists(role)
 		.then(function() {
 			return dataAccess.findUser(uid, username, email);
 		})
 		.then(function(userObj) {
-			if(userObj.roles.indexOf(role)!==-1) {
+			if(userObj.roles.includes(role)) {
 				userObj.roles.splice(userObj.roles.indexOf(role), 1);
-				return dataAccess.updateJsonbField('bsuser', 'data', {roles:userObj.roles}, `data->>'id' = '${userObj.id}'`);
+        return this.dataAccess.updateUserInfo(userObj.id, null, userObj.roles, null, null, null);
 			}
 			else {
-				var innerPromise = Q.defer();
-				innerPromise.resolve(userObj);
-				return innerPromise;
+				return null;
 			}
 		})
 		.then(function() {
-			var resolveObj = {'success': true};
-			deferred.resolve(resolveObj);
+			deferred.resolve({'success': true});
 		})
 		.fail(function(err) {
 			if(err !== undefined && err !== null && typeof(err.AddToError) == 'function') {
@@ -584,14 +460,7 @@ Admin.prototype.delete = {
 
 		deferred.promise.nodeify(callback);
 		return deferred.promise;
-	}
-};
+  }
+}
 
-
-// ===============================================================
-// UTILITY FUNCTIONS
-// ===============================================================
-
-
-
-exports.admin = Admin;
+module.exports = Admin;

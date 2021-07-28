@@ -656,9 +656,6 @@ class DataAccess {
   GenerateForgotPasswordToken(email, username) {
     var deferred = Q.defer();
   
-    let sql = "SELECT * FROM bs3_users WHERE LOWER(username) = LOWER($1) OR LOWER(email) = LOWER($2)";
-  
-  
     this.findUser(null, username, email)
     .then(function (userObj) {
       if (userObj.is_locked) {
@@ -673,7 +670,7 @@ class DataAccess {
         return deferred.promise;
       }
       else {
-        return [userObj, utilities.getHash(null, null, 48)];
+        return [userObj, this.utilities.getHash(null, null, 48)];
       }
     })
     .spread(function (userObj, tkn) {
@@ -683,7 +680,7 @@ class DataAccess {
       else {
         userObj.forgot_password_tokens.push(tkn);
       }
-      return [tkn, DataAccess.prototype.updateJsonbField('bsuser', 'data', userObj, `data->>'id' = '${userObj.id}'`)];
+      return [tkn, this.updateCredentialsForUser(userObj.id, null, null, null, userObj.forgot_password_tokens)];
     })
     .spread(function(tkn) {
       deferred.resolve(tkn);
@@ -1375,7 +1372,7 @@ class DataAccess {
     return deferred.promise;
   }
 
-  updateUserInfo(userId, locked, roles, email, exId) {
+  updateUserInfo(userId, locked, roles, email, exId, username) {
     var deferred = Q.defer();
 
     let params = [userId];
@@ -1395,6 +1392,11 @@ class DataAccess {
     if(exId) {
       params.push(exId);
       sql += `, external_id = $${params.length}`;
+    }
+
+    if(username) {
+      params.push(username);
+      sql += `, username = $${params.length}`;
     }
 
     sql += ` WHERE user_id = $1 RETURNING *`;

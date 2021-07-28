@@ -161,7 +161,7 @@ class AccessControl {
         })
         .then((decodedToken) => {
           let externalId = decodedToken.sub;
-          return dataAccess.getUserByExternalIdentityId(externalId, ['native','external']);
+          return this.dataAccessgetUserByExternalIdentityId(externalId, ['native','external']);
         })
         .then((usr) => {
           inner_deferred.resolve(usr);
@@ -174,7 +174,7 @@ class AccessControl {
       else if((username || email) && password) {
         let identifier = username ? username : email;
         if(identifier) {
-          dataAccess.getUserByUserName(identifier)
+          this.dataAccessgetUserByUserName(identifier)
           .then((usr) => {
             // ONLY ADMINS AND SUPERUSERS CAN LOG IN WITH USER/PASSWORD IN NON-NATIVE ACCOUNTS (API USERS DON'T SIGN IN)
             if(['native'].includes(usr.account_type) || usr.roles.includes('super-user') || usr.roles.includes('admin-user')) {
@@ -299,7 +299,7 @@ class AccessControl {
         if (validTokenRes.is_valid === true && validTokenRes.session.anonymous === true) {
             sess = validTokenRes.session;
 
-            return [userObj, tkn, dataAccess.attachUserToSession(userObj.id, sess.id)];
+            return [userObj, tkn, this.dataAccessattachUserToSession(userObj.id, sess.id)];
         }
         else {
             return [userObj, tkn];

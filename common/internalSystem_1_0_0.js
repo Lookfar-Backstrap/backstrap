@@ -45,7 +45,7 @@ class InternalSystem {
 
   #headerTokenKey(req, callback) {
 		var deferred = Q.defer();
-		var tokenKey = settings.token_header;
+		var tokenKey = this.settings.token_header;
 
 		var resolveObj = {"header_token_key": tokenKey};
 		deferred.resolve(resolveObj);
@@ -119,10 +119,10 @@ class InternalSystem {
 		console.log('received at: '+new Date());
 		console.log('');
 
-		accessControl.reload()
+		this.accessControl.reload()
 		.then(function(ac_res) {
 			console.log('Access Control reloaded');
-			return settings.reload();
+			return this.settings.reload();
 		})
 		.then(function(set_res) {
 			console.log('Settings reloaded');
