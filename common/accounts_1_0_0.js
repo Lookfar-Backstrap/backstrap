@@ -16,15 +16,15 @@ class Accounts {
       checkToken: this.#checkToken
     };
     this.post = {
-      signIn: this.#signIn,
-      signUp: this.#signUp,
-      apiUser: this.#apiUser,
-      apiCredentials: this.#apiCredentials,
-      signOut: this.#signOut,
-      forgotUsername: this.#forgotUsername,
-      forgotPassword: this.#forgotPassword,
-      resetPassword: this.#resetPassword,
-      startAnonymousSession: this.#startAnonymousSession
+      signIn: this.#signIn.bind(this),
+      signUp: this.#signUp.bind(this),
+      apiUser: this.#apiUser.bind(this),
+      apiCredentials: this.#apiCredentials.bind(this),
+      signOut: this.#signOut.bind(this),
+      forgotUsername: this.#forgotUsername.bind(this),
+      forgotPassword: this.#forgotPassword.bind(this),
+      resetPassword: this.#resetPassword.bind(this),
+      startAnonymousSession: this.#startAnonymousSession.bind(this)
     };
     this.patch = {
       password: this.#updatePassword
@@ -158,7 +158,7 @@ class Accounts {
     return deferred.promise;
   }
 
-  #signOut(req, callback) {
+  #signOut(req, callback) { 
     var deferred = Q.defer();
 
     var token = req.headers[this.settings.token_header];

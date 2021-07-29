@@ -14,20 +14,20 @@ class InternalSystem {
     this.settings = st;
 
     this.get = {
-      version: this.#version,
-      headerTokenKey: this.#headerTokenKey,
-      health: this.#health,
-      endpoint: this.#endpoint
+      version: this.#version.bind(this),
+      headerTokenKey: this.#headerTokenKey.bind(this),
+      health: this.#health.bind(this),
+      endpoint: this.#endpoint.bind(this)
     };
     this.post = {
       reload: this.#reload,
-      endpoint: this.#post_endpoint
+      endpoint: this.#post_endpoint.bind(this)
     };
     this.patch = {
-      endpoint: this.#patch_endpoint
+      endpoint: this.#patch_endpoint.bind(this)
     };
     this.delete = {
-      endpoint: this.#delete_endpoint
+      endpoint: this.#delete_endpoint.bind(this)
     };
   }
 

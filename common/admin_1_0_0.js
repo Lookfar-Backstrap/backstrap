@@ -10,20 +10,20 @@ class Admin {
     this.settings = st;
 
     this.get = {
-      user: this.#getUser,
-      userRole: this.#getUserRole
+      user: this.#getUser.bind(this),
+      userRole: this.#getUserRole.bind(this)
     };
     this.post = {
-      user: this.#createUser,
-      userRole: this.#addUserRole
+      user: this.#createUser.bind(this),
+      userRole: this.#addUserRole.bind(this)
     };
     this.patch = {
-      user: this.#updateUser
+      user: this.#updateUser.bind(this)
     };
     this.put = {};
     this.delete = {
-      user: this.#deleteUser,
-      userRole: this.#deleteUserRole
+      user: this.#deleteUser.bind(this),
+      userRole: this.#deleteUserRole.bind(this)
     };
   }
 

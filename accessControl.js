@@ -98,19 +98,23 @@ class AccessControl {
         return deferred.promise;
       }
     }
+
+    const createAPI = this.#createAPIUser.bind(this);
+    const createExt = this.#createExternalAPIUser.bind(this);
+    const createStd = this.#createStandardUser.bind(this);
   
     var createUserCmd;
     switch(userType) {
       case 'api':
         let uid = null;
         if(thisUser) uid = thisUser.id;
-        createUserCmd = this.#createAPIUser(email, roles, uid);
+        createUserCmd = createAPI(email, roles, uid);
         break;
       case 'external-api':
-        createUserCmd = this.#createExternalAPIUser(email, exid, first, last, roles);
+        createUserCmd = createExt(email, exid, first, last, roles);
         break;
       default:
-        createUserCmd = this.#createStandardUser(username, email, password, exid, roles, apiToken);
+        createUserCmd = createStd(username, email, password, exid, roles, apiToken);
     }
   
     createUserCmd
@@ -174,7 +178,7 @@ class AccessControl {
       else if((username || email) && password) {
         let identifier = username ? username : email;
         if(identifier) {
-          this.dataAccessgetUserByUserName(identifier)
+          this.dataAccess.getUserByUserName(identifier)
           .then((usr) => {
             // ONLY ADMINS AND SUPERUSERS CAN LOG IN WITH USER/PASSWORD IN NON-NATIVE ACCOUNTS (API USERS DON'T SIGN IN)
             if(['native'].includes(usr.account_type) || usr.roles.includes('super-user') || usr.roles.includes('admin-user')) {
@@ -236,7 +240,7 @@ class AccessControl {
       if(this.settings.identity == null || this.settings.identity.length === 0 || 
         (this.settings.identity.provider != null && this.settings.identity.provider.toLowerCase() === 'native')) {
         
-        AccessControl.prototype.checkCredentials(password, userObj)
+        this.checkCredentials(password, userObj)
         .then(() => {
           inner_deferred.resolve(userObj);
         })
@@ -252,7 +256,7 @@ class AccessControl {
         }
         // WE'RE USING EXTERNAL SIGNIN, BUT THIS IS A NATIVE ACCOUNT OR AN ADMIN/SUPERUSER USING USERNAME/PASSWORD
         else if((userObj.account_type === 'native' || userObj.roles.includes('super-user') || userObj.roles.includes('admin-user')) && ((username || email) && password)) {
-          AccessControl.prototype.checkCredentials(password, userObj)
+          this.checkCredentials(password, userObj)
           .then(() => {
             inner_deferred.resolve(userObj);
           })
@@ -289,10 +293,10 @@ class AccessControl {
     })
     .then((userObj) => {
       // START UP A SESSION
-      return [userObj, AccessControl.prototype.startSession(userObj, params.clientInfo)];
+      return [userObj, this.startSession(userObj, params.clientInfo)];
     })
     .spread((userObj, sess) => {
-        return [userObj, sess.token, AccessControl.prototype.validateToken(apiToken, true)];
+        return [userObj, sess.token, this.validateToken(apiToken, true)];
     })
     .spread((userObj, tkn, validTokenRes) => {
         var sess = null;
@@ -902,10 +906,10 @@ class AccessControl {
     roles = roles || ['default-user'];
 
     this.utilities.validateEmail(email)
-    .then(function() {
+    .then(() => {
         return this.utilities.validateUsername(username);
     })
-    .then(function() {
+    .then(() => {
         var inner_deferred = Q.defer();
 
         if(username && username !== '' && password && password !== '') {
@@ -956,10 +960,10 @@ class AccessControl {
 
         return inner_deferred.promise;
     })
-    .then(function(userObj) {
-      return [userObj, AccessControl.prototype.validateToken(apiToken, true)];
+    .then((userObj) => {
+      return [userObj, this.validateToken(apiToken, true)];
     })
-    .spread(function(userObj, validTokenRes) {
+    .spread((userObj, validTokenRes) => {
         var sess;
         if (validTokenRes.is_valid === true && validTokenRes.session.is_anonymous === true && validTokenRes.session.username === 'anonymous') {
             sess = validTokenRes.session;
@@ -970,7 +974,7 @@ class AccessControl {
             return [userObj, false];
         }
     })
-    .spread(function(userObj, isNewAnonSess, sessRes) {
+    .spread((userObj, isNewAnonSess, sessRes) => {
         if (isNewAnonSess) {
           let sess = sessRes[0] ? sessRes[0].data : null;
           return [userObj, this.dataAccess.attachUserToSession(userObj, sess)];
@@ -979,7 +983,7 @@ class AccessControl {
           return [userObj];
         }
     })
-    .spread(function(userObj) {
+    .spread((userObj) => {
         delete userObj.password;
         delete userObj.salt;
 
@@ -987,7 +991,7 @@ class AccessControl {
         var resolveObj = userObj;
         deferred.resolve(resolveObj);
     })
-    .fail(function(err) {
+    .fail((err) => {
         if (err !== undefined && err !== null && typeof (err.AddToError) == 'function') {
             deferred.reject(err.AddToError(__filename, 'createStandardUser'));
         }

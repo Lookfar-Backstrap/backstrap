@@ -13,7 +13,7 @@ class Analytics {
 
     this.get = {};
     this.post = {
-      event: this.#event
+      event: this.#event.bind(this)
     };
     this.patch = {};
     this.put = {};

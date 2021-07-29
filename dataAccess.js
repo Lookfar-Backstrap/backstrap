@@ -794,7 +794,7 @@ class DataAccess {
           deferred.reject(errorObj);
         }
         else if (connection.results.length === 1) {
-          deferred.resolve(connection.results[0].data);
+          deferred.resolve(connection.results[0]);
         }
         else {
           console.log('found multiple users');
@@ -1049,7 +1049,7 @@ class DataAccess {
 
   createUser(userObj) {
     var deferred = Q.defer();
-    startTransaction()
+    this.startTransaction()
     .then((dbHandle) => {
       let sql = `INSERT INTO bs3_users(account_type, username, email, roles, external_id, locked, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`;
       let params = [userObj.account_type, userObj.username, userObj.email, JSON.stringify(userObj.roles), userObj.external_id, false, new Date().toISOString()];
@@ -1064,7 +1064,7 @@ class DataAccess {
       return [dbHandle, outUsr, this.runSql(sql, params, dbHandle)];
     })
     .spread((dbHandle, usr, credRes) => {
-      return [usr, commitTransaction(dbHandle)];
+      return [usr, this.commitTransaction(dbHandle)];
     })
     .spread((usr, commitRes) => {
       deferred.resolve(usr);
