@@ -151,10 +151,10 @@ class Controller {
       // EXECUTE THE ACTUAL FUNCTION
       var mainCall = Q.denodeify(versionOfWS[funcName]);		
       mainCall(req)
-      .then(function(results) {
+      .then((results) => {
         deferred.resolve(results);
       })
-      .fail(function(err) {
+      .fail((err) => {
         var errorObj;
         if(err !== undefined && err !== null && typeof(err.AddToError) === 'function') {
           errorObj = err.AddToError(__filename, 'resolveServiceCall', 'main function call failed');	

@@ -66,7 +66,7 @@ class ServiceRegistration {
 
       // CHECK IF WE HAVE ALREADY CREATED THIS ENDPOINT
       this.serviceCallExists(call, area, controller, verb, version)
-      .then(function() {
+      .then(() => {
         var errorObj = new ErrorObj(500, 
                       'sr0002', 
                       __filename, 
@@ -75,7 +75,7 @@ class ServiceRegistration {
                       );
         deferred.reject(errorObj);
       })
-      .fail(function(err) {
+      .fail((err) => {
         if(err != null &&
           (err.message==='no matching controller found' ||
           err.message==='no matching area found' ||
@@ -142,10 +142,10 @@ class ServiceRegistration {
 
           // WRITE TO FILE
           this.endpoints.save(true)
-          .then(function(save_res) {
+          .then((save_res) => {
             deferred.resolve(save_res);
           })
-          .fail(function(err) {
+          .fail((err) => {
             if(err !== undefined && err !== null && typeof(err.AddToError) === 'function') {
               deferred.reject(err.AddToError(__filename, 'registerServiceCall'));
             }
@@ -189,7 +189,7 @@ class ServiceRegistration {
     var deferred = Q.defer();
   
     this.serviceCallExists(call, area, controller, verb, version)
-    .then(function() {
+    .then(() => {
       var updatedMethod = false;
       var controllers = this.endpoints.areas[area];
       for(var cIdx = 0; cIdx < controllers.length; cIdx++) {
@@ -222,10 +222,10 @@ class ServiceRegistration {
       if(updatedMethod) {
         // WRITE TO FILE
         this.endpoints.save(true)
-        .then(function(save_res) {
+        .then((save_res) => {
           deferred.resolve(save_res);
         })
-        .fail(function(err) {
+        .fail((err) => {
           if(err !== undefined && err !== null && typeof(err.AddToError) === 'function') {
             deferred.reject(err.AddToError(__filename, 'updateServiceCall'));
           }
@@ -252,7 +252,7 @@ class ServiceRegistration {
         deferred.reject(errorObj);
       }
     })
-    .fail(function(err) {
+    .fail((err) => {
       if(err !== undefined && err !== null && typeof(err.AddToError) === 'function') {
         deferred.reject(err.AddToError(__filename, 'updateServiceCall'));
       }
@@ -277,7 +277,7 @@ class ServiceRegistration {
     var deferred = Q.defer();
   
     this.serviceCallExists(call, area, controller, verb, version)
-    .then(function() {
+    .then(() => {
       var controllers = this.endpoints.areas[area];
       for(var cIdx = 0; cIdx < controllers.length; cIdx++) {
         if(controllers[cIdx].name.toLowerCase() === controller.toLowerCase() &&
@@ -303,10 +303,10 @@ class ServiceRegistration {
   
         // WRITE TO FILE
         this.endpoints.save(true)
-        .then(function(save_res) {
+        .then((save_res) => {
           deferred.resolve(save_res);
         })
-        .fail(function(err) {
+        .fail((err) => {
           if(err !== undefined && err !== null && typeof(err.AddToError) === 'function') {
             deferred.reject(err.AddToError(__filename, 'deleteServiceCall'));
           }
@@ -333,7 +333,7 @@ class ServiceRegistration {
         deferred.reject(errorObj);
       }
     })
-    .fail(function(err) {
+    .fail((err) => {
       if(err !== undefined && err !== null && typeof(err.AddToError) === 'function') {
         deferred.reject(err.AddToError(__filename, 'deleteServiceCall'));
       }
@@ -489,10 +489,10 @@ class ServiceRegistration {
     var deferred = Q.defer();
   
     this.getServiceCall(call, area, controller, verb, version)
-    .then(function(sc_res) {
+    .then((sc_res) => {
       deferred.resolve(sc_res);
     })
-    .fail(function(gsc_err) {
+    .fail((gsc_err) => {
       if(gsc_err !== undefined && gsc_err !== null && typeof(gsc_err.AddToError) === 'function') {
         deferred.reject(gsc_err.AddToError(__filename, 'serviceCallExists'));
       }
@@ -517,7 +517,7 @@ class ServiceRegistration {
     var deferred = Q.defer();
   
     this.getServiceCall(call, area, controller, verb, version)
-    .then(function(get_res) {
+    .then((get_res) => {
       if(get_res.args!==null && get_res.args.length > 0) {
         var isValid = true;
         var invalidArgs = [];
@@ -653,7 +653,7 @@ class ServiceRegistration {
         deferred.resolve(true);
       }
     })
-    .fail(function(err) {
+    .fail((err) => {
       if(err !== undefined && err !== null && typeof(err.AddToError) === 'function') {
         deferred.reject(err.AddToError(__filename, 'validateArguments'));
       }

@@ -51,7 +51,7 @@ class Admin {
     }
 
     Q(getUserCmd)
-    .then(function (findRes) {
+    .then((findRes) => {
       let userObjs = [];
       if(!Array.isArray(findRes)) {
         userObjs.push(findRes);
@@ -71,7 +71,7 @@ class Admin {
       var resolveObj = formattedUserObjs;
       deferred.resolve(resolveObj);
     })
-    .fail(function (err) {
+    .fail((err) => {
       if (err !== undefined && err !== null && typeof (err.AddToError) == 'function') {
         err.setMessages('error getting user', 'Problem fetching users');
         deferred.reject(err.AddToError(__filename, 'user'));
@@ -101,7 +101,7 @@ class Admin {
     var email = req.query.email ? req.query.email.toLowerCase() : null;
 
 		dataAccess.findUser(uid, username, email)
-    .then(function (userObj) {
+    .then((userObj) => {
       if(userObj) {
         deferred.resolve({'roles': userObj.roles});
       }
@@ -117,7 +117,7 @@ class Admin {
         deferred.reject(errorObj);
       }
     })
-    .fail(function (err) {
+    .fail((err) => {
       if (err !== undefined && err !== null && typeof (err.AddToError) == 'function') {
         err.setMessages('error getting user\'s roles', 'Problem getting user roles');
         deferred.reject(err.AddToError(__filename, 'user'));
@@ -173,14 +173,14 @@ class Admin {
 		}
 
 		this.utilities.validateEmail(email)
-		.then(function(){
+		.then(() => {
 			return this.utilities.validateUsername(username);
 		})
-		.then(function(){
+		.then(() => {
 			var cryptoCall = Q.denodeify(crypto.randomBytes);
 			return cryptoCall(48);
 		})
-		.then(function(buf) {
+		.then((buf) => {
 			var salt = buf.toString('hex');
 			var saltedPassword = password + salt;
 			var hashedPassword = crypto.createHash('sha256').update(saltedPassword).digest('hex');
@@ -197,14 +197,14 @@ class Admin {
 
 			return dataAccess.createUser(userObj);
 		})
-		.then(function(userDbEntity) {
+		.then((userDbEntity) => {
 			delete userDbEntity.password;
 			delete userDbEntity.salt;
 
 			var resolveObj = userDbEntity;
 			deferred.resolve(resolveObj);
 		})
-		.fail(function(err) {
+		.fail((err) => {
 			if(err !== undefined && err !== null && typeof(err.AddToError) == 'function') {
 				deferred.reject(err.AddToError(__filename, 'signUp'));
 			}
@@ -234,10 +234,10 @@ class Admin {
 		var role = req.body.role.toLowerCase();
 
 		this.accessControl.roleExists(role)
-		.then(function() {
+		.then(() => {
 			return dataAccess.findUser(uid, username, email);
 		})
-		.then(function(userObj) {
+		.then((userObj) => {
 			if(!userObj.roles.includes(role)) {
 				userObj.roles.push(role);
         return this.dataAccess.updateUserInfo(userObj.id, null, userObj.roles, null, null);
@@ -246,10 +246,10 @@ class Admin {
         return null;
       }
 		})
-		.then(function() {
+		.then(() => {
 			deferred.resolve({'success': true});
 		})
-		.fail(function(err) {
+		.fail((err) => {
 			if(err !== undefined && err !== null && typeof(err.AddToError) == 'function') {
 				if(err.message === 'no results found' || err.err_code === 'da0109') {
 					err.setStatus(404);
@@ -318,7 +318,7 @@ class Admin {
 		}
 
 		dataAccess.getUserById(req.body.id)
-		.then(function(existingUser) {
+		.then((existingUser) => {
 			if(username) {
 				return [existingUser, this.utilities.validateUsername(username, existingUser.username)];
 			}
@@ -326,7 +326,7 @@ class Admin {
 				return [existingUser];
 			}
 		})
-		.spread(function(existingUser){
+		.spread((existingUser) => {
 			if(email) {
 				return [existingUser, this.utilities.validateEmail(email, existingUser.email)];
 			}
@@ -334,7 +334,7 @@ class Admin {
 				return [existingUser];
 			}
 		})
-		.spread(function(existingUser){
+		.spread((existingUser) => {
 			if(password !== undefined) {
 				var cryptoCall = Q.denodeify(crypto.randomBytes);
 				return [existingUser, cryptoCall(48)];
@@ -343,7 +343,7 @@ class Admin {
 				return [existingUser];
 			}
 		})
-		.spread(function(existingUser, buf) {
+		.spread((existingUser, buf) => {
       var salt = null;
       var hashedPassword = null;
 			if(buf !== undefined && password != null) {
@@ -358,10 +358,10 @@ class Admin {
       }
       return Q.all(updCmds);
 		})
-		.then(function(resArray) {
+		.then((resArray) => {
 			deferred.resolve(resArray[0]);
 		})
-		.fail(function(err) {
+		.fail((err) => {
 			if(err !== undefined && err !== null && typeof(err.AddToError) == 'function') {
 				err.setMessages('error updating user object', 'Problem updating user object');
 				deferred.reject(err.AddToError(__filename, 'user'));
@@ -387,11 +387,11 @@ class Admin {
     var deferred = Q.defer();
 
     dataAccess.deleteUser(req.body.id)
-    .then(function (del_res) {
+    .then((del_res) => {
       var resolveObj = del_res;
       deferred.resolve(resolveObj);
     })
-    .fail(function (err) {
+    .fail((err) => {
       if (err !== undefined && err !== null && typeof (err.AddToError) == 'function') {
         deferred.reject(err.AddToError(__filename, 'DELETE user'));
       }
@@ -421,10 +421,10 @@ class Admin {
 		var role = req.body.role.toLowerCase();
 
 		this.accessControl.roleExists(role)
-		.then(function() {
+		.then(() => {
 			return dataAccess.findUser(uid, username, email);
 		})
-		.then(function(userObj) {
+		.then((userObj) => {
 			if(userObj.roles.includes(role)) {
 				userObj.roles.splice(userObj.roles.indexOf(role), 1);
         return this.dataAccess.updateUserInfo(userObj.id, null, userObj.roles, null, null, null);
@@ -433,10 +433,10 @@ class Admin {
 				return null;
 			}
 		})
-		.then(function() {
+		.then(() => {
 			deferred.resolve({'success': true});
 		})
-		.fail(function(err) {
+		.fail((err) => {
 			if(err !== undefined && err !== null && typeof(err.AddToError) == 'function') {
 				if(err.message === 'no results found' || err.err_code === 'da0109') {
 					err.setStatus(404);

@@ -105,7 +105,7 @@ class Utilities {
     }
     else {
       this.dataAccess.getUserByUserName(newUsername)
-        .then(function (userFound) {
+        .then((userFound) => {
           var errorObj = new ErrorObj(400,
             'u0053',
             __filename,
@@ -114,7 +114,7 @@ class Utilities {
           );
           deferred.reject(errorObj);
         })
-        .fail(function (err) {
+        .fail((err) => {
           deferred.resolve();
         });
     }
@@ -130,7 +130,7 @@ class Utilities {
     }
     else {
       this.dataAccess.getUserByEmail(newEmail)
-      .then(function (userFound) {
+      .then((userFound) => {
         var errorObj = new ErrorObj(400,
           'u0054',
           __filename,
@@ -140,7 +140,7 @@ class Utilities {
 
         deferred.reject(errorObj);
       })
-      .fail(function (err) {
+      .fail((err) => {
 
         if (err.err_code == 'da2001') {
           // THERE WERE MULTIPLE ACCOUNTS FOUND WITH THIS EMAIL
@@ -168,7 +168,7 @@ class Utilities {
     var deferred = Q.defer();
     
     this.dataAccess.getSession(null, apiTkn)
-    .then(function (sessionObj) {
+    .then((sessionObj) => {
       if(sessionObj.anonymous) {
         return {'username': 'anonymous'};
       }
@@ -176,10 +176,10 @@ class Utilities {
         return this.dataAccess.getUserBySession(sessionObj.id);
       }
     })
-    .then(function (userObj) {
+    .then((userObj) => {
       deferred.resolve(userObj);
     })
-    .fail(function (err) {
+    .fail((err) => {
       // ADD LOGGING HERE?
       if (err !== undefined && err !== null && typeof (err.AddToError) === 'function') {
         deferred.reject(err.AddToError(__filename, 'getUserFromApiToken'));
@@ -255,10 +255,10 @@ class Utilities {
   
     var writeToLog = Q.denodeify(errorLog.write);
     writeToLog(logEntry)
-    .then(function(write_res) {
+    .then((write_res) => {
       deferred.resolve();
     })
-    .fail(function(write_err) {
+    .fail((write_err) => {
       deferred.reject(write_err);
     });
   

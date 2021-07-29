@@ -16,22 +16,22 @@ class SchemaControl {
     var deferred = Q.defer();
 
 		this.#checkDbExists(name, user, pass, host, port)
-			.then(function () {
+			.then(() => {
 				return this.dataAccess.getDbConnection();
-			}.bind(this))
-			.then(function (connection) {
+			})
+			.then((connection) => {
 				return [connection, this.#createInitialTables(connection)];
-			}.bind(this))
-			.spread(function (connection, res) {
+			})
+			.spread((connection, res) => {
 				return [res, this.dataAccess.closeDbConnection(connection)];
-			}.bind(this))
-			.spread(function (commit_res) {
+			})
+			.spread((commit_res) => {
 				return [this.#createDefaultUser()];
-			}.bind(this))
-			.then(function (res) {
+			})
+			.then((res) => {
 				deferred.resolve(res);
 			})
-			.fail(function (err) {
+			.fail((err) => {
 				if (err !== undefined && err !== null && typeof (err.AddToError) === 'function') {
 					deferred.reject(err.AddToError(__filename, 'updateSchema'));
 				}
@@ -165,7 +165,7 @@ class SchemaControl {
     var qry = "SELECT COUNT(*) FROM bs3_users WHERE LOWER(username) = 'bsroot'";
     var qry_params = [];
     this.dataAccess.ExecutePostgresQuery(qry, qry_params, null)
-    .then(function (connection) {
+    .then((connection) => {
       if (parseInt(connection.results[0].count) === 0) {
         let userParams = {
           'username': 'bsroot',
@@ -199,7 +199,7 @@ class SchemaControl {
         deferred.resolve(true);
       }
     })
-    .fail(function (err) {
+    .fail((err) => {
       var errorObj = new ErrorObj(500,
         'sc1008',
         __filename,
@@ -228,10 +228,10 @@ class SchemaControl {
   
     var qry_params = [];
     this.dataAccess.ExecutePostgresQuery(qry, qry_params, connection)
-      .then(function (connection) {
+      .then((connection) => {
         deferred.resolve(connection.results[0].exists);
       })
-      .fail(function (err) {
+      .fail((err) => {
         var errorObj = new ErrorObj(500,
           'sc0008',
           __filename,
@@ -249,7 +249,7 @@ class SchemaControl {
   #checkDbExists(db_name, db_user, db_pass, db_host, db_port) {
     var deferred = Q.defer();
     this.dataAccess.CreateDatabase(db_name, db_user, db_pass, db_host, db_port)
-      .spread(function (err, res) {
+      .spread((err, res) => {
         //BECAUSE events.js THROWS AN UNHANDLED EXCEPTION WHEN 
         //QUERYING A DB THAT DOESNT EXIST, WE CANNOT DO SELECT 1 FROM pg_database WHERE datname = '" + db_name + "'
         //SO WE JUST CREATE AND IGNORE IF ERRORS BECAUSE IT EXISTS
@@ -269,7 +269,7 @@ class SchemaControl {
           deferred.resolve();
         }
       })
-      .fail(function (err) {
+      .fail((err) => {
         var errorObj = new ErrorObj(500,
           'sc0014',
           __filename,

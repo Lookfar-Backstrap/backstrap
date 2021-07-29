@@ -90,10 +90,10 @@ class Settings {
 	
 		var fswrite = Q.denodeify(fs.writeFile);
 		fswrite(file, JSON.stringify(writeObj, null, 4))
-		.then(function(write_res) {
+		.then((write_res) => {
 			deferred.resolve(true);
 		})
-		.fail(function(err) {
+		.fail((err) => {
 			var errorObj = new ErrorObj(500, 
 										'se0004', 
 										__filename, 

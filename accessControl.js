@@ -434,10 +434,10 @@ class AccessControl {
     var ac = this;
     var deferred = Q.defer();
     ac.init(this.file)
-    .then(function (res) {
+    .then((res) => {
       deferred.resolve(res);
     })
-    .fail(function (err) {
+    .fail((err) => {
       var errorObj = new ErrorObj(500,
         'ac0003',
         __filename,
@@ -454,10 +454,10 @@ class AccessControl {
     let fileData = { roles: this.roles };
     var fswrite = Q.denodeify(fs.writeFile);
     fswrite(this.file, JSON.stringify(fileData, null, 4))
-      .then(function (write_res) {
+      .then((write_res) => {
         deferred.resolve(true);
       })
-      .fail(function (err) {
+      .fail((err) => {
         var errorObj = new ErrorObj(500,
           'ac0004',
           __filename,
@@ -492,7 +492,7 @@ class AccessControl {
     }
 
     this.dataAccess.getSession(null, tkn)
-    .then(function (sess) {
+    .then((sess) => {
       if(sess) {
         deferred.resolve({is_valid:true, session:sess});
       }
@@ -513,7 +513,7 @@ class AccessControl {
         }
       }
     })
-    .fail(function (err) {
+    .fail((err) => {
       if(continueWhenInvalid) {
         deferred.resolve({is_valid: false});
       }
@@ -871,7 +871,7 @@ class AccessControl {
 
         deferred.resolve(token);
     })
-    .fail(function(err) {
+    .fail((err) => {
         if (err !== undefined && err !== null && typeof (err.AddToError) == 'function') {
             if (err.message === 'no results found') {
                 var token = crypto.randomBytes(48).toString('hex');
@@ -1038,10 +1038,10 @@ class AccessControl {
     }
     
     validateEmailOrSkip
-    .then(function() {
+    .then(() => {
         return this.#generateApiUserCreds();
     })
-    .then(function(creds) {
+    .then((creds) => {
         var saltedSecret = creds.clientSecret + creds.salt;
         var hashedSecret = crypto.createHash('sha256').update(saltedSecret).digest('hex');
 
@@ -1063,7 +1063,7 @@ class AccessControl {
         }
         return [creds.clientSecret, nextCmd];
     })
-    .spread(function(clientSecret, userOrCreds) {
+    .spread((clientSecret, userOrCreds) => {
         if(userOrCreds.hasOwnProperty('email')) {
           delete userOrCreds.id;
           delete userOrCreds.salt;
@@ -1074,7 +1074,7 @@ class AccessControl {
           deferred.resolve({client_id: userOrCreds.clientId, client_secret: userOrCreds.clientSecret});
         }
     })
-    .fail(function(err) {
+    .fail((err) => {
         if (err !== undefined && err !== null && typeof (err.AddToError) == 'function') {
             deferred.reject(err.AddToError(__filename, 'createAPIUser'));
         }
@@ -1160,7 +1160,7 @@ class AccessControl {
     }
 
     this.utilities.validateEmail(email)
-    .then(function() {
+    .then(() => {
       let qry = "SELECT COUNT(*) FROM bs3_users WHERE external_id = $1 AND deleted_at IS NULL";
       let params = [exid];
       return this.dataAccess.runSql(qry, params);
@@ -1190,11 +1190,11 @@ class AccessControl {
         return deferred.promise;
       }
     })
-    .then(function(userObj) {
+    .then((userObj) => {
         delete userObj.id;
         deferred.resolve(userObj);
     })
-    .fail(function(err) {
+    .fail((err) => {
         if (err !== undefined && err !== null && typeof (err.AddToError) == 'function') {
             deferred.reject(err.AddToError(__filename, 'createExternalUser'));
         }

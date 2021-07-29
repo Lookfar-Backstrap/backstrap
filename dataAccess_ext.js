@@ -10,7 +10,7 @@ class DataAccessExtension {
 // 	var qry = "SELECT * FROM person WHERE person.id = $1";
 // 	var qry_params = [1];
 // 	this.dataAccess.ExecutePostgresQuery(qry, qry_params, null)
-// 	.then(function(person_res){
+// 	.then((person_res) => {
 // 		//do something with person
 // 	});
 // }

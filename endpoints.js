@@ -161,10 +161,10 @@ class Endpoints {
     
     var fswrite = Q.denodeify(fs.writeFile);
     Q.all([fswrite(this.#file, JSON.stringify(systemEndpoints, null, 4)), fswrite(this.#extensionFile, JSON.stringify(customEndpoints, null, 4))])
-    .then(function(write_res) {
+    .then((write_res) => {
       deferred.resolve(true);
     })
-    .fail(function(err) {
+    .fail((err) => {
       var errorObj = new ErrorObj(400, 
                     'e0002', 
                     __filename, 

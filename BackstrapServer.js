@@ -80,16 +80,16 @@ Utilities.setDataAccess(DataAccess);
 ServiceRegistration.init(Endpoints);
 console.log('ServiceRegistration initialized');
 AccessControl.init(Utilities, Settings, DataAccess, 'Security.json')
-.then(function (aclRes) {
+.then((aclRes) => {
   console.log('AccessControl initialized');
   return Controller.init(DataAccess, Utilities, AccessControl, ServiceRegistration, Settings, Endpoints);
 })
-.then(function(cInit) {
+.then((cInit) => {
   console.log('Controller initialized');
   SchemaControl.init(DataAccess, AccessControl)
   return SchemaControl.update(config.db.name, config.db.user, config.db.pass, config.db.host, config.db.port)
 })
-.then(function(schemaUpd) {
+.then((schemaUpd) => {
   // CREATE A LOG DIRECTORY IF NEEDED
   // DO IT SYNCHRONOUSLY WHICH IS ALRIGHT SINCE THIS IS JUST ONCE
   // DURING STARTUP
@@ -103,7 +103,7 @@ AccessControl.init(Utilities, Settings, DataAccess, 'Security.json')
   app.set('port', process.env.PORT || Settings.port);
 
   // STARTUP THE SESSION INVALIDATION -- CHECK EVERY X MINUTES
-  var invalidSessionTimer = setInterval(function () { checkForInvalidSessions(DataAccess, Settings) }, Settings.timeout_check * 60000);
+  var invalidSessionTimer = setInterval(() => { checkForInvalidSessions(DataAccess, Settings) }, Settings.timeout_check * 60000);
   
   // EVERYTHING IS INITIALIZED.  RUN ANY INITIALIZATION CODE
   try {
@@ -182,7 +182,7 @@ AccessControl.init(Utilities, Settings, DataAccess, 'Security.json')
     res.status(404).send({ 'Error': 'Route/File Not Found' });
   });
 
-  app.use(function (err, req, res, next) {
+  app.use((err, req, res, next) => {
     if (req.xhr) {
       if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
         console.error('Bad JSON');
@@ -214,7 +214,7 @@ AccessControl.init(Utilities, Settings, DataAccess, 'Security.json')
   if(Settings.keep_alive_timeout != null) server.keepAliveTimeout = parseInt(Settings.keep_alive_timeout);
   if(Settings.headers_timeout != null) server.headersTimeout = parseInt(Settings.headers_timeout);
 })
-.fail(function (err) {
+.fail((err) => {
   console.log('Initialization Failure');
   console.log(err);
   return 2;
@@ -277,7 +277,7 @@ function requestPipeline(req, res, verb) {
   }
 
   ServiceRegistration.serviceCallExists(serviceCall, area, controller, verb, version)
-  .then(function (sc) {
+  .then((sc) => {
     let continueWhenInvalid = false;
     if (!sc.authRequired) {
       continueWhenInvalid = true;
@@ -315,7 +315,7 @@ function requestPipeline(req, res, verb) {
       }
     }
   })
-  .spread(function(sc, validTokenResponse) {
+  .spread((sc, validTokenResponse) => {
     var inner_deferred = Q.defer();
     
     if(validTokenResponse.is_valid === true) {
@@ -325,10 +325,10 @@ function requestPipeline(req, res, verb) {
         if(Settings.access_logging === true) accessLogEvent.session_id = validTokenResponse.session.id;
 
         DataAccess.getUserBySession(validTokenResponse.session.id)
-        .then(function(usr) {
+        .then((usr) => {
           inner_deferred.resolve(usr);
         })
-        .fail(function(usr_err) {
+        .fail((usr_err) => {
           if(sc.authRequired) {
             var errorObj = new ErrorObj(403,
                                         'bs0002',
@@ -351,10 +351,10 @@ function requestPipeline(req, res, verb) {
         if(Settings.access_logging === true) accessLogEvent.client_id = validTokenResponse.client_id;
 
         DataAccess.getUserByClientId(validTokenResponse.client_id, false)
-        .then(function(usr) {
+        .then((usr) => {
           inner_deferred.resolve(usr);
         })
-        .fail(function(usr_err) {
+        .fail((usr_err) => {
           if(sc.authRequired) {
             var errorObj = new ErrorObj(403,
                                         'bs0003',
@@ -377,7 +377,7 @@ function requestPipeline(req, res, verb) {
 
     return [sc, validTokenResponse, inner_deferred.promise];
   })
-  .spread(function (sc, validTokenResponse, userOrNull) {
+  .spread((sc, validTokenResponse, userOrNull) => {
     //PUT THE USER OBJECT ON THE REQUEST
     if(userOrNull !== null) {
       req.this_user = userOrNull;
@@ -389,13 +389,13 @@ function requestPipeline(req, res, verb) {
       return [sc, validTokenResponse];
     }
   })
-  .spread(function (sc, validTokenResponse) {
+  .spread((sc, validTokenResponse) => {
     return [sc, validTokenResponse, ServiceRegistration.validateArguments(serviceCall, area, controller, verb, version, args)];
   })
-  .spread(function (sc, validTokenResponse) {
+  .spread((sc, validTokenResponse) => {
     return [validTokenResponse, Controller.resolveServiceCall(sc, req)];
   })
-  .spread(function (validTokenResponse, results) {
+  .spread((validTokenResponse, results) => {
     if(validTokenResponse.session != null) {
       let session = validTokenResponse.session;
       session.last_touch = new Date().toISOString();
@@ -425,7 +425,7 @@ function requestPipeline(req, res, verb) {
     }
     
   })
-  .fail(function (err) {
+  .fail((err) => {
     if (err.http_status == null) {
       err.http_status = 500;
     }
@@ -575,7 +575,7 @@ function checkForInvalidSessions(DataAccess, Settings, callback) {
 	var deferred = Q.defer();
 	//THIS RETURNS STALE SESSIONS
 	DataAccess.GetDeadSessions(Settings.timeout, true)
-	.then(function (deadSessions) {
+	.then((deadSessions) => {
     let ids = [];
     // IF LOGGING SESSIONS, WRITE OUT THE DEAD SESSIONS TO
     // THE SESSION LOG
@@ -597,10 +597,10 @@ function checkForInvalidSessions(DataAccess, Settings, callback) {
 
     if(ids.length > 0) {
       DataAccess.DeleteSessions(ids)
-      .then(function(res) {
+      .then((res) => {
         deferred.resolve();
       })
-      .fail(function(err) {
+      .fail((err) => {
         let logEntry = JSON.stringify(err)+'\n';
         errorLog.write(logEntry);
         deferred.resolve();

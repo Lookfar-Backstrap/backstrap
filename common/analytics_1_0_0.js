@@ -27,10 +27,10 @@ class Analytics {
 		var tkn = req.headers[settings.token_header];
 
 		this.utilities.logEvent(tkn, eventDescriptor)
-		.then(function(logEvent_res) {
+		.then((logEvent_res) => {
 			deferred.resolve({success: true});
 		})
-		.fail(function(err) {
+		.fail((err) => {
 			deferred.reject(err);
 		})
 

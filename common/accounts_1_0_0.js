@@ -164,13 +164,13 @@ class Accounts {
     var token = req.headers[this.settings.token_header];
     
     this.dataAccess.getSession(null, token)
-    .then(function(session) {
+    .then((session) => {
       return this.utilities.invalidateSession(session);
     })
-    .then(function(invld_res) {
+    .then((invld_res) => {
       deferred.resolve({success: true});
     })
-    .fail(function(err) {
+    .fail((err) => {
       deferred.reject(err.AddToError(__filename, 'signOut'));
     })
 
@@ -182,7 +182,7 @@ class Accounts {
     var deferred = Q.defer();
 
     this.dataAccess.getUserByEmail(req.body.email)
-    .then(function(user) {
+    .then((user) => {
         if (user != null) {
             if (user.locked) {
                 var errorObj = new ErrorObj(403,
@@ -213,10 +213,10 @@ class Accounts {
         deferred.promise.nodeify(callback);
         return deferred.promise;
     })
-    .then(function(emailRes) {
+    .then((emailRes) => {
         deferred.resolve();
     })
-    .fail(function(err) {
+    .fail((err) => {
         if (err !== undefined && err !== null && typeof (err.AddToError) == 'function') {
             err.setMessages('Problem generating email and retrieving forgotten username');
             deferred.reject(err.AddToError(__filename, 'forgotUsername'));
@@ -254,7 +254,7 @@ class Accounts {
 
     if (validArgs) {
         this.dataAccess.findUser(null, username, email)
-        .then(function(userObj) {
+        .then((userObj) => {
           if (userObj.locked) {
               var errorObj = new ErrorObj(403,
                   'a2006',
@@ -271,20 +271,20 @@ class Accounts {
           }
           return [userObj, this.utilities.getHash(null, null, 48)];
         })
-        .spread(function(userObj, tkn) {
+        .spread((userObj, tkn) => {
             var reset_link = process.env.reset_password_link || "";
             reset_link = (reset_link == "" || reset_link == "FILL_IN") ? "" : reset_link + '?token=';
             var message = 'Reset password: ' + reset_link + tkn;
             return [userObj, tkn, this.utilities.sendMail(userObj.email, 'Password Reset', message)];
         })
-        .spread(function(userObj, tkn, mail_res) {
+        .spread((userObj, tkn, mail_res) => {
           return this.dataAccess.updateCredentialsForUser(userObj.id, null, null, null, tkn);
         })
-        .then(function(saveRes) {
+        .then((saveRes) => {
             var resolveObj = { 'success': true };
             deferred.resolve(resolveObj);
         })
-        .fail(function(err) {
+        .fail((err) => {
             if(err != null && err.err_code == 'da0200'){
                 var resolveObj = { 
                     'success': true,
@@ -330,7 +330,7 @@ class Accounts {
     var password = args.password;
 
     this.dataAccess.getUserByForgotPasswordToken(tkn)
-    .then(function(userObj) {
+    .then((userObj) => {
       if (userObj != null) {
           // IF USER IS LOCKED, BAIL OUT
           if (userObj.is_locked) {
@@ -361,17 +361,17 @@ class Accounts {
           deferred.reject(errorObj);
       }
     })
-    .spread(function(userObj, buf) {
+    .spread((userObj, buf) => {
         var salt = buf.toString('hex');
         var saltedPassword = password + salt;
         var hashedPassword = crypto.createHash('sha256').update(saltedPassword).digest('hex');
         return this.dataAccess.updateCredentialsForUser(userObj.id, salt, hashedPassword, null, 'RESET');
     })
-    .then(function() {
+    .then(() => {
         var resolveObj = { 'success': true };
         deferred.resolve(resolveObj);
     })
-    .fail(function(err) {
+    .fail((err) => {
         if (err !== undefined && err !== null && typeof (err.AddToError) == 'function') {
             err.setMessages('Problem reseting password');
             deferred.reject(err.AddToError(__filename, 'resetPassword'));
@@ -399,12 +399,12 @@ class Accounts {
     // ACCESS CONTROL'S startSession() CREATES AN ANONYMOUS SESSION IF
     // YOU DO NOT PASS IT A USER OBJECT AS THE FIRST ARGUMENT
     this.accessControl.startSession()
-    .then(function(sess_res) {
+    .then((sess_res) => {
         // ADD EVENT TO SESSION
         var resolveObj = sess_res;
         deferred.resolve(resolveObj);
     })
-    .fail(function(err) {
+    .fail((err) => {
         if (err !== undefined && err !== null && typeof (err.AddToError) === 'function') {
           deferred.reject(err.AddToError(__filename, 'startAnonymousSession'));
         }
@@ -447,10 +447,10 @@ class Accounts {
           var hashedPassword = crypto.createHash('sha256').update(saltedPassword).digest('hex');
 
           this.dataAccess.updateCredentialsForUser(existingUser.id, null, hashedPassword)
-          .then(function(updatedUser) {
+          .then((updatedUser) => {
             deferred.resolve();
           })
-          .fail(function(err) {
+          .fail((err) => {
             if (err !== undefined && err !== null && typeof (err.AddToError) === 'function') {
                 err.setMessages('error updating bsuser', 'Problem updating password');
                 deferred.reject(err.AddToError(__filename, 'PATCH password'));
@@ -478,13 +478,13 @@ class Accounts {
     var existingUser = req.this_user;
 
     this.utilities.validateEmail(updateUser.email, existingUser.email)
-    .then(function() {
+    .then(() => {
         return this.utilities.validateUsername(updateUser.email, existingUser.username);
     })
-    .then(function() {
+    .then(() => {
       return this.dataAccess.updateUserInfo(existingUser.id, null, null, updateUser.email);
     })
-    .then(function(updateRes) {
+    .then((updateRes) => {
         if(updateRes) {
           deferred.resolve(updateRes);
         }
@@ -492,7 +492,7 @@ class Accounts {
           deferred.resolve(null);
         }
     })
-    .fail(function(err) {
+    .fail((err) => {
         if (err !== undefined && err !== null && typeof (err.AddToError) === 'function') {
             deferred.reject(err.AddToError(__filename, 'PUT bsuser'));
         }
@@ -517,10 +517,10 @@ class Accounts {
     var deferred = Q.defer();
 
     this.dataAccess.deleteUser(req.this_user.id)
-    .then(function() {
+    .then(() => {
         deferred.resolve();
     })
-    .fail(function(err) {
+    .fail((err) => {
         if (err !== undefined && err !== null && typeof (err.AddToError) === 'function') {
             err.setMessages('error deleting bsuser');
             deferred.reject(err.AddToError(__filename, 'DELETE bsuser'));

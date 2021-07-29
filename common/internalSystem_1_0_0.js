@@ -57,26 +57,26 @@ class InternalSystem {
   #endpoint(req, callback) {
 		var deferred = Q.defer();
 		this.serviceRegistration.getAllServiceCalls()
-		.then(function(serviceCalls) {
+		.then((serviceCalls) => {
 			var resolveObj = {available: true, endpoints: serviceCalls};
 			deferred.resolve(resolveObj);
 		})
-		.fail(function(err) {
+		.fail((err) => {
 			if(err !== undefined && err !== null && typeof(err.AddToError) === 'function') {
                 err.setMessages('error getting endpoints', 'Problem getting endpoints');
 				deferred.reject(err.AddToError(__filename, 'endpoint'));
-            }
-            else {
-                var errorObj = new ErrorObj(500,
-                                            'is1001',
-                                            __filename,
-                                            'endpoint',
-                                            'error getting endpoints',
-                                            'Error getting endpoints',
-                                            err
-                                            );
-                deferred.reject(errorObj);
-            }
+      }
+      else {
+          var errorObj = new ErrorObj(500,
+                                      'is1001',
+                                      __filename,
+                                      'endpoint',
+                                      'error getting endpoints',
+                                      'Error getting endpoints',
+                                      err
+                                      );
+          deferred.reject(errorObj);
+      }
 		});
 
 		deferred.promise.nodeify(callback);
@@ -120,15 +120,15 @@ class InternalSystem {
 		console.log('');
 
 		this.accessControl.reload()
-		.then(function(ac_res) {
+		.then((ac_res) => {
 			console.log('Access Control reloaded');
 			return this.settings.reload();
 		})
-		.then(function(set_res) {
+		.then((set_res) => {
 			console.log('Settings reloaded');
 			return this.serviceRegistration.reload();
 		})
-		.then(function(sr_res) {
+		.then((sr_res) => {
 			console.log('Service Registration reloaded');
 			console.log('----------------------------------------------');
 			console.log('');
@@ -136,7 +136,7 @@ class InternalSystem {
 			var resolveObj = {'success': true};
 			deferred.resolve(resolveObj);
 		})
-		.fail(function(err) {
+		.fail((err) => {
 			if(err !== undefined && err !== null && typeof(err.AddToError) === 'function') {
                 err.setMessages('error reloading configs', 'Problem reloading configs');
 				deferred.reject(err.AddToError(__filename, 'reload'));
@@ -170,14 +170,14 @@ class InternalSystem {
 		var authRequired = inputArgs.authRequired;
 		var description = inputArgs.description;
 		this.serviceRegistration.registerServiceCall(call, area, controller, verb, version, args, authRequired, description)
-		.then(function(registration_result) {
+		.then((registration_result) => {
 			return this.serviceRegistration.getAllServiceCalls();
 		})
-		.then(function(serviceCalls) {
+		.then((serviceCalls) => {
 			var resolveObj = {endpoints: serviceCalls};
 			deferred.resolve(resolveObj);
 		})
-		.fail(function(err) {
+		.fail((err) => {
 			if(err !== undefined && err !== null && typeof(err.AddToError) === 'function') {
                 err.setMessages('error creating endpoint', 'Problem creating endpoint');
 				deferred.reject(err.AddToError(__filename, 'endpoint'));
@@ -211,14 +211,14 @@ class InternalSystem {
 		var authRequired = inputArgs.authRequired;
 		var description = inputArgs.description;
 		this.serviceRegistration.updateServiceCall(call, area, controller, verb, version, args, authRequired, description)
-		.then(function(update_result) {
+		.then((update_result) => {
 			return this.serviceRegistration.getAllServiceCalls();
 		})
-		.then(function(serviceCalls) {
+		.then((serviceCalls) => {
 			var resolveObj = {endpoints: serviceCalls};
 			deferred.resolve(resolveObj);
 		})
-		.fail(function(err) {
+		.fail((err) => {
 			if(err !== undefined && err !== null && typeof(err.AddToError) === 'function') {
                 err.setMessages('error updating endpoint', 'Problem updating endpoint');
 				deferred.reject(err.AddToError(__filename, 'endpoint'));
@@ -250,14 +250,14 @@ class InternalSystem {
 		var version = inputArgs.version;
 
 		this.serviceRegistration.deleteServiceCall(call, area, controller, verb, version)
-		.then(function(delete_res) {
+		.then((delete_res) => {
 			return this.serviceRegistration.getAllServiceCalls();
 		})
-		.then(function(serviceCalls) {
+		.then((serviceCalls) => {
 			var resolveObj = {endpoints: serviceCalls};
 			deferred.resolve(resolveObj);
 		})
-		.fail(function(err) {
+		.fail((err) => {
 			if(err !== undefined && err !== null && typeof(err.AddToError) === 'function') {
                 err.setMessages('error deleting endpoint', 'Problem deleting endpoint');
 				deferred.reject(err.AddToError(__filename, 'endpoint'));

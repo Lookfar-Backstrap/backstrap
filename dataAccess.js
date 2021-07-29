@@ -60,10 +60,10 @@ class DataAccess {
           " 	SELECT 'false';" +
           " END IF";
     ExecutePostgresQuery(qry, qry_params, null)
-    .then(function(connection){
+    .then((connection) => {
       deferred.resolve(connection.results[0]);
     })
-    .fail(function(err){
+    .fail((err) => {
       deferred.resolve(false);
     })
   
@@ -144,7 +144,7 @@ class DataAccess {
     var deferred = Q.defer();
 
     this.getDbConnection()
-    .then(function (connection) {
+    .then((connection) => {
       //SET TRANSACTIONAL
       connection['transactional'] = true;
       connection.client.query('BEGIN', (err) => {
@@ -162,7 +162,7 @@ class DataAccess {
         deferred.resolve(connection)
       });
     })
-    .fail(function (err) {
+    .fail((err) => {
       var errorObj = new ErrorObj(500,
         'da9005',
         __filename,
@@ -291,10 +291,10 @@ class DataAccess {
     
     if(connection == null) {
       this.getDbConnection()
-      .then(function(db_connection) {
+      .then((db_connection) => {
         deferred.resolve(db_connection);
       })
-      .fail(function(err) {
+      .fail((err) => {
         var errorObj = new ErrorObj(500,
           'da0500',
           __filename,
@@ -320,11 +320,11 @@ class DataAccess {
     if(connection != null && !connection.isReleased) {
       if(connection.transactional) {
         this.rollbackTransaction(connection)
-        .then(function(rollback_res) {
+        .then((rollback_res) => {
           delete connection.transactional;
           deferred.resolve();
         })
-        .fail(function(rollback_err) {
+        .fail((rollback_err) => {
           try {
             connection.release();
           }
@@ -376,12 +376,12 @@ class DataAccess {
     var that = this;
 
     this.resolveDbConnection(connection)
-    .then(function(db_connection) {
+    .then((db_connection) => {
 
       // PERFORM THE QUERY
       if(!isStreaming) {
         db_connection.client.query(pg_query)
-        .then(function(res) {
+        .then((res) => {
           db_connection.results = res.rows;
 
           // IF THE ARG connection PASSED INTO THE FUNCTION IS null/undefined
@@ -389,7 +389,7 @@ class DataAccess {
           // BEFORE RETURNING THE RESULTS
           if(connection == null) {
             that.releaseConnection(db_connection)
-            .then(function() {
+            .then(() => {
               deferred.resolve(db_connection);
             });
           }
@@ -399,7 +399,7 @@ class DataAccess {
             deferred.resolve(db_connection);
           }
         })
-        .catch(function(qry_err) {
+        .catch((qry_err) => {
           // IF THE ARG connection PASSED INTO THE FUNCTION IS null/undefined
           // THIS IS A ONE-OFF AND WE MUST SHUT DOWN THE CONNECTION WE MADE
           // AND FAIL OUT
@@ -428,7 +428,7 @@ class DataAccess {
             // AND FAIL OUT
             if(db_connection.transactional) {
               this.rollbackTransaction(db_connection)
-              .then(function(rollback_res) {
+              .then((rollback_res) => {
                 var errorObj = new ErrorObj(500,
                               'da0502',
                               __filename,
@@ -439,7 +439,7 @@ class DataAccess {
                             );
                 deferred.reject(errorObj);
               })
-              .fail(function(rollback_err) {
+              .fail((rollback_err) => {
                 deferred.reject(rollback_err.AddToError(__filename, 'ExecutePostgresQuery'));
               });
             }
@@ -497,7 +497,7 @@ class DataAccess {
         stream.on('error', (streamErr) => {
           if(db_connection.transactional === true) {
             this.rollbackTransaction(db_connection)
-            .finally(function() {
+            .finally(() => {
               outStream.destroy(streamErr);
             });
           }
@@ -517,7 +517,7 @@ class DataAccess {
         deferred.resolve(db_connection);
       }
     })
-    .fail(function(err) {
+    .fail((err) => {
       var errorObj = new ErrorObj(500,
                     'da0505',
                     __filename,
@@ -537,10 +537,10 @@ class DataAccess {
     var deferred = Q.defer();
     
     this.ExecutePostgresQuery(sqlStatement, params, connection, isStreaming)
-    .then(function (connection) {
+    .then((connection) => {
       deferred.resolve(connection.results);
     })
-    .fail(function (err) {
+    .fail((err) => {
       if(err && typeof(err.AddToError) === 'function') {
         deferred.reject(err.AddToError(__filename, 'runSql'));
       }
@@ -566,10 +566,10 @@ class DataAccess {
     var qry_params = [];
     if(markAsEnded) qry = "UPDATE bs3_sessions SET ended_at = NOW() WHERE last_touch < (NOW() - INTERVAL " + minutes + ") RETURNING *";
     this.ExecutePostgresQuery(qry, qry_params, null)
-    .then(function (connection) {
+    .then((connection) => {
       deferred.resolve(connection.results);
     })
-    .fail(function (err) {
+    .fail((err) => {
       deferred.reject(err.AddToError(__filename, 'GetDeadSessions'));
     });
   
@@ -657,7 +657,7 @@ class DataAccess {
     var deferred = Q.defer();
   
     this.findUser(null, username, email)
-    .then(function (userObj) {
+    .then((userObj) => {
       if (userObj.is_locked) {
         deferred.reject(new ErrorObj(
           403,
@@ -673,7 +673,7 @@ class DataAccess {
         return [userObj, this.utilities.getHash(null, null, 48)];
       }
     })
-    .spread(function (userObj, tkn) {
+    .spread((userObj, tkn) => {
       if (userObj.forgot_password_tokens === undefined || userObj.forgot_password_tokens === null) {
         userObj.forgot_password_tokens = [tkn];
       }
@@ -682,10 +682,10 @@ class DataAccess {
       }
       return [tkn, this.updateCredentialsForUser(userObj.id, null, null, null, userObj.forgot_password_tokens)];
     })
-    .spread(function(tkn) {
+    .spread((tkn) => {
       deferred.resolve(tkn);
     })
-    .fail(function(err) {
+    .fail((err) => {
       deferred.reject(err);
     });
   
@@ -732,7 +732,7 @@ class DataAccess {
       var qry = "SELECT * FROM bs3_users WHERE id = $1 AND deleted_at IS NULL";
       var qry_params = [id];
       this.ExecutePostgresQuery(qry, qry_params, connection)
-      .then(function (connection) {
+      .then((connection) => {
         if (connection.results.length === 0) {
           var errorObj = new ErrorObj(404,
             'da0160',
@@ -760,7 +760,7 @@ class DataAccess {
           deferred.reject(errorObj);
         }
       })
-      .fail(function (err) {
+      .fail((err) => {
         try {
           deferred.reject(err.AddToError(__filename, 'getUserById'));
         }
@@ -781,7 +781,7 @@ class DataAccess {
       var qry = "SELECT * FROM bs3_users WHERE LOWER(username) = LOWER($1) AND deleted_at IS NULL";
       var qry_params = [username];
       this.ExecutePostgresQuery(qry, qry_params, connection)
-      .then(function (connection) {
+      .then((connection) => {
         if (connection.results.length === 0) {
           var errorObj = new ErrorObj(404,
             'da0162',
@@ -809,7 +809,7 @@ class DataAccess {
           deferred.reject(errorObj);
         }
       })
-      .fail(function (err) {
+      .fail((err) => {
         try {
           deferred.reject(err.AddToError(__filename, 'getUserByUserName'));
         }
@@ -830,7 +830,7 @@ class DataAccess {
       var qry = "SELECT * FROM bs3_users WHERE LOWER(email) = LOWER($1) AND deleted_at IS NULL";
       var qry_params = [email];
       this.ExecutePostgresQuery(qry, qry_params, connection)
-      .then(function (connection) {
+      .then((connection) => {
         if (connection.results.length === 0) {
           var errorObj = new ErrorObj(404,
             'da0164',
@@ -857,7 +857,7 @@ class DataAccess {
           deferred.reject(errorObj);
         }
       })
-      .fail(function (err) {
+      .fail((err) => {
         try {
           deferred.reject(err.AddToError(__filename, 'getUserByEmail'));
         }
@@ -880,7 +880,7 @@ class DataAccess {
       qry += " FROM bs3_users usr JOIN bs3_credentials creds WHERE creds.client_id = $1 AND deleted_at IS NULL";
       var qry_params = [cid];
       this.ExecutePostgresQuery(qry, qry_params, connection)
-      .then(function (connection) {
+      .then((connection) => {
         if (connection.results.length === 0) {
           var errorObj = new ErrorObj(404,
             'da0166',
@@ -907,7 +907,7 @@ class DataAccess {
           deferred.reject(errorObj);
         }
       })
-      .fail(function (err) {
+      .fail((err) => {
         try {
           deferred.reject(err.AddToError(__filename, 'getUserByClientId'));
         }
@@ -976,7 +976,7 @@ class DataAccess {
       var qry = "SELECT * FROM bs3_users bu INNER JOIN bs3_credentials bc ON bc.user_id = bu.id WHERE bc.forgot_password_tokens ? $1 AND deleted_at IS NULL";
       var qry_params = [fptkn];
       this.ExecutePostgresQuery(qry, qry_params, connection)
-      .then(function (connection) {
+      .then((connection) => {
         if (connection.results.length === 0) {
           var errorObj = new ErrorObj(404,
             'da0164',
@@ -1003,7 +1003,7 @@ class DataAccess {
           deferred.reject(errorObj);
         }
       })
-      .fail(function (err) {
+      .fail((err) => {
         try {
           deferred.reject(err.AddToError(__filename, 'getUserByForgotPasswordToken'));
         }
