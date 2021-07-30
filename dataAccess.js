@@ -636,7 +636,7 @@ class DataAccess {
     let sql = "SELECT * FROM bs3_users WHERE deleted_at IS NULL";
     this.runSql(sql,[],connection)
     .then((userRes) => {
-      deferred.resolve(userRes.map(u => u.data));
+      deferred.resolve(userRes);
     })
     .fail((allUsrErr) => {
       let errorObj = new ErrorObj(500,
@@ -745,7 +745,7 @@ class DataAccess {
           deferred.reject(errorObj);
         }
         else if (connection.results.length === 1) {
-          deferred.resolve(connection.results[0].data);
+          deferred.resolve(connection.results[0]);
         }
         else {
           console.log('found multiple users');
@@ -843,7 +843,7 @@ class DataAccess {
           deferred.reject(errorObj);
         }
         else if (connection.results.length === 1) {
-          deferred.resolve(connection.results[0].data);
+          deferred.resolve(connection.results[0]);
         }
         else {
           var errorObj = new ErrorObj(500,
@@ -893,7 +893,7 @@ class DataAccess {
           deferred.reject(errorObj);
         }
         else if (connection.results.length === 1) {
-          deferred.resolve(connection.results[0].data);
+          deferred.resolve(connection.results[0]);
         }
         else {
           let errorObj = new ErrorObj(500,
@@ -940,7 +940,7 @@ class DataAccess {
         deferred.reject(errorObj);
       }
       else if (usersRes.length === 1) {
-        deferred.resolve(usersRes[0].data);
+        deferred.resolve(usersRes[0]);
       }
       else {
         let errorObj = new ErrorObj(500,
@@ -989,7 +989,7 @@ class DataAccess {
           deferred.reject(errorObj);
         }
         else if (connection.results.length === 1) {
-          deferred.resolve(connection.results[0].data);
+          deferred.resolve(connection.results[0]);
         }
         else {
           var errorObj = new ErrorObj(500,
@@ -1330,7 +1330,7 @@ class DataAccess {
     var deferred = Q.defer();
 
     let params = [userId];
-    let sql = "UPDATE credentials SET modified_at = NOW()";
+    let sql = "UPDATE bs3_credentials SET modified_at = NOW()";
     if(salt) {
       params.push(salt);
       sql += `, salt = $${params.length}`;
@@ -1345,14 +1345,13 @@ class DataAccess {
     }
     if(forgotPasswordToken) {
       if(forgotPasswordToken === 'RESET') {
-        sql = `, forgotPassword = []'::jsonb`;
+        sql = `, forgot_password = []'::jsonb`;
       }
       else {
-        sql += `, forgotPassword = forgotPassword || '["${forgotPasswordToken}"]'::jsonb`;
+        sql += `, forgot_password = forgot_password || '["${forgotPasswordToken}"]'::jsonb`;
       }
     }
-    params.push(userId);
-    sql += ` WHERE user_id = $1`;
+    sql += ` WHERE user_id = $1 AND deleted_at IS NULL`;
 
     this.runSql(sql, params, connection)
     .then((updRes) => {

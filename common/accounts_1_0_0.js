@@ -253,23 +253,40 @@ class Accounts {
     }
 
     if (validArgs) {
+        let userObj = null;
         this.dataAccess.findUser(null, username, email)
-        .then((userObj) => {
-          if (userObj.locked) {
-              var errorObj = new ErrorObj(403,
-                  'a2006',
-                  __filename,
-                  'forgotPassword',
-                  'bsuser is locked',
-                  'Unauthorized',
-                  null
-              );
-              deferred.reject(errorObj);
+        .then((userObjs) => {
+          var validDeferred = Q.defer();
 
-              deferred.promise.nodeify(callback);
-              return deferred.promise;
+          if(userObjs.length === 1) {
+            userObj = userObjs[0];
+            if (userObj.locked) {
+                let errorObj = new ErrorObj(403,
+                    'a2006',
+                    __filename,
+                    'forgotPassword',
+                    'bsuser is locked',
+                    'Unauthorized',
+                    null
+                );
+                validDeferred.reject(errorObj);
+            }
+            else {
+              validDeferred.resolve(this.utilities.getHash(null, null, 48));
+            }
           }
-          return [userObj, this.utilities.getHash(null, null, 48)];
+          else {
+            let errorObj = new ErrorObj(403,
+                'a2008',
+                __filename,
+                'forgotPassword',
+                'bsuser is locked',
+                'Unauthorized',
+                null
+            );
+            validDeferred.reject(errorObj);
+          }
+          return [userObj, validDeferred.promise];
         })
         .spread((userObj, tkn) => {
             var reset_link = process.env.reset_password_link || "";
@@ -297,7 +314,7 @@ class Accounts {
                 deferred.reject(err.AddToError(__filename, 'forgotPassword'));
             }
             else {
-                var errorObj = new ErrorObj(500,
+                let errorObj = new ErrorObj(500,
                     'a1032',
                     __filename,
                     'forgotPassword',
@@ -310,7 +327,7 @@ class Accounts {
         });
     }
     else {
-        var errorObj = new ErrorObj(400,
+        let errorObj = new ErrorObj(400,
             'a0032',
             __filename,
             'forgotPassword',

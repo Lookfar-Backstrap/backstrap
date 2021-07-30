@@ -8,7 +8,6 @@ const fs = require('fs');
 var nodemailer = require('nodemailer');
 var smtpTransport = require('nodemailer-smtp-transport');
 const nodemailerSendgrid = require('nodemailer-sendgrid');
-var mailTransport;
 
 const crypto = require('crypto');
 
@@ -276,7 +275,7 @@ class Utilities {
     if(bdy) mailOptions.text = bdy;
     if(html_bdy) mailOptions.html = html_bdy;
   
-    mailTransport.sendMail(mailOptions, function (email_err, email_res) {
+    this.mailTransport.sendMail(mailOptions, function (email_err, email_res) {
       if (!email_err) {
         deferred.resolve(email_res);
       }
@@ -346,7 +345,7 @@ class Utilities {
                 text: txtBody,
                 html: htmlBody
               };
-              mailTransport.sendMail(mailOptions, function (email_err, email_res) {
+              this.mailTransport.sendMail(mailOptions, function (email_err, email_res) {
                 if (!email_err) {
                   deferred.resolve(email_res);
                 }
@@ -401,7 +400,7 @@ class Utilities {
             subject: sbj,
             text: txtBody
           };
-          mailTransport.sendMail(mailOptions, function (email_err, email_res) {
+          this.mailTransport.sendMail(mailOptions, function (email_err, email_res) {
             if (!email_err) {
               deferred.resolve(email_res);
             }
@@ -442,7 +441,7 @@ class Utilities {
             subject: sbj,
             html: htmlBody
           };
-          mailTransport.sendMail(mailOptions, function (email_err, email_res) {
+          this.mailTransport.sendMail(mailOptions, function (email_err, email_res) {
             if (!email_err) {
               deferred.resolve(email_res);
             }

@@ -680,7 +680,7 @@ class ServiceRegistration {
     var serviceCalls = [];
   
     var areaNames = Object.keys(this.endpoints.areas);
-    for(var aIdx = 0; aIdx < areas.length; aIdx++) {
+    for(var aIdx = 0; aIdx < areaNames.length; aIdx++) {
       var areaName = areaNames[aIdx];
       var controllerArray = this.endpoints.areas[areaNames[aIdx]];
       for(var cIdx = 0; cIdx < controllerArray.length; cIdx++) {

@@ -84,6 +84,7 @@ class SchemaControl {
                               password TEXT,
                               client_id VARCHAR(256) UNIQUE,
                               client_secret VARCHAR(256),
+                              forgot_password JSONB,
                               user_id INTEGER REFERENCES bs3_users(id),
                               created_at TIMESTAMP,
                               modified_at TIMESTAMP,

@@ -398,7 +398,7 @@ class AccessControl {
   startSession(userObj, clientInfo) {
     var deferred = Q.defer();
 
-    getSessionToken()
+    this.#getSessionToken()
     .then((tkn) => {
       if(userObj != null) {
         return this.dataAccess.startSession(tkn, userObj.id, clientInfo, false);
