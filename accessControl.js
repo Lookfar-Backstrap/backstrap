@@ -550,7 +550,7 @@ class AccessControl {
       if(clientId && clientSecret) {
         this.dataAccess.getUserByClientId(clientId, true)
         .then((usr) => {
-          if(!usr.is_locked) {
+          if(!usr.locked) {
             let saltedSecret = clientSecret + usr.salt;
             let hashedClientSecret = crypto.createHash('sha256').update(saltedSecret).digest('hex');
             if(hashedClientSecret === usr.client_secret) {
@@ -1064,14 +1064,15 @@ class AccessControl {
         return [creds.clientSecret, nextCmd];
     })
     .spread((clientSecret, userOrCreds) => {
+        if(clientSecret) userOrCreds.client_secret = clientSecret;
         if(userOrCreds.hasOwnProperty('email')) {
           delete userOrCreds.id;
           delete userOrCreds.salt;
-          userOrCreds.client_secret = clientSecret;
+          
           deferred.resolve(userOrCreds);
         }
         else {
-          deferred.resolve({client_id: userOrCreds.clientId, client_secret: userOrCreds.clientSecret});
+          deferred.resolve({client_id: userOrCreds.client_id, client_secret: userOrCreds.client_secret});
         }
     })
     .fail((err) => {

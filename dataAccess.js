@@ -877,7 +877,7 @@ class DataAccess {
     if(cid) {
       var qry = "SELECT usr.*";
       if(includeCreds) qry += ", creds.salt, creds.client_secret"; 
-      qry += " FROM bs3_users usr JOIN bs3_credentials creds WHERE creds.client_id = $1 AND deleted_at IS NULL";
+      qry += " FROM bs3_users usr JOIN bs3_credentials creds ON creds.user_id = usr.id WHERE creds.client_id = $1 AND creds.deleted_at IS NULL AND usr.deleted_at IS NULL";
       var qry_params = [cid];
       this.ExecutePostgresQuery(qry, qry_params, connection)
       .then((connection) => {
@@ -1116,7 +1116,19 @@ class DataAccess {
       let params = [clientId, salt, hashedSecret, uid];
       this.runSql(sql, params)
       .then((credRes) => {
-        deferred.resolve(credRes);
+        if(credRes.length > 0) {
+          deferred.resolve(credRes[0]);
+        }
+        else {
+          let errorObj = new ErrorObj(500,
+                                      'da3002',
+                                      __filename,
+                                      'saveApiCredentials',
+                                      'problem saving to db',
+                                      'There was a problem saving credentials',
+                                      null);
+          deferred.reject(errorObj);
+        }
       })
       .fail((err) => {
         if(err && typeof(err.AddToError) === 'function') {
