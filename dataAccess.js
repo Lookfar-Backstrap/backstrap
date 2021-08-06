@@ -1435,11 +1435,11 @@ class DataAccess {
       sql += `, username = $${params.length}`;
     }
 
-    sql += ` WHERE user_id = $1 RETURNING *`;
+    sql += ` WHERE id = $1 RETURNING *`;
 
     this.runSql(sql, params)
     .then((res) => {
-      if(res.lentgth > 0) {
+      if(res.length > 0) {
         deferred.resolve(res[0]);
       }
       else {

@@ -44,10 +44,10 @@ class Admin {
     // IF THIS NO AGRUMENTS WERE SUPPLIED, GET ALL USERS
     let getUserCmd = null;
     if(searchObj.username || searchObj.id || searchObj.email) {
-		  getUserCmd = dataAccess.findUser(searchObj.id, searchObj.username, searchObj.email);
+		  getUserCmd = this.dataAccess.findUser(searchObj.id, searchObj.username, searchObj.email);
     }
     else {
-      getUserCmd = dataAccess.getAllUsers();
+      getUserCmd = this.dataAccess.getAllUsers();
     }
 
     Q(getUserCmd)
@@ -100,17 +100,28 @@ class Admin {
 		var username = req.query.username ? req.query.username.toLowerCase() : null;
     var email = req.query.email ? req.query.email.toLowerCase() : null;
 
-		dataAccess.findUser(uid, username, email)
-    .then((userObj) => {
-      if(userObj) {
-        deferred.resolve({'roles': userObj.roles});
+		this.dataAccess.findUser(uid, username, email)
+    .then((userObjs) => {
+      if(userObjs.length === 1) {
+        deferred.resolve({'roles': userObjs[0].roles});
       }
-      else {
+      else if(userObjs.length > 1) {
         let errorObj = new ErrorObj(404,
                                     'ad0012',
                                     __filename,
                                     'userRole',
                                     'no user found',
+                                    'Error getting user',
+                                    null
+                                  );
+        deferred.reject(errorObj);
+      }
+      else {
+        let errorObj = new ErrorObj(404,
+                                    'ad0013',
+                                    __filename,
+                                    'userRole',
+                                    'multiple users found',
                                     'Error getting user',
                                     null
                                   );
@@ -195,7 +206,7 @@ class Admin {
 				'locked': false
 			};
 
-			return dataAccess.createUser(userObj);
+			return this.dataAccess.createUser(userObj);
 		})
 		.then((userDbEntity) => {
 			delete userDbEntity.password;
@@ -229,21 +240,35 @@ class Admin {
     var deferred = Q.defer();
 
     var uid = req.body.user_id;
-    var email = req.body.email;
-		var username = req.body.username.toLowerCase();
-		var role = req.body.role.toLowerCase();
+    var email = req.body.email ? req.body.email.toLowerCase() : null;
+		var username = req.body.username ? req.body.username.toLowerCase() : null;
+		var role = req.body.role ? req.body.role.toLowerCase() : null;
 
 		this.accessControl.roleExists(role)
 		.then(() => {
-			return dataAccess.findUser(uid, username, email);
+			return this.dataAccess.findUser(uid, username, email);
 		})
-		.then((userObj) => {
-			if(!userObj.roles.includes(role)) {
-				userObj.roles.push(role);
-        return this.dataAccess.updateUserInfo(userObj.id, null, userObj.roles, null, null);
-			}
-			else {
-        return null;
+		.then((userObjs) => {
+      if(userObjs.length > 0) {
+        let userObj = userObjs[0];
+        if(!userObj.roles.includes(role)) {
+          userObj.roles.push(role);
+          return this.dataAccess.updateUserInfo(userObj.id, null, userObj.roles, null, null);
+        }
+        else {
+          return null;
+        }
+      }
+      else {
+        var errorObj = new ErrorObj(500,
+                                    'ad0007',
+                                    __filename,
+                                    'userRole',
+                                    'no user found',
+                                    'Error setting user\'s role',
+                                    err
+                                    );
+        deferred.reject(errorObj);
       }
 		})
 		.then(() => {
@@ -251,22 +276,17 @@ class Admin {
 		})
 		.fail((err) => {
 			if(err !== undefined && err !== null && typeof(err.AddToError) == 'function') {
-				if(err.message === 'no results found' || err.err_code === 'da0109') {
-					err.setStatus(404);
-					err.setMessages('user not found', 'User not found');
-				}
-
 				deferred.reject(err.AddToError(__filename, 'userRole'));
 			}
 			else {
 				var errorObj = new ErrorObj(500,
-											'ad0003',
-											__filename,
-											'userRole',
-											'error getting user\'s roles',
-											'Error getting user\'s roles',
-											err
-											);
+                                    'ad0003',
+                                    __filename,
+                                    'userRole',
+                                    'error getting user\'s roles',
+                                    'Error setting user\'s role',
+                                    err
+                                    );
 				deferred.reject(errorObj);
 			}
 		});
@@ -317,7 +337,7 @@ class Admin {
 			}
 		}
 
-		dataAccess.getUserById(req.body.id)
+		this.dataAccess.getUserById(req.body.id)
 		.then((existingUser) => {
 			if(username) {
 				return [existingUser, this.utilities.validateUsername(username, existingUser.username)];
@@ -386,7 +406,7 @@ class Admin {
   #deleteUser(req, callback) {
     var deferred = Q.defer();
 
-    dataAccess.deleteUser(req.body.id)
+    this.dataAccess.deleteUser(req.body.id)
     .then((del_res) => {
       var resolveObj = del_res;
       deferred.resolve(resolveObj);
@@ -422,7 +442,7 @@ class Admin {
 
 		this.accessControl.roleExists(role)
 		.then(() => {
-			return dataAccess.findUser(uid, username, email);
+			return this.dataAccess.findUser(uid, username, email);
 		})
 		.then((userObj) => {
 			if(userObj.roles.includes(role)) {
