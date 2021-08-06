@@ -24,16 +24,17 @@ class Accounts {
       forgotUsername: this.#forgotUsername.bind(this),
       forgotPassword: this.#forgotPassword.bind(this),
       resetPassword: this.#resetPassword.bind(this),
-      startAnonymousSession: this.#startAnonymousSession.bind(this)
+      session: this.#startAnonymousSession.bind(this)
     };
     this.patch = {
-      password: this.#updatePassword
+      password: this.#updatePassword.bind(this)
     };
     this.put = {
-      email: this.#updateEmail
+      email: this.#updateEmail.bind(this)
     };
     this.delete = {
-      account: this.#deleteUser
+      account: this.#deleteUser.bind(this),
+      apiCredentials: this.#deleteApiCredentials.bind(this)
     };
   }
 
@@ -295,7 +296,7 @@ class Accounts {
             return [userObj, tkn, this.utilities.sendMail(userObj.email, 'Password Reset', message)];
         })
         .spread((userObj, tkn, mail_res) => {
-          return this.dataAccess.updateCredentialsForUser(userObj.id, null, null, null, tkn);
+          return this.dataAccess.updateCredentialsForUser(userObj.id, null, null, tkn);
         })
         .then((saveRes) => {
             var resolveObj = { 'success': true };
@@ -382,7 +383,7 @@ class Accounts {
         var salt = buf.toString('hex');
         var saltedPassword = password + salt;
         var hashedPassword = crypto.createHash('sha256').update(saltedPassword).digest('hex');
-        return this.dataAccess.updateCredentialsForUser(userObj.id, salt, hashedPassword, null, 'RESET');
+        return this.dataAccess.updateCredentialsForUser(userObj.id, salt, hashedPassword, null);
     })
     .then(() => {
         var resolveObj = { 'success': true };
@@ -419,6 +420,8 @@ class Accounts {
     .then((sess_res) => {
         // ADD EVENT TO SESSION
         var resolveObj = sess_res;
+        resolveObj[this.settings.token_header] = sess_res.token;
+        delete resolveObj.token;
         deferred.resolve(resolveObj);
     })
     .fail((err) => {
@@ -446,43 +449,35 @@ class Accounts {
 
       // TODO: validate password if possible
 
-      var existingUser = req.this_user;
-      // GOT A USER, MAKE SURE THERE IS A STORED SALT
-      var salt = existingUser.salt;
-      if (salt === null) {
-          var errorObj = new ErrorObj(500,
-              'a0034',
-              __filename,
-              'bsuser',
-              'error retrieving salt for this user'
-          );
-          deferred.reject(errorObj);
-      }
-      else {
-          // SALT AND HASH PASSWORD
-          var saltedPassword = req.body.password + existingUser.salt;
-          var hashedPassword = crypto.createHash('sha256').update(saltedPassword).digest('hex');
+      // GET SALT
+      var cryptoCall = Q.denodeify(crypto.randomBytes);
+      cryptoCall(48)
+      .then((saltBuf) => {
+        let salt = saltBuf.toString('hex');
+        // SALT AND HASH PASSWORD
+        var saltedPassword = req.body.password + salt;
+        var hashedPassword = crypto.createHash('sha256').update(saltedPassword).digest('hex');
 
-          this.dataAccess.updateCredentialsForUser(existingUser.id, null, hashedPassword)
-          .then((updatedUser) => {
-            deferred.resolve();
-          })
-          .fail((err) => {
-            if (err !== undefined && err !== null && typeof (err.AddToError) === 'function') {
-                err.setMessages('error updating bsuser', 'Problem updating password');
-                deferred.reject(err.AddToError(__filename, 'PATCH password'));
-            }
-            else {
-                var errorObj = new ErrorObj(500,
-                    'a0052',
-                    __filename,
-                    'password',
-                    'error updating user password'
-                );
-                deferred.reject(errorObj);
-            }
-          });
-      }
+        return this.dataAccess.updateCredentialsForUser(req.this_user.id, salt, hashedPassword);
+      })
+      .then((updatedUser) => {
+        deferred.resolve({success: true});
+      })
+      .fail((err) => {
+        if (err !== undefined && err !== null && typeof (err.AddToError) === 'function') {
+            err.setMessages('error updating bsuser', 'Problem updating password');
+            deferred.reject(err.AddToError(__filename, 'PATCH password'));
+        }
+        else {
+            let errorObj = new ErrorObj(500,
+                'a0052',
+                __filename,
+                'password',
+                'error updating user password'
+            );
+            deferred.reject(errorObj);
+        }
+      });
 
       deferred.promise.nodeify(callback);
       return deferred.promise;
@@ -557,6 +552,20 @@ class Accounts {
 
     deferred.promise.nodeify(callback);
     return deferred.promise;
+  }
+
+  #deleteApiCredentials(req, callback) {
+    var deferred = Q.defer();
+
+    this.dataAccess.deleteCredentialsByClientId(req.body.client_id)
+    .then((res) => {
+      deferred.resolve(res);
+    })
+    .fail((err) => {
+      deferred.reject(err.AddToError(__filename, 'deleteApiCredentials'));
+    })
+
+    return deferred.promise.nodeify(callback);
   }
 }
 

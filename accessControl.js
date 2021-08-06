@@ -303,7 +303,7 @@ class AccessControl {
         if (validTokenRes.is_valid === true && validTokenRes.session.anonymous === true) {
             sess = validTokenRes.session;
 
-            return [userObj, tkn, this.dataAccessattachUserToSession(userObj.id, sess.id)];
+            return [userObj, tkn, this.dataAccess.attachUserToSession(userObj.id, sess.id)];
         }
         else {
             return [userObj, tkn];
@@ -847,6 +847,7 @@ class AccessControl {
   getToken() {
     return this.#getSessionToken();
   }
+  
   #getSessionToken() {
     var deferred = Q.defer();
 

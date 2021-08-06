@@ -14,7 +14,7 @@
                 },
                 {
                     "verb": "POST",
-                    "call": "startAnonymousSession",
+                    "call": "session",
                     "desc": "Obtain a token for an anonymous session",
                     "authRequired": false,
                     "args": [
@@ -291,6 +291,21 @@
                     "desc": "Inavtivate your bsuser",
                     "authRequired": true,
                     "args": [],
+                    "isUserCreated": false
+                },
+                {
+                    "verb": "DELETE",
+                    "call": "apiCredentials",
+                    "desc": "remove a client_id / client_secret pair",
+                    "authRequired": true,
+                    "args": [
+                      {
+                        "name": "client_id",
+                        "type": "string",
+                        "isRequired": true,
+                        "description": "Client id to be removed"
+                      }
+                    ],
                     "isUserCreated": false
                 }
             ]

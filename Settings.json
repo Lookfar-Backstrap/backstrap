@@ -13,11 +13,10 @@
   "headers_timeout": null,
   "data_service_directory": null,
 	"mail_options": {
-		"account": "YOUR EMAIL",
+		"account": "backstrap@lookfar.com",
 		"service": "sendgrid",
-		"user": "YOUR USERNAME",
-    "pass": "YOUR PASSWORD",
-    "api_key": "YOUR API KEY",
+		"user": "jonnyb@lookfar.com",
+    "api_key": "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",
 		"template_directory": "./templates/"
   },
   "identity": {

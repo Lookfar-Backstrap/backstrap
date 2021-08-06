@@ -579,7 +579,7 @@ class DataAccess {
   DeleteSessions(dsIds) {
     var deferred = Q.defer();
   
-    let qry = "DELETE FROM bs3_sessions WHERE ids = ANY($1)";
+    let qry = "DELETE FROM bs3_sessions WHERE id = ANY($1)";
     this.ExecutePostgresQuery(qry, [dsIds])
     .then((delRes) => {
       deferred.resolve();
@@ -680,7 +680,7 @@ class DataAccess {
       else {
         userObj.forgot_password_tokens.push(tkn);
       }
-      return [tkn, this.updateCredentialsForUser(userObj.id, null, null, null, userObj.forgot_password_tokens)];
+      return [tkn, this.updateCredentialsForUser(userObj.id, null, null, userObj.forgot_password_tokens)];
     })
     .spread((tkn) => {
       deferred.resolve(tkn);
@@ -973,7 +973,7 @@ class DataAccess {
     var deferred = Q.defer();
   
     if(fptkn) {
-      var qry = "SELECT * FROM bs3_users bu INNER JOIN bs3_credentials bc ON bc.user_id = bu.id WHERE bc.forgot_password_tokens ? $1 AND deleted_at IS NULL";
+      var qry = "SELECT DISTINCT bu.* FROM bs3_users bu INNER JOIN bs3_credentials bc ON bc.user_id = bu.id WHERE bc.forgot_password ? $1 AND bc.deleted_at IS NULL";
       var qry_params = [fptkn];
       this.ExecutePostgresQuery(qry, qry_params, connection)
       .then((connection) => {
@@ -1338,7 +1338,7 @@ class DataAccess {
     return deferred.promise;
   }
 
-  updateCredentialsForUser(userId, salt, password, clientSecret, forgotPasswordToken, connection) {
+  updateCredentialsForUser(userId, salt, password, forgotPasswordToken, connection) {
     var deferred = Q.defer();
 
     let params = [userId];
@@ -1349,21 +1349,12 @@ class DataAccess {
     }
     if(password) {
       params.push(password);
-      sql += `, password = $${params.length}`;
+      sql += `, password = $${params.length}, forgot_password = '[]'::jsonb`;
     }
-    if(clientSecret) {
-      params.push(clientSecret);
-      sql += `, client_secret = $${params.length}`;
+    else if(forgotPasswordToken) {
+      sql += `, forgot_password = COALESCE(forgot_password, '[]'::JSONB) || '["${forgotPasswordToken}"]'::jsonb`;
     }
-    if(forgotPasswordToken) {
-      if(forgotPasswordToken === 'RESET') {
-        sql = `, forgot_password = []'::jsonb`;
-      }
-      else {
-        sql += `, forgot_password = forgot_password || '["${forgotPasswordToken}"]'::jsonb`;
-      }
-    }
-    sql += ` WHERE user_id = $1 AND deleted_at IS NULL`;
+    sql += ` WHERE user_id = $1 AND deleted_at IS NULL AND password IS NOT NULL`;
 
     this.runSql(sql, params, connection)
     .then((updRes) => {
@@ -1379,6 +1370,40 @@ class DataAccess {
                                   err);
       deferred.reject(errorObj);
     });
+
+    return deferred.promise;
+  }
+
+  deleteCredentialsByClientId(clientId) {
+    var deferred = Q.defer();
+
+    let sql = `UPDATE bs3_credentials SET deleted_at = NOW() WHERE client_id = $1 RETURNING id`;
+    this.runSql(sql, [clientId])
+    .then((res) => {
+      if(res.length > 0) {
+        deferred.resolve({success: true});
+      }
+      else {
+        let errorObj = new ErrorObj(500,
+                                    'da0120',
+                                    __filename,
+                                    'deleteCredentialsByClientId',
+                                    'db error',
+                                    'There was a problem with your request',
+                                    null);
+        deferred.reject(errorObj);
+      }
+    })
+    .fail((err) => {
+      let errorObj = new ErrorObj(500,
+                                  'da0121',
+                                  __filename,
+                                  'deleteCredentialsByClientId',
+                                  'db error',
+                                  'There was a problem with your request',
+                                  err);
+      deferred.reject(errorObj);
+    })
 
     return deferred.promise;
   }
