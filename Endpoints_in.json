@@ -659,7 +659,7 @@
                     "args": [
                         {
                             "name": "id",
-                            "type": "string",
+                            "type": "number",
                             "isRequired": true,
                             "description": null
                         }
@@ -734,7 +734,7 @@
                     "args": [
                         {
                             "name": "id",
-                            "type": "string",
+                            "type": "number",
                             "isRequired": false,
                             "description": null
                         },

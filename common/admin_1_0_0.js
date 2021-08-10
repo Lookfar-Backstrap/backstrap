@@ -435,23 +435,37 @@ class Admin {
   #deleteUserRole(req, callback) {
     var deferred = Q.defer();
 
-    var uid = req.body.user_id;
-		var username = req.body.username.toLowerCase();
-    var email = req.body.email.toLowerCase();
+    var uid = req.body.id;
+		var username = req.body.username ? eq.body.username.toLowerCase() : null;
+    var email = req.body.email ? req.body.email.toLowerCase() : null;
 		var role = req.body.role.toLowerCase();
 
 		this.accessControl.roleExists(role)
 		.then(() => {
 			return this.dataAccess.findUser(uid, username, email);
 		})
-		.then((userObj) => {
-			if(userObj.roles.includes(role)) {
-				userObj.roles.splice(userObj.roles.indexOf(role), 1);
-        return this.dataAccess.updateUserInfo(userObj.id, null, userObj.roles, null, null, null);
-			}
-			else {
-				return null;
-			}
+		.then((userObjs) => {
+      if(userObjs.length > 0) {
+        let userObj = userObjs[0];
+        
+        if(userObj.roles.includes(role)) {
+          userObj.roles.splice(userObj.roles.indexOf(role), 1);
+          return this.dataAccess.updateUserInfo(userObj.id, null, userObj.roles, null, null, null);
+        }
+        else {
+          return null;
+        }
+      }
+      else {
+        let errorObj = new ErrorObj(404,
+                                  'ad0010',
+                                  __filename,
+                                  'deleteUserRole',
+                                  'user not found',
+                                  'The user sepcified could not be found',
+                                  null);
+        deferred.reject(errorObj);
+      }
 		})
 		.then(() => {
 			deferred.resolve({'success': true});
