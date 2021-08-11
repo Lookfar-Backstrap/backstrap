@@ -87,111 +87,108 @@ class Controller {
   }
 
   async resolveServiceCall(serviceCallDescriptor, req, callback) {
-    var deferred = Q.defer();
-    // ===================================================================
-    // PULL THE APPROPRIATE VERSION OF WEB SERVICE WITH APPROPRIATE VERB
-    // ===================================================================
-    var versionOfWS;
-  
-    if (serviceCallDescriptor.verb.toLowerCase() === 'get' ||
-      serviceCallDescriptor.verb.toLowerCase() === 'post' ||
-      serviceCallDescriptor.verb.toLowerCase() === 'put' ||
-      serviceCallDescriptor.verb.toLowerCase() === 'patch' ||
-      serviceCallDescriptor.verb.toLowerCase() === 'delete') {
-      
-        // GRAB THE CONTROLLER
-      var wsNoVerb = this.controllers[serviceCallDescriptor.area][serviceCallDescriptor.controller][serviceCallDescriptor.version]
-      if (wsNoVerb !== null) {
-        // GRAB THE BLOCK OF FUNCTIONS FOR THIS VERB
-        versionOfWS = wsNoVerb[serviceCallDescriptor.verb.toLowerCase()];
-      }
-      else {
-        versionOfWS = null;
-      }
-    }
-    else {
-      var errorObj = new ErrorObj(400,
-        'c0002',
-        __filename,
-        'resolveServiceCall',
-        'unsupported http verb',
-        'That http verb is not supported.  Please use GET, POST, PUT, PATCH, or DELETE'
-      );
-      deferred.reject(errorObj);
-      return deferred.promise;
-    }
-  
-    if (versionOfWS === null) {
-      var errorObj = new ErrorObj(500,
-        'c0003',
-        __filename,
-        'resolveServiceCall',
-        'error locating correct controller file',
-        'Problem finding that endpoint',
-        serviceCallDescriptor
-      );
-      deferred.reject(errorObj);
-      return deferred.promise;
-    }
-  
-    // LOOK THROUGH THE CONTROLLER FOR THIS METHOD
-    var funcName = null;
-    var foundFuncName = false;
-    var funcNames = Object.keys(versionOfWS);
-    for (var fIdx = 0; fIdx < funcNames.length; fIdx++) {
-      if (funcNames[fIdx].toLowerCase() === serviceCallDescriptor.call.toLowerCase()) {
-        foundFuncName = true;
-        funcName = funcNames[fIdx];
-  
-        break;
-      }
-    }
-  
-    if (foundFuncName) {
-      // EXECUTE THE ACTUAL FUNCTION
-      try {
-        let mainCallRes = await versionOfWS[funcName];
-        deferred.resolve(mainCallRes);
-      }
-      catch(err) {
-        let errorObj;
-        if(err !== undefined && err !== null && typeof(err.AddToError) === 'function') {
-          errorObj = err.AddToError(__filename, 'resolveServiceCall', 'main function call failed');	
+    return new Promise(async (resolve, reject) => {
+      // ===================================================================
+      // PULL THE APPROPRIATE VERSION OF WEB SERVICE WITH APPROPRIATE VERB
+      // ===================================================================
+      var versionOfWS;
+    
+      if (serviceCallDescriptor.verb.toLowerCase() === 'get' ||
+        serviceCallDescriptor.verb.toLowerCase() === 'post' ||
+        serviceCallDescriptor.verb.toLowerCase() === 'put' ||
+        serviceCallDescriptor.verb.toLowerCase() === 'patch' ||
+        serviceCallDescriptor.verb.toLowerCase() === 'delete') {
+        
+          // GRAB THE CONTROLLER
+        var wsNoVerb = this.controllers[serviceCallDescriptor.area][serviceCallDescriptor.controller][serviceCallDescriptor.version]
+        if (wsNoVerb !== null) {
+          // GRAB THE BLOCK OF FUNCTIONS FOR THIS VERB
+          versionOfWS = wsNoVerb[serviceCallDescriptor.verb.toLowerCase()];
         }
         else {
-          errorObj = new ErrorObj(500,
-                      'c0004',
-                      __filename,
-                      'resolveServiceCall',
-                      'main function call failed',
-                      'Something went wrong',
-                      err
-                      );
+          versionOfWS = null;
         }
-  
-        errorObj.timestamp = new Date();
-        
-        console.log('\n========================== ERROR ==========================');
-        console.log(errorObj);
-        console.log('=============================================================\n');
-  
-        deferred.reject(errorObj);
-      }		
-    }
-    else {
-      var errorObj = new ErrorObj(400,
-        'c1005',
-        __filename,
-        'resolveServiceCall',
-        'error locating correct function in controller file',
-        'Problem finding that endpoint',
-        serviceCallDescriptor
-      );
-      deferred.reject(errorObj);
-    }
-  
-    deferred.promise.nodeify(callback);
-    return deferred.promise;
+      }
+      else {
+        let errorObj = new ErrorObj(400,
+          'c0002',
+          __filename,
+          'resolveServiceCall',
+          'unsupported http verb',
+          'That http verb is not supported.  Please use GET, POST, PUT, PATCH, or DELETE'
+        );
+        reject(errorObj);
+      }
+    
+      if (versionOfWS === null) {
+        let errorObj = new ErrorObj(500,
+          'c0003',
+          __filename,
+          'resolveServiceCall',
+          'error locating correct controller file',
+          'Problem finding that endpoint',
+          serviceCallDescriptor
+        );
+        reject(errorObj);
+      }
+    
+      // LOOK THROUGH THE CONTROLLER FOR THIS METHOD
+      var funcName = null;
+      var foundFuncName = false;
+      var funcNames = Object.keys(versionOfWS);
+      for (var fIdx = 0; fIdx < funcNames.length; fIdx++) {
+        if (funcNames[fIdx].toLowerCase() === serviceCallDescriptor.call.toLowerCase()) {
+          foundFuncName = true;
+          funcName = funcNames[fIdx];
+    
+          break;
+        }
+      }
+    
+      if (foundFuncName) {
+        // EXECUTE THE ACTUAL FUNCTION
+        try {
+          let mainCall = await versionOfWS[funcName](req);
+          resolve(mainCall);
+          
+        }
+        catch(err) {
+          let errorObj;
+          if(err !== undefined && err !== null && typeof(err.AddToError) === 'function') {
+            errorObj = err.AddToError(__filename, 'resolveServiceCall', 'main function call failed');	
+          }
+          else {
+            errorObj = new ErrorObj(500,
+                        'c0004',
+                        __filename,
+                        'resolveServiceCall',
+                        'main function call failed',
+                        'Something went wrong',
+                        err
+                        );
+          }
+    
+          errorObj.timestamp = new Date();
+          
+          console.log('\n========================== ERROR ==========================');
+          console.log(errorObj);
+          console.log('=============================================================\n');
+    
+          reject(errorObj);
+        }		
+      }
+      else {
+        let errorObj = new ErrorObj(400,
+          'c1005',
+          __filename,
+          'resolveServiceCall',
+          'error locating correct function in controller file',
+          'Problem finding that endpoint',
+          serviceCallDescriptor
+        );
+        reject(errorObj);
+      }
+    });
   }
 }
 

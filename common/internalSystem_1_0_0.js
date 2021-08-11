@@ -97,7 +97,7 @@ class InternalSystem {
 			'datetime': new Date()
 		};
 
-		return await Promise.resolve(healthObj);
+		return Promise.resolve(healthObj);
 	}
 }
 
