@@ -694,7 +694,6 @@ class ServiceRegistration {
             methodObj.isUserCreated = false;
           }
           var serviceCall = {
-            'object_type':'webServiceCallDescriptor',
             'area':areaName,
             'controller':controllerName,
             'version':controllerVersion,

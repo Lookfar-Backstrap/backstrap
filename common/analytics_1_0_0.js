@@ -24,7 +24,7 @@ class Analytics {
 		var deferred = Q.defer();
 
 		var eventDescriptor = req.body.event_descriptor;
-		var tkn = req.headers[settings.token_header];
+		var tkn = req.headers[this.settings.token_header];
 
 		this.utilities.logEvent(tkn, eventDescriptor)
 		.then((logEvent_res) => {

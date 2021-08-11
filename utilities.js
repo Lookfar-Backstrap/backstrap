@@ -525,7 +525,7 @@ class Utilities {
       'event_data': eventDescriptor
     };
     let logEntry = JSON.stringify(loggedEvent)+'\n';
-    eventLog.write(logEntry, () => {
+    this.eventLog.write(logEntry, () => {
       deferred.resolve();
     });
   
