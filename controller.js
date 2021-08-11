@@ -86,7 +86,7 @@ class Controller {
     return deferred.promise;
   }
 
-  resolveServiceCall(serviceCallDescriptor, req, callback) {
+  async resolveServiceCall(serviceCallDescriptor, req, callback) {
     var deferred = Q.defer();
     // ===================================================================
     // PULL THE APPROPRIATE VERSION OF WEB SERVICE WITH APPROPRIATE VERB
@@ -149,13 +149,12 @@ class Controller {
   
     if (foundFuncName) {
       // EXECUTE THE ACTUAL FUNCTION
-      var mainCall = Q.denodeify(versionOfWS[funcName]);		
-      mainCall(req)
-      .then((results) => {
-        deferred.resolve(results);
-      })
-      .fail((err) => {
-        var errorObj;
+      try {
+        let mainCallRes = await versionOfWS[funcName];
+        deferred.resolve(mainCallRes);
+      }
+      catch(err) {
+        let errorObj;
         if(err !== undefined && err !== null && typeof(err.AddToError) === 'function') {
           errorObj = err.AddToError(__filename, 'resolveServiceCall', 'main function call failed');	
         }
@@ -177,7 +176,7 @@ class Controller {
         console.log('=============================================================\n');
   
         deferred.reject(errorObj);
-      });			
+      }		
     }
     else {
       var errorObj = new ErrorObj(400,

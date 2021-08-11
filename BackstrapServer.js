@@ -392,38 +392,63 @@ function requestPipeline(req, res, verb) {
   .spread((sc, validTokenResponse) => {
     return [sc, validTokenResponse, ServiceRegistration.validateArguments(serviceCall, area, controller, verb, version, args)];
   })
-  .spread((sc, validTokenResponse) => {
-    return [validTokenResponse, Controller.resolveServiceCall(sc, req)];
-  })
-  .spread((validTokenResponse, results) => {
-    if(validTokenResponse.session != null) {
-      let session = validTokenResponse.session;
-      session.last_touch = new Date().toISOString();
-      DataAccess.updateJsonbField('session', 'data', session, `data->>'id' = '${session.id}'`).then()
-    }
-
-    // IF ACCESS LOGGING IS ENABLED.  ADD THE END TIMESTAMP
-    // AND RESPONSE STATUS NUM TO THE ACCESS LOG EVENT AND
-    // WRITE IT TO THE LOG
-    if(Settings.access_logging === true) {
-      accessLogEvent.end_timestamp = new Date().toISOString();
-      accessLogEvent.http_status = 200;
-      let logEntry = JSON.stringify(accessLogEvent)+'\n';
-      accessLog.write(logEntry);
-    }
-
-    if(results && results.express_download === true){
-      if(results.download_name){
-        res.status(200).download(results.download_path, results.download_name);
+  .spread(async (sc, validTokenResponse) => {
+    //return [validTokenResponse, Controller.resolveServiceCall(sc, req)];
+    try {
+      let results = await Controller.resolveServiceCall(sc, req);
+      if(validTokenResponse.session != null) {
+        let session = validTokenResponse.session;
+        session.last_touch = new Date().toISOString();
+        DataAccess.updateJsonbField('session', 'data', session, `data->>'id' = '${session.id}'`).then()
+      }
+  
+      // IF ACCESS LOGGING IS ENABLED.  ADD THE END TIMESTAMP
+      // AND RESPONSE STATUS NUM TO THE ACCESS LOG EVENT AND
+      // WRITE IT TO THE LOG
+      if(Settings.access_logging === true) {
+        accessLogEvent.end_timestamp = new Date().toISOString();
+        accessLogEvent.http_status = 200;
+        let logEntry = JSON.stringify(accessLogEvent)+'\n';
+        accessLog.write(logEntry);
+      }
+  
+      if(results && results.express_download === true){
+        if(results.download_name){
+          res.status(200).download(results.download_path, results.download_name);
+        }
+        else {
+          res.status(200).download(results.download_path);
+        }
       }
       else {
-        res.status(200).download(results.download_path);
+        res.status(200).send(results);
       }
     }
-    else {
-      res.status(200).send(results);
+    catch(err) {
+      if (err.http_status == null) {
+        err.http_status = 500;
+      }
+  
+      if (err.message == null || err.message.length === 0) {
+        err['message'] = 'Something went wrong and we are working to fix it. Please try again later.'
+      }
+  
+      // IF ACCESS LOGGING IS ENABLED.  ADD THE END TIMESTAMP
+      // AND RESPONSE STATUS NUM TO THE ACCESS LOG EVENT AND
+      // WRITE IT TO THE LOG
+      if(Settings.access_logging === true) {
+        accessLogEvent.end_timestamp = new Date().toISOString();
+        accessLogEvent.http_status = err.http_status;
+        let logEntry = JSON.stringify(accessLogEvent)+'\n';
+        accessLog.write(logEntry);
+      }
+  
+      let errorLogEntry = JSON.stringify(err) + '\n';
+      errorLog.write(errorLogEntry);
+  
+      res.status(err.http_status).send(err);
     }
-    
+
   })
   .fail((err) => {
     if (err.http_status == null) {

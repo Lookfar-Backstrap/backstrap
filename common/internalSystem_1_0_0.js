@@ -79,9 +79,7 @@ class InternalSystem {
 		return deferred.promise;
 	}
 
-  #health(req, callback) {
-		var deferred = Q.defer();
-
+  async #health(req, callback) {
 		var interfaces = os.networkInterfaces();
 		var ips = [];
 		for (var i in interfaces) {
@@ -99,11 +97,7 @@ class InternalSystem {
 			'datetime': new Date()
 		};
 
-		var resolveObj = healthObj;
-		deferred.resolve(resolveObj);
-
-		deferred.promise.nodeify(callback);
-		return deferred.promise;
+		return await Promise.resolve(healthObj);
 	}
 }
 
