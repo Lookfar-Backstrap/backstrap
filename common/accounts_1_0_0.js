@@ -40,413 +40,375 @@ class Accounts {
 
   #checkToken(req, callback) {
      // AUTH HAS ALREADY BEEN CHECKED, THIS TOKEN IS VALID
-     var deferred = Q.defer();
-      
-     deferred.resolve({'success': true});
-
-     deferred.promise.nodeify(callback);
-     return deferred.promise;
+     return Promise.resolve({success: true});
   }
 
   #signIn(req, callback) {
-    var deferred = Q.defer();
-    var body = req.body;
+    return new Promise((resolve, reject) => {
+      var body = req.body;
 
-    var apiToken = req.headers[this.settings.token_header] || null;
-    this.accessControl.signIn(body, apiToken)
-    .then((res) => {
-      deferred.resolve(res);
-    })
-    .fail((err) => {
-      deferred.reject(err.AddToError(__filename, 'signIn'));
-    })
-    
-    deferred.promise.nodeify(callback);
-    return deferred.promise;
+      var apiToken = req.headers[this.settings.token_header] || null;
+      this.accessControl.signIn(body, apiToken)
+      .then((res) => {
+        resolve(res);
+      })
+      .fail((err) => {
+        reject(err.AddToError(__filename, 'signIn'));
+      })
+    });
   }
 
   #signUp(req, callback) {
-    var deferred = Q.defer();
+    return new Promise((resolve, reject) => {
+      var apiToken = req.headers[this.settings.token_header] || null;
+      // ONLY INITIALIZE A USER WITH 'default-user' ROLE
+      if(req.body.roles) req.body.roles = null;
 
-    var apiToken = req.headers[this.settings.token_header] || null;
-    // ONLY INITIALIZE A USER WITH 'default-user' ROLE
-    if(req.body.roles) req.body.roles = null;
-
-    // CREATE THE USER
-    this.accessControl.createUser('standard', req.body, apiToken)
-    .then((usr) => {
-      deferred.resolve(usr);
-    })
-    .fail((err) => {
-      typeof(err.AddToError) === 'function' ?
-        deferred.reject(err.AddToError(__filename, 'signUp'))
-      :
-        deferred.reject(new ErrorObj(500,
-                                    'a0100',
-                                    __filename,
-                                    'signUp',
-                                    'create user error',
-                                    'There was a problem creating an account.  Please try again.',
-                                    err
-                                    ));
+      // CREATE THE USER
+      this.accessControl.createUser('standard', req.body, apiToken)
+      .then((usr) => {
+        resolve(usr);
+      })
+      .fail((err) => {
+        typeof(err.AddToError) === 'function' ?
+          reject(err.AddToError(__filename, 'signUp'))
+        :
+          reject(new ErrorObj(500,
+                                      'a0100',
+                                      __filename,
+                                      'signUp',
+                                      'create user error',
+                                      'There was a problem creating an account.  Please try again.',
+                                      err
+                                      ));
+      });
     });
-
-    deferred.promise.nodeify(callback);
-    return deferred.promise;
   }
 
   #apiUser(req, callback) {
-    var deferred = Q.defer();
+    return new Promise((resolve, reject) => {
+      // apiUser CAN ONLY INITIALIZE A USER WITH 'default-user' ROLE
+      if(req.body.roles) req.body.roles = null;
 
-    // apiUser CAN ONLY INITIALIZE A USER WITH 'default-user' ROLE
-    if(req.body.roles) req.body.roles = null;
-
-    // CREATE THE USER
-    this.accessControl.createUser('api', req.body)
-    .then((usr) => {
-      deferred.resolve(usr);
-    })
-    .fail((err) => {
-      typeof(err.AddToError) === 'function' ?
-        deferred.reject(err.AddToError(__filename, 'apiUser'))
-      :
-        deferred.reject(new ErrorObj(500,
-                                    'a0102',
-                                    __filename,
-                                    'signUp',
-                                    'create user error',
-                                    'There was a problem creating an account.  Please try again.',
-                                    err
-                                    ));
+      // CREATE THE USER
+      this.accessControl.createUser('api', req.body)
+      .then((usr) => {
+        resolve(usr);
+      })
+      .fail((err) => {
+        typeof(err.AddToError) === 'function' ?
+          reject(err.AddToError(__filename, 'apiUser'))
+        :
+          reject(new ErrorObj(500,
+                                      'a0102',
+                                      __filename,
+                                      'signUp',
+                                      'create user error',
+                                      'There was a problem creating an account.  Please try again.',
+                                      err
+                                      ));
+      });
     });
-
-    deferred.promise.nodeify(callback);
-    return deferred.promise;
   }
 
   #apiCredentials(req, callback) {
-    var deferred = Q.defer();
-
-    if(req.body.roles) {
-      let validRoles = [];
-      req.body.roles.forEach((role) => {
-        if(req.this_user.roles.includes(role) || role === 'default-user') {
-          validRoles.push(role);
-        }
+    return new Promise((resolve, reject) => {
+      if(req.body.roles) {
+        let validRoles = [];
+        req.body.roles.forEach((role) => {
+          if(req.this_user.roles.includes(role) || role === 'default-user') {
+            validRoles.push(role);
+          }
+        });
+        if(validRoles.length === 0) validRoles = ['default-user'];
+        req.body.roles = validRoles;
+      }
+      this.accessControl.createUser('api', req.body, null, req.this_user)
+      .then((usr) => {
+        resolve(usr);
+      })
+      .fail((err) => {
+        typeof(err.AddToError) === 'function' ?
+          reject(err.AddToError(__filename, 'apiCredentials'))
+        :
+          reject(new ErrorObj(500,
+                              'a0102',
+                              __filename,
+                              'apiCredentials',
+                              'create user error',
+                              'There was a problem creating an account.  Please try again.',
+                              err
+                              ));
       });
-      if(validRoles.length === 0) validRoles = ['default-user'];
-      req.body.roles = validRoles;
-    }
-    this.accessControl.createUser('api', req.body, null, req.this_user)
-    .then((usr) => {
-      deferred.resolve(usr);
-    })
-    .fail((err) => {
-      typeof(err.AddToError) === 'function' ?
-        deferred.reject(err.AddToError(__filename, 'apiCredentials'))
-      :
-        deferred.reject(new ErrorObj(500,
-                                    'a0102',
-                                    __filename,
-                                    'apiCredentials',
-                                    'create user error',
-                                    'There was a problem creating an account.  Please try again.',
-                                    err
-                                    ));
     });
-
-    deferred.promise.nodeify(callback);
-    return deferred.promise;
   }
 
-  #signOut(req, callback) { 
-    var deferred = Q.defer();
-
-    var token = req.headers[this.settings.token_header];
+  #signOut(req, callback) {
+    return new Promise((resolve, reject) => {
+      var token = req.headers[this.settings.token_header];
     
-    this.dataAccess.getSession(null, token)
-    .then((session) => {
-      return this.utilities.invalidateSession(session);
-    })
-    .then((invld_res) => {
-      deferred.resolve({success: true});
-    })
-    .fail((err) => {
-      deferred.reject(err.AddToError(__filename, 'signOut'));
-    })
-
-    deferred.promise.nodeify(callback);
-    return deferred.promise;
+      this.dataAccess.getSession(null, token)
+      .then((session) => {
+        return this.utilities.invalidateSession(session);
+      })
+      .then((invld_res) => {
+        resolve({success: true});
+      })
+      .fail((err) => {
+        reject(err.AddToError(__filename, 'signOut'));
+      });
+    });
   }
 
   #forgotUsername(req, callback) {
-    var deferred = Q.defer();
-
-    this.dataAccess.getUserByEmail(req.body.email)
-    .then((user) => {
-        if (user != null) {
-            if (user.locked) {
-                var errorObj = new ErrorObj(403,
-                    'a2005',
-                    __filename,
-                    'forgotUsername',
-                    'bsuser is locked',
-                    'Unauthorized',
-                    null
-                );
-                deferred.reject(errorObj);
-
-                deferred.promise.nodeify(callback);
-                return deferred.promise;
-            }
-            return this.utilities.sendMail(user.email, 'Forgot Username?', null, '<h2>Your username is, ' + user.username + '</h2>');
-        }
-        else {
-            var errorObj = new ErrorObj(500,
-                'a1058',
-                __filename,
-                'forgotUsername',
-                'More than one userfound with this email adress'
-            );
-            deferred.reject(errorObj);
-        }
-
-        deferred.promise.nodeify(callback);
-        return deferred.promise;
-    })
-    .then((emailRes) => {
-        deferred.resolve();
-    })
-    .fail((err) => {
-        if (err !== undefined && err !== null && typeof (err.AddToError) == 'function') {
-            err.setMessages('Problem generating email and retrieving forgotten username');
-            deferred.reject(err.AddToError(__filename, 'forgotUsername'));
-        }
-        else {
-            var errorObj = new ErrorObj(400,
-                'a1054',
-                __filename,
-                'forgotUsername',
-                'error retrieving forgotten username',
-                'Problem generating email and retrieving forgotten username',
-                err
-            );
-            deferred.reject(errorObj);
-        }
+    return new Promise((resolve, reject) => {
+      this.dataAccess.getUserByEmail(req.body.email)
+      .then((user) => {
+          if (user != null) {
+              if (user.locked) {
+                  var errorObj = new ErrorObj(403,
+                      'a2005',
+                      __filename,
+                      'forgotUsername',
+                      'bsuser is locked',
+                      'Unauthorized',
+                      null
+                  );
+                  reject(errorObj);
+                  return;
+              }
+              return this.utilities.sendMail(user.email, 'Forgot Username?', null, '<h2>Your username is, ' + user.username + '</h2>');
+          }
+          else {
+              var errorObj = new ErrorObj(500,
+                  'a1058',
+                  __filename,
+                  'forgotUsername',
+                  'More than one userfound with this email adress'
+              );
+              reject(errorObj);
+              return;
+          }
+      })
+      .then((emailRes) => {
+          resolve({success:true});
+      })
+      .fail((err) => {
+          if (err !== undefined && err !== null && typeof (err.AddToError) == 'function') {
+              err.setMessages('Problem generating email and retrieving forgotten username');
+              reject(err.AddToError(__filename, 'forgotUsername'));
+          }
+          else {
+              var errorObj = new ErrorObj(400,
+                  'a1054',
+                  __filename,
+                  'forgotUsername',
+                  'error retrieving forgotten username',
+                  'Problem generating email and retrieving forgotten username',
+                  err
+              );
+              reject(errorObj);
+          }
+      });
     });
-
-    deferred.promise.nodeify(callback);
-    return deferred.promise;
   }
 
   #forgotPassword(req, callback) {
-    var deferred = Q.defer();
-    var args = req.body;
-    var email = args.email;
-    var username = args.username;
+    return new Promise((resolve, reject) => {
+      var args = req.body;
+      var email = args.email;
+      var username = args.username;
 
-    var validArgs = false;
-    if (username != null && username !== '') {
-        validArgs = true;
-    }
-    else if (email != null && email !== '') {
-        validArgs = true;
-    }
+      var validArgs = false;
+      if (username != null && username !== '') {
+          validArgs = true;
+      }
+      else if (email != null && email !== '') {
+          validArgs = true;
+      }
 
-    if (validArgs) {
-        let userObj = null;
-        this.dataAccess.findUser(null, username, email)
-        .then((userObjs) => {
-          var validDeferred = Q.defer();
+      if (validArgs) {
+          let userObj = null;
+          this.dataAccess.findUser(null, username, email)
+          .then((userObjs) => {
+            var validDeferred = Q.defer();
 
-          if(userObjs.length === 1) {
-            userObj = userObjs[0];
-            if (userObj.locked) {
-                let errorObj = new ErrorObj(403,
-                    'a2006',
-                    __filename,
-                    'forgotPassword',
-                    'bsuser is locked',
-                    'Unauthorized',
-                    null
-                );
-                validDeferred.reject(errorObj);
+            if(userObjs.length === 1) {
+              userObj = userObjs[0];
+              if (userObj.locked) {
+                  let errorObj = new ErrorObj(403,
+                      'a2006',
+                      __filename,
+                      'forgotPassword',
+                      'bsuser is locked',
+                      'Unauthorized',
+                      null
+                  );
+                  validDeferred.reject(errorObj);
+              }
+              else {
+                validDeferred.resolve(this.utilities.getHash(null, null, 48));
+              }
             }
             else {
-              validDeferred.resolve(this.utilities.getHash(null, null, 48));
-            }
-          }
-          else {
-            let errorObj = new ErrorObj(403,
-                'a2008',
-                __filename,
-                'forgotPassword',
-                'bsuser is locked',
-                'Unauthorized',
-                null
-            );
-            validDeferred.reject(errorObj);
-          }
-          return [userObj, validDeferred.promise];
-        })
-        .spread((userObj, tkn) => {
-            var reset_link = process.env.reset_password_link || "";
-            reset_link = (reset_link == "" || reset_link == "FILL_IN") ? "" : reset_link + '?token=';
-            var message = 'Reset password: ' + reset_link + tkn;
-            return [userObj, tkn, this.utilities.sendMail(userObj.email, 'Password Reset', message)];
-        })
-        .spread((userObj, tkn, mail_res) => {
-          return this.dataAccess.updateCredentialsForUser(userObj.id, null, null, tkn);
-        })
-        .then((saveRes) => {
-            var resolveObj = { 'success': true };
-            deferred.resolve(resolveObj);
-        })
-        .fail((err) => {
-            if(err != null && err.err_code == 'da0200'){
-                var resolveObj = { 
-                    'success': true,
-                    'uExists': false
-                };
-                deferred.resolve(resolveObj);
-            }
-            else if (err != null && typeof (err.AddToError) == 'function') {
-                err.setMessages('error generating password reset link', 'Problem generating email and link to reset password');
-                deferred.reject(err.AddToError(__filename, 'forgotPassword'));
-            }
-            else {
-                let errorObj = new ErrorObj(500,
-                    'a1032',
-                    __filename,
-                    'forgotPassword',
-                    'error generating password reset link',
-                    'Problem generating email and link to reset password',
-                    err
-                );
-                deferred.reject(errorObj);
-            }
-        });
-    }
-    else {
-        let errorObj = new ErrorObj(400,
-            'a0032',
-            __filename,
-            'forgotPassword',
-            'must supply username or email associated with this bsuser'
-        );
-        deferred.reject(errorObj);
-    }
-
-    deferred.promise.nodeify(callback);
-    return deferred.promise;
-  }
-
-  #resetPassword(req, callback) {
-    var deferred = Q.defer();
-    var args = req.body;
-    var tkn = args.token;
-    var password = args.password;
-
-    this.dataAccess.getUserByForgotPasswordToken(tkn)
-    .then((userObj) => {
-      if (userObj != null) {
-          // IF USER IS LOCKED, BAIL OUT
-          if (userObj.is_locked) {
-              var errorObj = new ErrorObj(403,
-                  'a2007',
+              let errorObj = new ErrorObj(403,
+                  'a2008',
                   __filename,
-                  'resetPassword',
+                  'forgotPassword',
                   'bsuser is locked',
                   'Unauthorized',
                   null
               );
-              deferred.reject(errorObj);
-
-              deferred.promise.nodeify(callback);
-              return deferred.promise;
-          }
-
-          var cryptoCall = Q.denodeify(crypto.randomBytes);
-          return [userObj, cryptoCall(48)];
+              validDeferred.reject(errorObj);
+            }
+            return [userObj, validDeferred.promise];
+          })
+          .spread((userObj, tkn) => {
+              var reset_link = process.env.reset_password_link || "";
+              reset_link = (reset_link == "" || reset_link == "FILL_IN") ? "" : reset_link + '?token=';
+              var message = 'Reset password: ' + reset_link + tkn;
+              return [userObj, tkn, this.utilities.sendMail(userObj.email, 'Password Reset', message)];
+          })
+          .spread((userObj, tkn, mail_res) => {
+            return this.dataAccess.updateCredentialsForUser(userObj.id, null, null, tkn);
+          })
+          .then((saveRes) => {
+              resolve({success:true});
+          })
+          .fail((err) => {
+              if(err != null && err.err_code == 'da0200'){
+                  var resolveObj = { 
+                      'success': true,
+                      'uExists': false
+                  };
+                  resolve(resolveObj);
+              }
+              else if (err != null && typeof (err.AddToError) == 'function') {
+                  err.setMessages('error generating password reset link', 'Problem generating email and link to reset password');
+                  reject(err.AddToError(__filename, 'forgotPassword'));
+              }
+              else {
+                  let errorObj = new ErrorObj(500,
+                      'a1032',
+                      __filename,
+                      'forgotPassword',
+                      'error generating password reset link',
+                      'Problem generating email and link to reset password',
+                      err
+                  );
+                  reject(errorObj);
+              }
+          });
       }
       else {
-          var errorObj = new ErrorObj(500,
-              'a0033',
+          let errorObj = new ErrorObj(400,
+              'a0032',
               __filename,
-              'resetPassword',
-              'token not found'
+              'forgotPassword',
+              'must supply username or email associated with this bsuser'
           );
-          deferred.reject(errorObj);
+          reject(errorObj);
       }
-    })
-    .spread((userObj, buf) => {
-        var salt = buf.toString('hex');
-        var saltedPassword = password + salt;
-        var hashedPassword = crypto.createHash('sha256').update(saltedPassword).digest('hex');
-        return this.dataAccess.updateCredentialsForUser(userObj.id, salt, hashedPassword, null);
-    })
-    .then(() => {
-        var resolveObj = { 'success': true };
-        deferred.resolve(resolveObj);
-    })
-    .fail((err) => {
-        if (err !== undefined && err !== null && typeof (err.AddToError) == 'function') {
-            err.setMessages('Problem reseting password');
-            deferred.reject(err.AddToError(__filename, 'resetPassword'));
+    });
+  }
+
+  #resetPassword(req, callback) {
+    return new Promise((resolve, reject) => {
+      var args = req.body;
+      var tkn = args.token;
+      var password = args.password;
+
+      this.dataAccess.getUserByForgotPasswordToken(tkn)
+      .then((userObj) => {
+        if (userObj != null) {
+            // IF USER IS LOCKED, BAIL OUT
+            if (userObj.is_locked) {
+                var errorObj = new ErrorObj(403,
+                    'a2007',
+                    __filename,
+                    'resetPassword',
+                    'bsuser is locked',
+                    'Unauthorized',
+                    null
+                );
+                reject(errorObj);
+                return;
+            }
+
+            var cryptoCall = Q.denodeify(crypto.randomBytes);
+            return [userObj, cryptoCall(48)];
         }
         else {
             var errorObj = new ErrorObj(500,
-                'a1033',
+                'a0033',
                 __filename,
                 'resetPassword',
-                'error reseting password',
-                'Problem reseting password',
-                err
+                'token not found'
             );
-            deferred.reject(errorObj);
+            reject(errorObj);
         }
+      })
+      .spread((userObj, buf) => {
+          var salt = buf.toString('hex');
+          var saltedPassword = password + salt;
+          var hashedPassword = crypto.createHash('sha256').update(saltedPassword).digest('hex');
+          return this.dataAccess.updateCredentialsForUser(userObj.id, salt, hashedPassword, null);
+      })
+      .then(() => {
+          resolve({success:true});
+      })
+      .fail((err) => {
+          if (err !== undefined && err !== null && typeof (err.AddToError) == 'function') {
+              err.setMessages('Problem reseting password');
+              reject(err.AddToError(__filename, 'resetPassword'));
+          }
+          else {
+              var errorObj = new ErrorObj(500,
+                  'a1033',
+                  __filename,
+                  'resetPassword',
+                  'error reseting password',
+                  'Problem reseting password',
+                  err
+              );
+              reject(errorObj);
+          }
+      });
     });
-
-    deferred.promise.nodeify(callback);
-    return deferred.promise;
   }
 
   #startAnonymousSession(req, callback) {
-    var deferred = Q.defer();
-
-    // ACCESS CONTROL'S startSession() CREATES AN ANONYMOUS SESSION IF
-    // YOU DO NOT PASS IT A USER OBJECT AS THE FIRST ARGUMENT
-    this.accessControl.startSession()
-    .then((sess_res) => {
-        // ADD EVENT TO SESSION
-        var resolveObj = sess_res;
-        resolveObj[this.settings.token_header] = sess_res.token;
-        delete resolveObj.token;
-        deferred.resolve(resolveObj);
-    })
-    .fail((err) => {
-        if (err !== undefined && err !== null && typeof (err.AddToError) === 'function') {
-          deferred.reject(err.AddToError(__filename, 'startAnonymousSession'));
-        }
-        else {
-          var errorObj = new ErrorObj(500,
-              'a1050',
-              __filename,
-              'startAnonymousSession',
-              'error starting anonymous session',
-              'Error starting anonymous session',
-              err);
-          deferred.reject(errorObj);
-        }
+    return new Promise((resolve, reject) => {
+      // ACCESS CONTROL'S startSession() CREATES AN ANONYMOUS SESSION IF
+      // YOU DO NOT PASS IT A USER OBJECT AS THE FIRST ARGUMENT
+      this.accessControl.startSession()
+      .then((sess_res) => {
+          // ADD EVENT TO SESSION
+          var resolveObj = sess_res;
+          resolveObj[this.settings.token_header] = sess_res.token;
+          delete resolveObj.token;
+          resolve(resolveObj);
+      })
+      .fail((err) => {
+          if (err !== undefined && err !== null && typeof (err.AddToError) === 'function') {
+            reject(err.AddToError(__filename, 'startAnonymousSession'));
+          }
+          else {
+            var errorObj = new ErrorObj(500,
+                'a1050',
+                __filename,
+                'startAnonymousSession',
+                'error starting anonymous session',
+                'Error starting anonymous session',
+                err);
+            reject(errorObj);
+          }
+      });
     });
-
-    deferred.promise.nodeify(callback);
-    return deferred.promise;
   }
 
   #updatePassword(req, callback) {
-    var deferred = Q.defer();
-
+    return new Promise((resolve, reject) => {
       // TODO: validate password if possible
 
       // GET SALT
@@ -461,12 +423,12 @@ class Accounts {
         return this.dataAccess.updateCredentialsForUser(req.this_user.id, salt, hashedPassword);
       })
       .then((updatedUser) => {
-        deferred.resolve({success: true});
+        resolve({success: true});
       })
       .fail((err) => {
         if (err !== undefined && err !== null && typeof (err.AddToError) === 'function') {
             err.setMessages('error updating bsuser', 'Problem updating password');
-            deferred.reject(err.AddToError(__filename, 'PATCH password'));
+            reject(err.AddToError(__filename, 'PATCH password'));
         }
         else {
             let errorObj = new ErrorObj(500,
@@ -475,97 +437,86 @@ class Accounts {
                 'password',
                 'error updating user password'
             );
-            deferred.reject(errorObj);
+            reject(errorObj);
         }
       });
-
-      deferred.promise.nodeify(callback);
-      return deferred.promise;
+    });
   }
 
   #updateEmail(req, callback) {
-    var deferred = Q.defer();
+    return new Promise((resolve, reject) => {
+      var updateUser = req.body;
+      var existingUser = req.this_user;
 
-    var updateUser = req.body;
-    var existingUser = req.this_user;
-
-    this.utilities.validateEmail(updateUser.email, existingUser.email)
-    .then(() => {
-        return this.utilities.validateUsername(updateUser.email, existingUser.username);
-    })
-    .then(() => {
-      return this.dataAccess.updateUserInfo(existingUser.id, null, null, updateUser.email);
-    })
-    .then((updateRes) => {
-        if(updateRes) {
-          deferred.resolve(updateRes);
-        }
-        else {
-          deferred.resolve(null);
-        }
-    })
-    .fail((err) => {
-        if (err !== undefined && err !== null && typeof (err.AddToError) === 'function') {
-            deferred.reject(err.AddToError(__filename, 'PUT bsuser'));
-        }
-        else {
-            var errorObj = new ErrorObj(500,
-                'a00051',
-                __filename,
-                'bsuser',
-                'error updating bsuser',
-                'Error updating bsuser',
-                err
-            );
-            deferred.reject(errorObj);
-        }
+      this.utilities.validateEmail(updateUser.email, existingUser.email)
+      .then(() => {
+          return this.utilities.validateUsername(updateUser.email, existingUser.username);
+      })
+      .then(() => {
+        return this.dataAccess.updateUserInfo(existingUser.id, null, null, updateUser.email);
+      })
+      .then((updateRes) => {
+          if(updateRes) {
+            resolve(updateRes);
+          }
+          else {
+            resolve(null);
+          }
+      })
+      .fail((err) => {
+          if (err !== undefined && err !== null && typeof (err.AddToError) === 'function') {
+              reject(err.AddToError(__filename, 'PUT bsuser'));
+          }
+          else {
+              var errorObj = new ErrorObj(500,
+                  'a00051',
+                  __filename,
+                  'bsuser',
+                  'error updating bsuser',
+                  'Error updating bsuser',
+                  err
+              );
+              reject(errorObj);
+          }
+      });
     });
-
-    deferred.promise.nodeify(callback);
-    return deferred.promise;
   }
 
   #deleteUser(req, callback) {
-    var deferred = Q.defer();
-
-    this.dataAccess.deleteUser(req.this_user.id)
-    .then(() => {
-        deferred.resolve();
-    })
-    .fail((err) => {
-        if (err !== undefined && err !== null && typeof (err.AddToError) === 'function') {
-            err.setMessages('error deleting bsuser');
-            deferred.reject(err.AddToError(__filename, 'DELETE bsuser'));
-        }
-        else {
-            var errorObj = new ErrorObj(500,
-                'a00051',
-                __filename,
-                'bsuser',
-                'error deleting bsuser',
-                err
-            );
-            deferred.reject(errorObj);
-        }
-        deferred.reject();
+    return new Promise((resolve, reject) => {
+      this.dataAccess.deleteUser(req.this_user.id)
+      .then(() => {
+          resolve({success:true});
+      })
+      .fail((err) => {
+          if (err !== undefined && err !== null && typeof (err.AddToError) === 'function') {
+              err.setMessages('error deleting bsuser');
+              reject(err.AddToError(__filename, 'DELETE bsuser'));
+          }
+          else {
+              var errorObj = new ErrorObj(500,
+                  'a00051',
+                  __filename,
+                  'bsuser',
+                  'error deleting bsuser',
+                  err
+              );
+              reject(errorObj);
+          }
+      });
     });
-
-    deferred.promise.nodeify(callback);
-    return deferred.promise;
   }
 
   #deleteApiCredentials(req, callback) {
-    var deferred = Q.defer();
-
-    this.dataAccess.deleteCredentialsByClientId(req.body.client_id)
-    .then((res) => {
-      deferred.resolve(res);
-    })
-    .fail((err) => {
-      deferred.reject(err.AddToError(__filename, 'deleteApiCredentials'));
-    })
-
-    return deferred.promise.nodeify(callback);
+    return new Promise((resolve, reject) => {
+      this.dataAccess.deleteCredentialsByClientId(req.body.client_id)
+      .then((res) => {
+        deferred.resolve(res);
+      })
+      .fail((err) => {
+        deferred.reject(err.AddToError(__filename, 'deleteApiCredentials'));
+      })
+    });
   }
 }
 
