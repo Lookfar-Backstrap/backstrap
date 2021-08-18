@@ -1,7 +1,6 @@
 // ===============================================================================
 // INTERNAL SYSTEM WEB SERVICE CALLS v1.0.0
 // ===============================================================================
-var Q = require('q');
 var os = require('os');
 var fs = require('fs')
 
@@ -28,55 +27,39 @@ class InternalSystem {
   }
 
   #version(req, callback) {
-    var deferred = Q.defer();
-		var pkgJson = JSON.parse(fs.readFileSync('package.json', 'utf8'))
+		var pkgJson = JSON.parse(fs.readFileSync('package.json', 'utf8'));
 		var version = pkgJson.version;
-		
-		var resolveObj = {version};
-		deferred.resolve(resolveObj);
-
-		deferred.promise.nodeify(callback);
-		return deferred.promise;
+		return Promise.resolve({"version": version});
   }
 
   #headerTokenKey(req, callback) {
-		var deferred = Q.defer();
-		var tokenKey = this.settings.token_header;
-
-		var resolveObj = {"header_token_key": tokenKey};
-		deferred.resolve(resolveObj);
-
-		deferred.promise.nodeify(callback);
-		return deferred.promise;
+    return Promise.resolve({"header_token_key": this.settings.token_header});
 	}
 
   #endpoint(req, callback) {
-		var deferred = Q.defer();
-		this.serviceRegistration.getAllServiceCalls()
-		.then((serviceCalls) => {
-			var resolveObj = {available: true, endpoints: serviceCalls};
-			deferred.resolve(resolveObj);
-		})
-		.fail((err) => {
-			if(err !== undefined && err !== null && typeof(err.AddToError) === 'function') {
-                err.setMessages('error getting endpoints', 'Problem getting endpoints');
-				deferred.reject(err.AddToError(__filename, 'endpoint'));
-      }
-      else {
-          var errorObj = new ErrorObj(500,
-                                      'is1001',
-                                      __filename,
-                                      'endpoint',
-                                      'error getting endpoints',
-                                      'Error getting endpoints',
-                                      err
-                                      );
-          deferred.reject(errorObj);
-      }
-		});
-
-		deferred.promise.nodeify(callback);
-		return deferred.promise;
+    return new Promise((resolve, reject) => {
+      this.serviceRegistration.getAllServiceCalls()
+      .then((serviceCalls) => {
+        resolve(serviceCalls);
+      })
+      .fail((err) => {
+        if(err !== undefined && err !== null && typeof(err.AddToError) === 'function') {
+                  err.setMessages('error getting endpoints', 'Problem getting endpoints');
+          reject(err.AddToError(__filename, 'endpoint'));
+        }
+        else {
+            var errorObj = new ErrorObj(500,
+                                        'is1001',
+                                        __filename,
+                                        'endpoint',
+                                        'error getting endpoints',
+                                        'Error getting endpoints',
+                                        err
+                                        );
+            reject(errorObj);
+        }
+      });
+    });
 	}
 
   async #health(req, callback) {

@@ -55,16 +55,19 @@ class SchemaControl {
     var deferred = Q.defer();
   
     let createCmds = [];
+    let createUserTable = false;
     let createSessTable = false;
   
     this.#checkForTable('bs3_users', connection)
     .then((usrTblExists) => {
       if(!usrTblExists) {
+        // WE ADD UNIQUE CONSTRAINTS ON username AND email LATER
+        // SO WE CAN MAKE THEM CONDITIONAL ON deleted_at
         let usrTblCreate = `CREATE TABLE bs3_users (
                               id SERIAL PRIMARY KEY NOT NULL,
                               account_type VARCHAR(16),
-                              username VARCHAR(128) UNIQUE,
-                              email VARCHAR(256) UNIQUE,
+                              username VARCHAR(128),
+                              email VARCHAR(256),
                               locked BOOLEAN,
                               roles JSONB,
                               external_id VARCHAR(256),
@@ -73,6 +76,7 @@ class SchemaControl {
                               deleted_at TIMESTAMP
                             )`;
           createCmds.push(this.dataAccess.runSql(usrTblCreate, [], connection));
+          createUserTable = true;
       }
       return this.#checkForTable('bs3_credentials', connection);
     })
@@ -112,6 +116,10 @@ class SchemaControl {
     })
     .then((createRes) => {
       let idxCmds = [];
+      if(createUserTable) {
+        idxCmds.push(this.dataAccess.runSql('CREATE UNIQUE INDEX unq_users_username ON bs3_users(username) WHERE (deleted_at IS NULL)', [], connection));
+        idxCmds.push(this.dataAccess.runSql('CREATE UNIQUE INDEX unq_users_email ON bs3_users(email) WHERE (deleted_at IS NULL)', [], connection));
+      }
       if(createSessTable) {
         idxCmds.push(this.dataAccess.runSql('CREATE INDEX idx_token ON bs3_sessions(token)', [], connection));
         idxCmds.push(this.dataAccess.runSql('CREATE INDEX idx_user_id ON bs3_sessions(user_id)', [], connection));

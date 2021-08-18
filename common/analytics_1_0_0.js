@@ -1,8 +1,6 @@
 // ===============================================================================
 // ANALYTICS WEB SERVICE CALLS v1.0.0
 // ===============================================================================
-var Q = require('q');
-
 class Analytics {
   constructor(da, utils, ac, sr, st) {
     this.dataAccess = da;
@@ -21,21 +19,18 @@ class Analytics {
   }
 
   #event(req, callback) {
-		var deferred = Q.defer();
+    return new Promise((resolve, reject) => {
+      var eventDescriptor = req.body.event_descriptor;
+      var tkn = req.headers[this.settings.token_header];
 
-		var eventDescriptor = req.body.event_descriptor;
-		var tkn = req.headers[this.settings.token_header];
-
-		this.utilities.logEvent(tkn, eventDescriptor)
-		.then((logEvent_res) => {
-			deferred.resolve({success: true});
-		})
-		.fail((err) => {
-			deferred.reject(err);
-		})
-
-		deferred.promise.nodeify(callback);
-		return deferred.promise;
+      this.utilities.logEvent(tkn, eventDescriptor)
+      .then((logEvent_res) => {
+        resolve({success: true});
+      })
+      .fail((err) => {
+        reject(err);
+      })
+    });
 	}
 }
 
