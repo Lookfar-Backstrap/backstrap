@@ -231,39 +231,41 @@ class Accounts {
           let userObj = null;
           this.dataAccess.findUser(null, username, email)
           .then((userObjs) => {
-            var validDeferred = Q.defer();
-
-            if(userObjs.length === 1) {
-              userObj = userObjs[0];
-              if (userObj.locked) {
-                  let errorObj = new ErrorObj(403,
-                      'a2006',
-                      __filename,
-                      'forgotPassword',
-                      'bsuser is locked',
-                      'Unauthorized',
-                      null
-                  );
-                  validDeferred.reject(errorObj);
+            return new Promise((validResolve, validReject) => {
+              if(userObjs.length === 1) {
+                userObj = userObjs[0];
+                if (userObj.locked) {
+                    let errorObj = new ErrorObj(403,
+                        'a2006',
+                        __filename,
+                        'forgotPassword',
+                        'bsuser is locked',
+                        'Unauthorized',
+                        null
+                    );
+                    validReject(errorObj);
+                }
+                else {
+                  this.utilities.getHash(null,null,48)
+                  .then((hash) => {
+                    validResolve([userObj, hash]);
+                  })
+                }
               }
               else {
-                validDeferred.resolve(this.utilities.getHash(null, null, 48));
+                let errorObj = new ErrorObj(404,
+                    'a2008',
+                    __filename,
+                    'forgotPassword',
+                    'no user',
+                    'That user could not be found.',
+                    null
+                );
+                validReject(errorObj);
               }
-            }
-            else {
-              let errorObj = new ErrorObj(403,
-                  'a2008',
-                  __filename,
-                  'forgotPassword',
-                  'bsuser is locked',
-                  'Unauthorized',
-                  null
-              );
-              validDeferred.reject(errorObj);
-            }
-            return [userObj, validDeferred.promise];
+            });
           })
-          .spread((userObj, tkn) => {
+          .then(([userObj, tkn]) => {
               var reset_link = process.env.reset_password_link || "";
               reset_link = (reset_link == "" || reset_link == "FILL_IN") ? "" : reset_link + '?token=';
               var message = 'Reset password: ' + reset_link + tkn;
@@ -511,10 +513,10 @@ class Accounts {
     return new Promise((resolve, reject) => {
       this.dataAccess.deleteCredentialsByClientId(req.body.client_id)
       .then((res) => {
-        deferred.resolve(res);
+        resolve(res);
       })
       .fail((err) => {
-        deferred.reject(err.AddToError(__filename, 'deleteApiCredentials'));
+        reject(err.AddToError(__filename, 'deleteApiCredentials'));
       })
     });
   }

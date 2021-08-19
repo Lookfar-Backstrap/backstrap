@@ -356,7 +356,7 @@ class Admin {
         if(password && salt) {
           updCmds.push(this.dataAccess.updateCredentailsForUser(existingUser.id));
         }
-        return Q.all(updCmds);
+        return Promise.all(updCmds);
       })
       .then((resArray) => {
         resolve(resArray[0]);
