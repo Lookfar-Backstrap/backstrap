@@ -49,7 +49,7 @@ class Admin {
         getUserCmd = this.dataAccess.getAllUsers();
       }
 
-      Q(getUserCmd)
+      getUserCmd
       .then((findRes) => {
         let userObjs = [];
         if(!Array.isArray(findRes)) {
@@ -302,6 +302,7 @@ class Admin {
       var roles = req.body.roles || null;
       var email = req.body.email || null;
       var locked = req.body.locked || null;
+      var exid = req.body.external_id || null;
 
       if(email){
         var validEmailRegex = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
@@ -352,7 +353,7 @@ class Admin {
           hashedPassword = crypto.createHash('sha256').update(saltedPassword).digest('hex');
         }
 
-        let updCmds = [this.dataAccess.updateUserInfo(existingUser.id, locked, roles, email, username)];
+        let updCmds = [this.dataAccess.updateUserInfo(existingUser.id, locked, roles, email, exid, username)];
         if(password && salt) {
           updCmds.push(this.dataAccess.updateCredentailsForUser(existingUser.id));
         }

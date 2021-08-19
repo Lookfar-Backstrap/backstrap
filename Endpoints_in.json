@@ -441,7 +441,7 @@
                     "args": [
                         {
                             "name": "id",
-                            "type": "string",
+                            "type": "number",
                             "isRequired": true,
                             "description": null
                         },
@@ -464,13 +464,7 @@
                             "description": null
                         },
                         {
-                            "name": "first",
-                            "type": "string",
-                            "isRequired": false,
-                            "description": null
-                        },
-                        {
-                            "name": "last",
+                            "name": "external_id",
                             "type": "string",
                             "isRequired": false,
                             "description": null
@@ -478,12 +472,6 @@
                         {
                             "name": "roles",
                             "type": "array",
-                            "isRequired": false,
-                            "description": null
-                        },
-                        {
-                            "name": "userprofile",
-                            "type": "object",
                             "isRequired": false,
                             "description": null
                         }
