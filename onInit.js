@@ -5,7 +5,7 @@ module.exports = {
     // .then((res) => {
     //   console.log(res);
     // })
-    // .fail((err) => {
+    // .catch((err) => {
     //   console.log(err);
     // })
   }

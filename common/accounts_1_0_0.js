@@ -1,7 +1,7 @@
 // ===============================================================================
 // ACCOUNTS WEB SERVICE CALLS v1.0.0
 // ===============================================================================
-var Q = require('q');
+const util = require('util');
 var crypto = require('crypto');
 
 class Accounts {
@@ -52,7 +52,7 @@ class Accounts {
       .then((res) => {
         resolve(res);
       })
-      .fail((err) => {
+      .catch((err) => {
         reject(err.AddToError(__filename, 'signIn'));
       })
     });
@@ -69,7 +69,7 @@ class Accounts {
       .then((usr) => {
         resolve(usr);
       })
-      .fail((err) => {
+      .catch((err) => {
         typeof(err.AddToError) === 'function' ?
           reject(err.AddToError(__filename, 'signUp'))
         :
@@ -95,7 +95,7 @@ class Accounts {
       .then((usr) => {
         resolve(usr);
       })
-      .fail((err) => {
+      .catch((err) => {
         typeof(err.AddToError) === 'function' ?
           reject(err.AddToError(__filename, 'apiUser'))
         :
@@ -127,7 +127,7 @@ class Accounts {
       .then((usr) => {
         resolve(usr);
       })
-      .fail((err) => {
+      .catch((err) => {
         typeof(err.AddToError) === 'function' ?
           reject(err.AddToError(__filename, 'apiCredentials'))
         :
@@ -154,7 +154,7 @@ class Accounts {
       .then((invld_res) => {
         resolve({success: true});
       })
-      .fail((err) => {
+      .catch((err) => {
         reject(err.AddToError(__filename, 'signOut'));
       });
     });
@@ -193,7 +193,7 @@ class Accounts {
       .then((emailRes) => {
           resolve({success:true});
       })
-      .fail((err) => {
+      .catch((err) => {
           if (err !== undefined && err !== null && typeof (err.AddToError) == 'function') {
               err.setMessages('Problem generating email and retrieving forgotten username');
               reject(err.AddToError(__filename, 'forgotUsername'));
@@ -271,13 +271,13 @@ class Accounts {
               var message = 'Reset password: ' + reset_link + tkn;
               return [userObj, tkn, this.utilities.sendMail(userObj.email, 'Password Reset', message)];
           })
-          .spread((userObj, tkn, mail_res) => {
+          .then(([userObj, tkn, mail_res]) => {
             return this.dataAccess.updateCredentialsForUser(userObj.id, null, null, tkn);
           })
           .then((saveRes) => {
               resolve({success:true});
           })
-          .fail((err) => {
+          .catch((err) => {
               if(err != null && err.err_code == 'da0200'){
                   var resolveObj = { 
                       'success': true,
@@ -337,7 +337,7 @@ class Accounts {
                 return;
             }
 
-            var cryptoCall = Q.denodeify(crypto.randomBytes);
+            var cryptoCall = util.promisify(crypto.randomBytes);
             return [userObj, cryptoCall(48)];
         }
         else {
@@ -350,7 +350,7 @@ class Accounts {
             reject(errorObj);
         }
       })
-      .spread((userObj, buf) => {
+      .then(([userObj, buf]) => {
           var salt = buf.toString('hex');
           var saltedPassword = password + salt;
           var hashedPassword = crypto.createHash('sha256').update(saltedPassword).digest('hex');
@@ -359,7 +359,7 @@ class Accounts {
       .then(() => {
           resolve({success:true});
       })
-      .fail((err) => {
+      .catch((err) => {
           if (err !== undefined && err !== null && typeof (err.AddToError) == 'function') {
               err.setMessages('Problem reseting password');
               reject(err.AddToError(__filename, 'resetPassword'));
@@ -391,7 +391,7 @@ class Accounts {
           delete resolveObj.token;
           resolve(resolveObj);
       })
-      .fail((err) => {
+      .catch((err) => {
           if (err !== undefined && err !== null && typeof (err.AddToError) === 'function') {
             reject(err.AddToError(__filename, 'startAnonymousSession'));
           }
@@ -414,7 +414,7 @@ class Accounts {
       // TODO: validate password if possible
 
       // GET SALT
-      var cryptoCall = Q.denodeify(crypto.randomBytes);
+      var cryptoCall = util.promisify(crypto.randomBytes);
       cryptoCall(48)
       .then((saltBuf) => {
         let salt = saltBuf.toString('hex');
@@ -427,7 +427,7 @@ class Accounts {
       .then((updatedUser) => {
         resolve({success: true});
       })
-      .fail((err) => {
+      .catch((err) => {
         if (err !== undefined && err !== null && typeof (err.AddToError) === 'function') {
             err.setMessages('error updating bsuser', 'Problem updating password');
             reject(err.AddToError(__filename, 'PATCH password'));
@@ -465,7 +465,7 @@ class Accounts {
             resolve(null);
           }
       })
-      .fail((err) => {
+      .catch((err) => {
           if (err !== undefined && err !== null && typeof (err.AddToError) === 'function') {
               reject(err.AddToError(__filename, 'PUT bsuser'));
           }
@@ -490,7 +490,7 @@ class Accounts {
       .then(() => {
           resolve({success:true});
       })
-      .fail((err) => {
+      .catch((err) => {
           if (err !== undefined && err !== null && typeof (err.AddToError) === 'function') {
               err.setMessages('error deleting bsuser');
               reject(err.AddToError(__filename, 'DELETE bsuser'));
@@ -515,7 +515,7 @@ class Accounts {
       .then((res) => {
         resolve(res);
       })
-      .fail((err) => {
+      .catch((err) => {
         reject(err.AddToError(__filename, 'deleteApiCredentials'));
       })
     });

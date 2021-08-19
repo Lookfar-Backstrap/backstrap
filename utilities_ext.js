@@ -1,5 +1,3 @@
-var Q = require('q');
-
 class UtilitiesExtension {
   constructor(u) {
     this.utilities = u;

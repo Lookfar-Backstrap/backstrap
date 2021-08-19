@@ -75,7 +75,7 @@ class ServiceRegistration {
                       );
         deferred.reject(errorObj);
       })
-      .fail((err) => {
+      .catch((err) => {
         if(err != null &&
           (err.message==='no matching controller found' ||
           err.message==='no matching area found' ||
@@ -145,7 +145,7 @@ class ServiceRegistration {
           .then((save_res) => {
             deferred.resolve(save_res);
           })
-          .fail((err) => {
+          .catch((err) => {
             if(err !== undefined && err !== null && typeof(err.AddToError) === 'function') {
               deferred.reject(err.AddToError(__filename, 'registerServiceCall'));
             }
@@ -225,7 +225,7 @@ class ServiceRegistration {
         .then((save_res) => {
           deferred.resolve(save_res);
         })
-        .fail((err) => {
+        .catch((err) => {
           if(err !== undefined && err !== null && typeof(err.AddToError) === 'function') {
             deferred.reject(err.AddToError(__filename, 'updateServiceCall'));
           }
@@ -252,7 +252,7 @@ class ServiceRegistration {
         deferred.reject(errorObj);
       }
     })
-    .fail((err) => {
+    .catch((err) => {
       if(err !== undefined && err !== null && typeof(err.AddToError) === 'function') {
         deferred.reject(err.AddToError(__filename, 'updateServiceCall'));
       }
@@ -306,7 +306,7 @@ class ServiceRegistration {
         .then((save_res) => {
           deferred.resolve(save_res);
         })
-        .fail((err) => {
+        .catch((err) => {
           if(err !== undefined && err !== null && typeof(err.AddToError) === 'function') {
             deferred.reject(err.AddToError(__filename, 'deleteServiceCall'));
           }
@@ -333,7 +333,7 @@ class ServiceRegistration {
         deferred.reject(errorObj);
       }
     })
-    .fail((err) => {
+    .catch((err) => {
       if(err !== undefined && err !== null && typeof(err.AddToError) === 'function') {
         deferred.reject(err.AddToError(__filename, 'deleteServiceCall'));
       }
@@ -492,7 +492,7 @@ class ServiceRegistration {
     .then((sc_res) => {
       deferred.resolve(sc_res);
     })
-    .fail((gsc_err) => {
+    .catch((gsc_err) => {
       if(gsc_err !== undefined && gsc_err !== null && typeof(gsc_err.AddToError) === 'function') {
         deferred.reject(gsc_err.AddToError(__filename, 'serviceCallExists'));
       }
@@ -653,7 +653,7 @@ class ServiceRegistration {
         deferred.resolve(true);
       }
     })
-    .fail((err) => {
+    .catch((err) => {
       if(err !== undefined && err !== null && typeof(err.AddToError) === 'function') {
         deferred.reject(err.AddToError(__filename, 'validateArguments'));
       }

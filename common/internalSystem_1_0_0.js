@@ -42,7 +42,7 @@ class InternalSystem {
       .then((serviceCalls) => {
         resolve(serviceCalls);
       })
-      .fail((err) => {
+      .catch((err) => {
         if(err !== undefined && err !== null && typeof(err.AddToError) === 'function') {
                   err.setMessages('error getting endpoints', 'Problem getting endpoints');
           reject(err.AddToError(__filename, 'endpoint'));

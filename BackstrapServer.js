@@ -214,7 +214,7 @@ AccessControl.init(Utilities, Settings, DataAccess, 'Security.json')
   if(Settings.keep_alive_timeout != null) server.keepAliveTimeout = parseInt(Settings.keep_alive_timeout);
   if(Settings.headers_timeout != null) server.headersTimeout = parseInt(Settings.headers_timeout);
 })
-.fail((err) => {
+.catch((err) => {
   console.log('Initialization Failure');
   console.log(err);
   return 2;
@@ -315,7 +315,7 @@ function requestPipeline(req, res, verb) {
       }
     }
   })
-  .spread((sc, validTokenResponse) => {
+  .then(([sc, validTokenResponse]) => {
     var inner_deferred = Q.defer();
     
     if(validTokenResponse.is_valid === true) {
@@ -328,7 +328,7 @@ function requestPipeline(req, res, verb) {
         .then((usr) => {
           inner_deferred.resolve(usr);
         })
-        .fail((usr_err) => {
+        .catch((usr_err) => {
           if(sc.authRequired) {
             var errorObj = new ErrorObj(403,
                                         'bs0002',
@@ -354,7 +354,7 @@ function requestPipeline(req, res, verb) {
         .then((usr) => {
           inner_deferred.resolve(usr);
         })
-        .fail((usr_err) => {
+        .catch((usr_err) => {
           if(sc.authRequired) {
             var errorObj = new ErrorObj(403,
                                         'bs0003',
@@ -377,7 +377,7 @@ function requestPipeline(req, res, verb) {
 
     return [sc, validTokenResponse, inner_deferred.promise];
   })
-  .spread((sc, validTokenResponse, userOrNull) => {
+  .then(([sc, validTokenResponse, userOrNull]) => {
     //PUT THE USER OBJECT ON THE REQUEST
     if(userOrNull !== null) {
       req.this_user = userOrNull;
@@ -389,10 +389,10 @@ function requestPipeline(req, res, verb) {
       return [sc, validTokenResponse];
     }
   })
-  .spread((sc, validTokenResponse) => {
+  .then(([sc, validTokenResponse]) => {
     return [sc, validTokenResponse, ServiceRegistration.validateArguments(serviceCall, area, controller, verb, version, args)];
   })
-  .spread(async (sc, validTokenResponse) => {
+  .then(async ([sc, validTokenResponse]) => {
     //return [validTokenResponse, Controller.resolveServiceCall(sc, req)];
     try {
       let results = await Controller.resolveServiceCall(sc, req);
@@ -450,7 +450,7 @@ function requestPipeline(req, res, verb) {
     }
 
   })
-  .fail((err) => {
+  .catch((err) => {
     if (err.http_status == null) {
       err.http_status = 500;
     }
@@ -625,7 +625,7 @@ function checkForInvalidSessions(DataAccess, Settings, callback) {
       .then((res) => {
         deferred.resolve();
       })
-      .fail((err) => {
+      .catch((err) => {
         let logEntry = JSON.stringify(err)+'\n';
         errorLog.write(logEntry);
         deferred.resolve();
@@ -635,7 +635,7 @@ function checkForInvalidSessions(DataAccess, Settings, callback) {
       deferred.resolve();
     }
 	})
-  .fail((err) => {
+  .catch((err) => {
     console.log(err);
     deferred.resolve();
   })

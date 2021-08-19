@@ -27,7 +27,7 @@ class Analytics {
       .then((logEvent_res) => {
         resolve({success: true});
       })
-      .fail((err) => {
+      .catch((err) => {
         reject(err);
       })
     });

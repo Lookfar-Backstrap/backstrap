@@ -1,5 +1,5 @@
-var Q = require('q');
-var crypto = require('crypto');
+const util = require('util');
+const crypto = require('crypto');
 
 class Admin {
   constructor(da, utils, ac, sr, st) {
@@ -67,10 +67,9 @@ class Admin {
           formattedUserObjs.push(userObj);
         }
 
-        var resolveObj = formattedUserObjs;
-        resolve(resolveObj);
+        resolve(formattedUserObjs);
       })
-      .fail((err) => {
+      .catch((err) => {
         if (err !== undefined && err !== null && typeof (err.AddToError) == 'function') {
           err.setMessages('error getting user', 'Problem fetching users');
           reject(err.AddToError(__filename, 'user'));
@@ -124,7 +123,7 @@ class Admin {
           reject(errorObj);
         }
       })
-      .fail((err) => {
+      .catch((err) => {
         if (err !== undefined && err !== null && typeof (err.AddToError) == 'function') {
           err.setMessages('error getting user\'s roles', 'Problem getting user roles');
           reject(err.AddToError(__filename, 'user'));
@@ -176,7 +175,7 @@ class Admin {
           return this.utilities.validateUsername(username);
         })
         .then(() => {
-          var cryptoCall = Q.denodeify(crypto.randomBytes);
+          var cryptoCall = util.promisify(crypto.randomBytes);
           return cryptoCall(48);
         })
         .then((buf) => {
@@ -203,7 +202,7 @@ class Admin {
           var resolveObj = userDbEntity;
           resolve(resolveObj);
         })
-        .fail((err) => {
+        .catch((err) => {
           if(err !== undefined && err !== null && typeof(err.AddToError) == 'function') {
             reject(err.AddToError(__filename, 'signUp'));
           }
@@ -260,7 +259,7 @@ class Admin {
       .then(() => {
         resolve({'success': true});
       })
-      .fail((err) => {
+      .catch((err) => {
         if(err !== undefined && err !== null && typeof(err.AddToError) == 'function') {
           reject(err.AddToError(__filename, 'userRole'));
         }
@@ -327,7 +326,7 @@ class Admin {
           return [existingUser];
         }
       })
-      .spread((existingUser) => {
+      .then(([existingUser]) => {
         if(email) {
           return [existingUser, this.utilities.validateEmail(email, existingUser.email)];
         }
@@ -335,16 +334,16 @@ class Admin {
           return [existingUser];
         }
       })
-      .spread((existingUser) => {
+      .then(([existingUser]) => {
         if(password !== undefined) {
-          var cryptoCall = Q.denodeify(crypto.randomBytes);
+          var cryptoCall = util.promisify(crypto.randomBytes);
           return [existingUser, cryptoCall(48)];
         }
         else {
           return [existingUser];
         }
       })
-      .spread((existingUser, buf) => {
+      .then(([existingUser, buf]) => {
         var salt = null;
         var hashedPassword = null;
         if(buf !== undefined && password != null) {
@@ -355,14 +354,14 @@ class Admin {
 
         let updCmds = [this.dataAccess.updateUserInfo(existingUser.id, locked, roles, email, exid, username)];
         if(password && salt) {
-          updCmds.push(this.dataAccess.updateCredentailsForUser(existingUser.id));
+          updCmds.push(this.dataAccess.updateCredentialsForUser(existingUser.id));
         }
         return Promise.all(updCmds);
       })
       .then((resArray) => {
         resolve(resArray[0]);
       })
-      .fail((err) => {
+      .catch((err) => {
         if(err !== undefined && err !== null && typeof(err.AddToError) == 'function') {
           err.setMessages('error updating user object', 'Problem updating user object');
           reject(err.AddToError(__filename, 'user'));
@@ -389,7 +388,7 @@ class Admin {
         var resolveObj = del_res;
         resolve(resolveObj);
       })
-      .fail((err) => {
+      .catch((err) => {
         if (err !== undefined && err !== null && typeof (err.AddToError) == 'function') {
           reject(err.AddToError(__filename, 'DELETE user'));
         }
@@ -445,7 +444,7 @@ class Admin {
       .then(() => {
         resolve({'success': true});
       })
-      .fail((err) => {
+      .catch((err) => {
         if(err !== undefined && err !== null && typeof(err.AddToError) == 'function') {
           if(err.message === 'no results found' || err.err_code === 'da0109') {
             err.setStatus(404);

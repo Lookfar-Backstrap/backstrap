@@ -682,7 +682,7 @@ DataAccessExtension.prototype.myCustomSqlMethod = (make, model, color) => {
  .then((res) => {
      deferred.resolve(res);
    })
-   .fail((err) => {
+   .catch((err) => {
      var errorObj = new ErrorObj(500,
                                  'dae0001',
                                  __filename,
@@ -732,7 +732,7 @@ testService.prototype.test = () => {
   .then((res) => {
     deferred.resolve(res);
   })
-  .fail((err) => {
+  .catch((err) => {
     deferred.reject(err);
   });
 

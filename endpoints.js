@@ -164,7 +164,7 @@ class Endpoints {
     .then((write_res) => {
       deferred.resolve(true);
     })
-    .fail((err) => {
+    .catch((err) => {
       var errorObj = new ErrorObj(400, 
                     'e0002', 
                     __filename, 

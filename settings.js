@@ -93,7 +93,7 @@ class Settings {
 		.then((write_res) => {
 			deferred.resolve(true);
 		})
-		.fail((err) => {
+		.catch((err) => {
 			var errorObj = new ErrorObj(500, 
 										'se0004', 
 										__filename, 

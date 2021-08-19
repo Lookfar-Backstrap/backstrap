@@ -1,7 +1,7 @@
 // ===============================================================================
 // UTILITY FUNCTIONS
 // ===============================================================================
-const Q = require('q');
+const util = require('util');
 const path = require('path');
 const fs = require('fs');
 
@@ -67,8 +67,6 @@ class Utilities {
   }
 
   getHash(alg, data, length) {
-    var deferred = Q.defer();
-
     if(alg == null) alg = 'sha256';
     var h = crypto.createHash(alg);
 
@@ -78,9 +76,7 @@ class Utilities {
 
     var digest = h.digest('hex');
     if(length != null) digest = digest.substring(0, length);
-    deferred.resolve(digest);
-
-    return deferred.promise;
+    Promise.resolve(digest);
   }
 
   setDataAccess(da) {
@@ -97,13 +93,12 @@ class Utilities {
   }
 
   validateUsername(newUsername, existingUsername) {
-    var deferred = Q.defer();
-
-    if (newUsername === existingUsername) {
-      deferred.resolve();
-    }
-    else {
-      this.dataAccess.getUserByUserName(newUsername)
+    return new Promise((resolve, reject) => {
+      if (newUsername === existingUsername) {
+        resolve();
+      }
+      else {
+        this.dataAccess.getUserByUserName(newUsername)
         .then((userFound) => {
           var errorObj = new ErrorObj(400,
             'u0053',
@@ -111,382 +106,366 @@ class Utilities {
             'validateUsername',
             'a user already exists with the username provided'
           );
-          deferred.reject(errorObj);
+          reject(errorObj);
         })
-        .fail((err) => {
-          deferred.resolve();
+        .catch((err) => {
+          resolve();
         });
-    }
-
-    return deferred.promise;
+      }
+    });
   }
 
   validateEmail(newEmail, existingEmail) {
-    var deferred = Q.defer();
-
-    if (newEmail === existingEmail) {
-      deferred.resolve();
-    }
-    else {
-      this.dataAccess.getUserByEmail(newEmail)
-      .then((userFound) => {
-        var errorObj = new ErrorObj(400,
-          'u0054',
-          __filename,
-          'bsuser',
-          'a bsuser already exists with the email provided'
-        );
-
-        deferred.reject(errorObj);
-      })
-      .fail((err) => {
-
-        if (err.err_code == 'da2001') {
-          // THERE WERE MULTIPLE ACCOUNTS FOUND WITH THIS EMAIL
-          // IN A PREVIOUS VERSION OF BS ACCOUNTS WERE ABLE TO SHARE EMAILS
+    return new Promise((resolve, reject) => {
+      if (newEmail === existingEmail) {
+        resolve();
+      }
+      else {
+        this.dataAccess.getUserByEmail(newEmail)
+        .then((userFound) => {
           var errorObj = new ErrorObj(400,
-            'u0055',
+            'u0054',
             __filename,
             'bsuser',
-            'a bsuser already exists with the email provided',
-            err
+            'a bsuser already exists with the email provided'
           );
-
-          deferred.reject(errorObj);
-        }
-        else {
-          deferred.resolve();
-        }
-      });
-    }
-
-    return deferred.promise;
-  }
-
-  getUserFromApiToken (apiTkn, callback) {
-    var deferred = Q.defer();
-    
-    this.dataAccess.getSession(null, apiTkn)
-    .then((sessionObj) => {
-      if(sessionObj.anonymous) {
-        return {'username': 'anonymous'};
-      }
-      else {
-        return this.dataAccess.getUserBySession(sessionObj.id);
-      }
-    })
-    .then((userObj) => {
-      deferred.resolve(userObj);
-    })
-    .fail((err) => {
-      // ADD LOGGING HERE?
-      if (err !== undefined && err !== null && typeof (err.AddToError) === 'function') {
-        deferred.reject(err.AddToError(__filename, 'getUserFromApiToken'));
-      }
-      else {
-        var errorObj = new ErrorObj(500,
-          'u1001',
-          __filename,
-          'getUserFromApiToken',
-          'error getting user from api token',
-          'Error getting user from api token',
-          err
-        );
-        deferred.reject(errorObj);
+  
+          reject(errorObj);
+        })
+        .catch((err) => {
+  
+          if (err.err_code == 'da2001') {
+            // THERE WERE MULTIPLE ACCOUNTS FOUND WITH THIS EMAIL
+            // IN A PREVIOUS VERSION OF BS ACCOUNTS WERE ABLE TO SHARE EMAILS
+            var errorObj = new ErrorObj(400,
+              'u0055',
+              __filename,
+              'bsuser',
+              'a bsuser already exists with the email provided',
+              err
+            );
+  
+            reject(errorObj);
+          }
+          else {
+            resolve();
+          }
+        });
       }
     });
-  
-    deferred.promise.nodeify(callback);
-    return deferred.promise;
+  }
+
+  getUserFromApiToken (apiTkn) {
+    return new Promise((resolve, reject) => {
+      this.dataAccess.getSession(null, apiTkn)
+      .then((sessionObj) => {
+        if(sessionObj.anonymous) {
+          return {'username': 'anonymous'};
+        }
+        else {
+          return this.dataAccess.getUserBySession(sessionObj.id);
+        }
+      })
+      .then((userObj) => {
+        resolve(userObj);
+      })
+      .catch((err) => {
+        // ADD LOGGING HERE?
+        if (err !== undefined && err !== null && typeof (err.AddToError) === 'function') {
+          reject(err.AddToError(__filename, 'getUserFromApiToken'));
+        }
+        else {
+          var errorObj = new ErrorObj(500,
+            'u1001',
+            __filename,
+            'getUserFromApiToken',
+            'error getting user from api token',
+            'Error getting user from api token',
+            err
+          );
+          reject(errorObj);
+        }
+      });
+    });
   }
 
   copyFile(file_to_copy, destination_path){
-    var deferred = Q.defer();
-    try {
-      fs.createReadStream(file_to_copy).pipe(fs.createWriteStream(destination_path));
-      deferred.resolve({ 'success': true });
-    }
-    catch (err) {
-      var errorObj = new ErrorObj(500,
-        'u0002',
-        __filename,
-        'copyFile',
-        'error with fs.createReadStream',
-        'External error',
-        err
-      );
-      deferred.reject(errorObj);
-    }
-    return deferred.promise;
+    return new Promise((resolve, reject) => {
+      try {
+        fs.createReadStream(file_to_copy).pipe(fs.createWriteStream(destination_path));
+        resolve({ 'success': true });
+      }
+      catch (err) {
+        var errorObj = new ErrorObj(500,
+          'u0002',
+          __filename,
+          'copyFile',
+          'error with fs.createReadStream',
+          'External error',
+          err
+        );
+        reject(errorObj);
+      }
+    });
   }
 
   writeToFile(file_path, strData, isBinary) {
-    var deferred = Q.defer();
+    return new Promise((resolve, reject) => {
+      let binaryArg = isBinary ? 'binary' : null;
   
-    let binaryArg = isBinary ? 'binary' : null;
-  
-    fs.writeFile(file_path, strData, binaryArg,
-      function (write_err) {
-        if (write_err) {
-          var errorObj = new ErrorObj(500,
-            'u0005',
-            __filename,
-            'writeToFile',
-            'error with fs.writeToFile',
-            'External error',
-            write_err
-          );
-          deferred.reject(errorObj);
+      fs.writeFile(file_path, strData, binaryArg,
+        function (write_err) {
+          if (write_err) {
+            var errorObj = new ErrorObj(500,
+              'u0005',
+              __filename,
+              'writeToFile',
+              'error with fs.writeToFile',
+              'External error',
+              write_err
+            );
+            reject(errorObj);
+          }
+          else {
+            resolve(true);
+          }
         }
-        else {
-          deferred.resolve(true);
-        }
-      }
-    );
-  
-    return deferred.promise;
+      );
+    });
   }
 
   writeErrorToLog(errObj) {
-    var deferred = Q.defer();
+    return new Promise((resolve, reject) => {
+      let logEntry = JSON.stringify(errObj)+'\n';
   
-    let logEntry = JSON.stringify(errObj)+'\n';
-  
-    var writeToLog = Q.denodeify(errorLog.write);
-    writeToLog(logEntry)
-    .then((write_res) => {
-      deferred.resolve();
-    })
-    .fail((write_err) => {
-      deferred.reject(write_err);
+      var writeToLog = util.promisify(errorLog.write);
+      writeToLog(logEntry)
+      .then((write_res) => {
+        resolve();
+      })
+      .catch((write_err) => {
+        reject(write_err);
+      });
     });
-  
-    return deferred.promise;
   }
 
-  sendMail(send_to, sbj, bdy, html_bdy, callback) {
-    var deferred = Q.defer();
-  
-    var mailOptions = {
-      from: this.settings.mail_options.account,
-      to: send_to,
-      subject: sbj
-    };
-    if(bdy) mailOptions.text = bdy;
-    if(html_bdy) mailOptions.html = html_bdy;
-  
-    this.mailTransport.sendMail(mailOptions, function (email_err, email_res) {
-      if (!email_err) {
-        deferred.resolve(email_res);
+  sendMail(send_to, sbj, bdy, html_bdy) {
+    return new Promise((resolve, reject) => {
+      var mailOptions = {
+        from: this.settings.mail_options.account,
+        to: send_to,
+        subject: sbj
+      };
+      if(bdy) mailOptions.text = bdy;
+      if(html_bdy) mailOptions.html = html_bdy;
+    
+      this.mailTransport.sendMail(mailOptions, function (email_err, email_res) {
+        if (!email_err) {
+          resolve(email_res);
+        }
+        else {
+          var errorObj = new ErrorObj(500,
+            'u0009',
+            __filename,
+            'sendMail',
+            'error with mailTransport.sendMail',
+            'External error',
+            email_err
+          );
+          reject(errorObj);
+        }
+      });
+    });
+  }
+
+  sendMailTemplate(send_to, sbj, template_name, args) {
+    return new Promise((resolve, reject) => {
+      if (template_name === undefined || template_name === null) {
+        template_name = 'default';
+      }
+    
+      if (args === undefined || args === null) {
+        args = {};
+      }
+    
+      var templatePath = path.resolve(__dirname, this.settings.mail_options.template_directory + template_name);
+      var txtPath = templatePath + '.txt';
+      var htmlPath = templatePath + '.html';
+    
+      var foundTxt = true;
+      var foundHtml = true;
+      try {
+        fs.accessSync(txtPath);
+      }
+      catch (e) {
+        foundTxt = false;
+      }
+    
+      try {
+        fs.accessSync(htmlPath);
+      }
+      catch (e) {
+        foundHtml = false;
+      }
+    
+      var txtBody = '';
+      var htmlBody = '';
+    
+      if (foundTxt && foundHtml) {
+        fs.readFile(txtPath, 'utf8', function (txt_err, txt_data) {
+          if (!txt_err) {
+            txtBody = this.#replaceTemplateValues(txt_data, args)
+            fs.readFile(htmlPath, 'utf8', function (html_err, html_data) {
+              if (!html_err) {
+                htmlBody = this.#replaceTemplateValues(html_data, args);
+    
+                var mailOptions = {
+                  from: this.settings.mail_options.account,
+                  to: send_to,
+                  subject: sbj,
+                  text: txtBody,
+                  html: htmlBody
+                };
+                this.mailTransport.sendMail(mailOptions, function (email_err, email_res) {
+                  if (!email_err) {
+                    resolve(email_res);
+                  }
+                  else {
+                    var errorObj = new ErrorObj(500,
+                      'u0011',
+                      __filename,
+                      'sendMailTemplate',
+                      'error with mailTransport.sendMail',
+                      'External error',
+                      email_err
+                    );
+                    reject(errorObj);
+                  }
+                });
+              }
+              else {
+                // SOMETHING WENT WRONG WHILE READING THE HTML TEMPLATE
+                var errorObj = new ErrorObj(500,
+                  'u0012',
+                  __filename,
+                  'sendMailTemplate',
+                  'error reading html template',
+                  'There was a problem getting the html template for this email',
+                  html_err
+                );
+                reject(errorObj);
+              }
+            });
+          }
+          else {
+            // SOMETHING WENT WRONG WHILE READING THE TXT TEMPLATE
+            var errorObj = new ErrorObj(500,
+              'u0013',
+              __filename,
+              'sendMailTemplate',
+              'error reading text template',
+              'There was a problem getting the text template for this email',
+              txt_err
+            );
+            reject(errorObj);
+          }
+        });
+      }
+      else if (foundTxt) {
+        fs.readFile(txtPath, 'utf8', function (txt_err, txt_data) {
+          if (!txt_err) {
+            txtBody = this.#replaceTemplateValues(txt_data, args);
+            var mailOptions = {
+              from: this.settings.mail_options.account,
+              to: send_to,
+              subject: sbj,
+              text: txtBody
+            };
+            this.mailTransport.sendMail(mailOptions, function (email_err, email_res) {
+              if (!email_err) {
+                resolve(email_res);
+              }
+              else {
+                var errorObj = new ErrorObj(500,
+                  'u0014',
+                  __filename,
+                  'sendMailTemplate',
+                  'error with mailTransport.sendMail',
+                  'External error',
+                  email_err
+                );
+                reject(errorObj);
+              }
+            });
+          }
+          else {
+            // SOMETHING WENT WRONG WHILE READING THE TXT TEMPLATE
+            var errorObj = new ErrorObj(500,
+              'u0015',
+              __filename,
+              'sendMailTemplate',
+              'error reading text template',
+              'There was a problem getting the text template for this email',
+              txt_err
+            );
+            reject(errorObj);
+          }
+        });
+      }
+      else if (foundHtml) {
+        fs.readFile(htmlPath, 'utf8', function (html_err, html_data) {
+          if (!html_err) {
+            htmlBody = this.#replaceTemplateValues(html_data, args);
+            var mailOptions = {
+              from: this.settings.mail_options.account,
+              to: send_to,
+              subject: sbj,
+              html: htmlBody
+            };
+            this.mailTransport.sendMail(mailOptions, function (email_err, email_res) {
+              if (!email_err) {
+                resolve(email_res);
+              }
+              else {
+                var errorObj = new ErrorObj(500,
+                  'u0016',
+                  __filename,
+                  'sendMailTemplate',
+                  'error with mailTransport.sendMail',
+                  'External error',
+                  email_err
+                );
+                reject(errorObj);
+              }
+            });
+          }
+          else {
+            // SOMETHING WENT WRONG WHILE READING THE HTML TEMPLATE
+            var errorObj = new ErrorObj(500,
+              'u0017',
+              __filename,
+              'sendMailTemplate',
+              'error reading html template',
+              'There was a problem getting the html template for this email',
+              html_err
+            );
+            reject(errorObj);
+          }
+        });
       }
       else {
+        // WE COULDN'T FIND THIS TEMPLATE.
         var errorObj = new ErrorObj(500,
-          'u0009',
-          __filename,
-          'sendMail',
-          'error with mailTransport.sendMail',
-          'External error',
-          email_err
-        );
-        deferred.reject(errorObj);
+                                    'u0018',
+                                    __filename,
+                                    'sendMailTemplate',
+                                    'no template found',
+                                    'There was a problem locating the template file.',
+                                    {template: template_name}
+                                  );
+        reject(errorObj);
       }
     });
-  
-    deferred.promise.nodeify(callback);
-    return deferred.promise
-  }
-
-  sendMailTemplate(send_to, sbj, template_name, args, callback) {
-    var deferred = Q.defer();
-  
-    if (template_name === undefined || template_name === null) {
-      template_name = 'default';
-    }
-  
-    if (args === undefined || args === null) {
-      args = {};
-    }
-  
-    var templatePath = path.resolve(__dirname, this.settings.mail_options.template_directory + template_name);
-    var txtPath = templatePath + '.txt';
-    var htmlPath = templatePath + '.html';
-  
-    var foundTxt = true;
-    var foundHtml = true;
-    try {
-      fs.accessSync(txtPath);
-    }
-    catch (e) {
-      foundTxt = false;
-    }
-  
-    try {
-      fs.accessSync(htmlPath);
-    }
-    catch (e) {
-      foundHtml = false;
-    }
-  
-    var txtBody = '';
-    var htmlBody = '';
-  
-    if (foundTxt && foundHtml) {
-      fs.readFile(txtPath, 'utf8', function (txt_err, txt_data) {
-        if (!txt_err) {
-          txtBody = this.#replaceTemplateValues(txt_data, args)
-          fs.readFile(htmlPath, 'utf8', function (html_err, html_data) {
-            if (!html_err) {
-              htmlBody = this.#replaceTemplateValues(html_data, args);
-  
-              var mailOptions = {
-                from: this.settings.mail_options.account,
-                to: send_to,
-                subject: sbj,
-                text: txtBody,
-                html: htmlBody
-              };
-              this.mailTransport.sendMail(mailOptions, function (email_err, email_res) {
-                if (!email_err) {
-                  deferred.resolve(email_res);
-                }
-                else {
-                  var errorObj = new ErrorObj(500,
-                    'u0011',
-                    __filename,
-                    'sendMailTemplate',
-                    'error with mailTransport.sendMail',
-                    'External error',
-                    email_err
-                  );
-                  deferred.reject(errorObj);
-                }
-              });
-            }
-            else {
-              // SOMETHING WENT WRONG WHILE READING THE HTML TEMPLATE
-              var errorObj = new ErrorObj(500,
-                'u0012',
-                __filename,
-                'sendMailTemplate',
-                'error reading html template',
-                'There was a problem getting the html template for this email',
-                html_err
-              );
-              deferred.reject(errorObj);
-            }
-          });
-        }
-        else {
-          // SOMETHING WENT WRONG WHILE READING THE TXT TEMPLATE
-          var errorObj = new ErrorObj(500,
-            'u0013',
-            __filename,
-            'sendMailTemplate',
-            'error reading text template',
-            'There was a problem getting the text template for this email',
-            txt_err
-          );
-          deferred.reject(errorObj);
-        }
-      });
-    }
-    else if (foundTxt) {
-      fs.readFile(txtPath, 'utf8', function (txt_err, txt_data) {
-        if (!txt_err) {
-          txtBody = this.#replaceTemplateValues(txt_data, args);
-          var mailOptions = {
-            from: this.settings.mail_options.account,
-            to: send_to,
-            subject: sbj,
-            text: txtBody
-          };
-          this.mailTransport.sendMail(mailOptions, function (email_err, email_res) {
-            if (!email_err) {
-              deferred.resolve(email_res);
-            }
-            else {
-              var errorObj = new ErrorObj(500,
-                'u0014',
-                __filename,
-                'sendMailTemplate',
-                'error with mailTransport.sendMail',
-                'External error',
-                email_err
-              );
-              deferred.reject(errorObj);
-            }
-          });
-        }
-        else {
-          // SOMETHING WENT WRONG WHILE READING THE TXT TEMPLATE
-          var errorObj = new ErrorObj(500,
-            'u0015',
-            __filename,
-            'sendMailTemplate',
-            'error reading text template',
-            'There was a problem getting the text template for this email',
-            txt_err
-          );
-          deferred.reject(errorObj);
-        }
-      });
-    }
-    else if (foundHtml) {
-      fs.readFile(htmlPath, 'utf8', function (html_err, html_data) {
-        if (!html_err) {
-          htmlBody = this.#replaceTemplateValues(html_data, args);
-          var mailOptions = {
-            from: this.settings.mail_options.account,
-            to: send_to,
-            subject: sbj,
-            html: htmlBody
-          };
-          this.mailTransport.sendMail(mailOptions, function (email_err, email_res) {
-            if (!email_err) {
-              deferred.resolve(email_res);
-            }
-            else {
-              var errorObj = new ErrorObj(500,
-                'u0016',
-                __filename,
-                'sendMailTemplate',
-                'error with mailTransport.sendMail',
-                'External error',
-                email_err
-              );
-              deferred.reject(errorObj);
-            }
-          });
-        }
-        else {
-          // SOMETHING WENT WRONG WHILE READING THE HTML TEMPLATE
-          var errorObj = new ErrorObj(500,
-            'u0017',
-            __filename,
-            'sendMailTemplate',
-            'error reading html template',
-            'There was a problem getting the html template for this email',
-            html_err
-          );
-          deferred.reject(errorObj);
-        }
-      });
-    }
-    else {
-      // WE COULDN'T FIND THIS TEMPLATE.
-      var errorObj = new ErrorObj(500,
-                                  'u0018',
-                                  __filename,
-                                  'sendMailTemplate',
-                                  'no template found',
-                                  'There was a problem locating the template file.',
-                                  {template: template_name}
-                                );
-      deferred.reject(errorObj);
-    }
-  
-    deferred.promise.nodeify(callback);
-    return deferred.promise
   }
 
   #replaceTemplateValues(template, args) {
@@ -508,9 +487,7 @@ class Utilities {
 
   getUID(sync, callback) {
     if(sync == null || sync === false) {
-      var deferred = Q.defer();
-      deferred.resolve(this.#createUID());
-      return deferred.promise;
+      Promise.resolve(this.#createUID());
     }
     else {
       return this.#createUID();
@@ -518,44 +495,38 @@ class Utilities {
   }
 
   logEvent(tkn, eventDescriptor) {
-    var deferred = Q.defer();
-  
     var loggedEvent = {
       'token': tkn,
       'event_data': eventDescriptor
     };
     let logEntry = JSON.stringify(loggedEvent)+'\n';
     this.eventLog.write(logEntry, () => {
-      deferred.resolve();
+      Promise.resolve();
     });
-  
-    return deferred.promise;
   }
 
   invalidateSession(sessionObj) {
-    var deferred = Q.defer();
-  
-    this.dataAccess.DeleteSessions([sessionObj.id])
-    .then(() => {
-      if(this.settings.session_logging === true) {
-        let dsObj = {
-          session_id: sessionObj.id,
-          token: sessionObj.token,
-          user_id: sessionObj.user_id,
-          started_at: sessionObj.started_at,
-          ended_at: new Date()
+    return new Promise((resolve, reject) => {
+      this.dataAccess.DeleteSessions([sessionObj.id])
+      .then(() => {
+        if(this.settings.session_logging === true) {
+          let dsObj = {
+            session_id: sessionObj.id,
+            token: sessionObj.token,
+            user_id: sessionObj.user_id,
+            started_at: sessionObj.started_at,
+            ended_at: new Date()
+          }
+          var logEntry = JSON.stringify(dsObj)+'\n';
+          sessionLog.write(logEntry);
         }
-        var logEntry = JSON.stringify(dsObj)+'\n';
-        sessionLog.write(logEntry);
-      }
-  
-      deferred.resolve();
-    })
-    .fail((err) => {
-      deferred.reject(err.AddToError(__filename, 'invalidateSession'));
+    
+        resolve();
+      })
+      .catch((err) => {
+        reject(err.AddToError(__filename, 'invalidateSession'));
+      });
     });
-  
-    return deferred.promise;
   }
 
   htmlify(obj, idx) {

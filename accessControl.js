@@ -43,7 +43,7 @@ class AccessControl {
           Object.freeze(this);
           deferred.resolve(true);
         })
-        .fail((keyErr) => {
+        .catch((keyErr) => {
           let errorObj = new ErrorObj(500,
                                       'ac0020',
                                       __filename,
@@ -121,7 +121,7 @@ class AccessControl {
     .then((userObj) => {
       deferred.resolve(userObj);
     })
-    .fail((err) => {
+    .catch((err) => {
       typeof(err.AddToError) === 'function' ?
         deferred.reject(err.AddToError(__filename, 'createUser'))
       :
@@ -170,7 +170,7 @@ class AccessControl {
         .then((usr) => {
           inner_deferred.resolve(usr);
         })
-        .fail((jwtErr) => {
+        .catch((jwtErr) => {
           inner_deferred.reject(jwtErr.AddToError(__name, 'signin'));
         });
       }
@@ -195,7 +195,7 @@ class AccessControl {
               inner_deferred.reject(errorObj);
             }
           })
-          .fail((usrErr) => {
+          .catch((usrErr) => {
             var errorObj = new ErrorObj(401,
                                         'ac0105',
                                         __filename,
@@ -244,7 +244,7 @@ class AccessControl {
         .then(() => {
           inner_deferred.resolve(userObj);
         })
-        .fail((credErr) => {
+        .catch((credErr) => {
           // JUST PASS ALONG THE ERROR, WE'LL MARK IT UP IN THE MAIN FAIL BLOCK OF THIS FUNCTION
           inner_deferred.reject(credErr);
         });
@@ -260,7 +260,7 @@ class AccessControl {
           .then(() => {
             inner_deferred.resolve(userObj);
           })
-          .fail((credErr) => {
+          .catch((credErr) => {
             // JUST PASS ALONG THE ERROR, WE'LL MARK IT UP IN THE MAIN FAIL BLOCK OF THIS FUNCTION
             inner_deferred.reject(credErr);
           });
@@ -295,10 +295,10 @@ class AccessControl {
       // START UP A SESSION
       return [userObj, this.startSession(userObj, params.clientInfo)];
     })
-    .spread((userObj, sess) => {
+    .then(([userObj, sess]) => {
         return [userObj, sess.token, this.validateToken(apiToken, true)];
     })
-    .spread((userObj, tkn, validTokenRes) => {
+    .then(([userObj, tkn, validTokenRes]) => {
         var sess = null;
         if (validTokenRes.is_valid === true && validTokenRes.session.anonymous === true) {
             sess = validTokenRes.session;
@@ -309,11 +309,11 @@ class AccessControl {
             return [userObj, tkn];
         }
     })
-    .spread((userObj, tkn) => {
+    .then(([userObj, tkn]) => {
         userObj[this.settings.token_header] = tkn;
         deferred.resolve(userObj);
     })
-    .fail((err) => {
+    .catch((err) => {
       var errorObj = new ErrorObj(401,
                                   'ac0100',
                                   __filename,
@@ -379,7 +379,7 @@ class AccessControl {
         deferred.reject(errorObj);
       }
     })
-    .fail((err) => {
+    .catch((err) => {
       let errorObj = new ErrorObj(401,
                                   'a0027',
                                   __filename,
@@ -410,7 +410,7 @@ class AccessControl {
     .then((newSess) => {
       deferred.resolve(newSess);
     })
-    .fail((err) => {
+    .catch((err) => {
       if(err && typeof(err.AddToError) === 'function') {
         deferred.reject(err.AddToError(__filename, 'startSession'));
       }
@@ -437,7 +437,7 @@ class AccessControl {
     .then((res) => {
       deferred.resolve(res);
     })
-    .fail((err) => {
+    .catch((err) => {
       var errorObj = new ErrorObj(500,
         'ac0003',
         __filename,
@@ -457,7 +457,7 @@ class AccessControl {
       .then((write_res) => {
         deferred.resolve(true);
       })
-      .fail((err) => {
+      .catch((err) => {
         var errorObj = new ErrorObj(500,
           'ac0004',
           __filename,
@@ -513,7 +513,7 @@ class AccessControl {
         }
       }
     })
-    .fail((err) => {
+    .catch((err) => {
       if(continueWhenInvalid) {
         deferred.resolve({is_valid: false});
       }
@@ -591,7 +591,7 @@ class AccessControl {
             }
           }
         })
-        .fail((usrErr) => {
+        .catch((usrErr) => {
           if(continueWhenInvalid) {
             deferred.resolve({is_valid: false});
           }
@@ -677,7 +677,7 @@ class AccessControl {
           }
         }
       })
-      .fail((err) => {
+      .catch((err) => {
         if(continueWhenInvalid) {
           deferred.resolve({is_valid: false});
         }
@@ -872,7 +872,7 @@ class AccessControl {
 
         deferred.resolve(token);
     })
-    .fail((err) => {
+    .catch((err) => {
         if (err !== undefined && err !== null && typeof (err.AddToError) == 'function') {
             if (err.message === 'no results found') {
                 var token = crypto.randomBytes(48).toString('hex');
@@ -934,7 +934,7 @@ class AccessControl {
           .then((usr) => {
             inner_deferred.resolve(usr);
           })
-          .fail((innerErr) => {
+          .catch((innerErr) => {
             inner_deferred.reject(innerErr)
           })
         }
@@ -964,7 +964,7 @@ class AccessControl {
     .then((userObj) => {
       return [userObj, this.validateToken(apiToken, true)];
     })
-    .spread((userObj, validTokenRes) => {
+    .then(([userObj, validTokenRes]) => {
         var sess;
         if (validTokenRes.is_valid === true && validTokenRes.session.is_anonymous === true && validTokenRes.session.username === 'anonymous') {
             sess = validTokenRes.session;
@@ -975,7 +975,7 @@ class AccessControl {
             return [userObj, false];
         }
     })
-    .spread((userObj, isNewAnonSess, sessRes) => {
+    .then(([userObj, isNewAnonSess, sessRes]) => {
         if (isNewAnonSess) {
           let sess = sessRes[0] ? sessRes[0].data : null;
           return [userObj, this.dataAccess.attachUserToSession(userObj, sess)];
@@ -984,7 +984,7 @@ class AccessControl {
           return [userObj];
         }
     })
-    .spread((userObj) => {
+    .then(([userObj]) => {
         delete userObj.password;
         delete userObj.salt;
 
@@ -992,7 +992,7 @@ class AccessControl {
         var resolveObj = userObj;
         deferred.resolve(resolveObj);
     })
-    .fail((err) => {
+    .catch((err) => {
         if (err !== undefined && err !== null && typeof (err.AddToError) == 'function') {
             deferred.reject(err.AddToError(__filename, 'createStandardUser'));
         }
@@ -1064,7 +1064,7 @@ class AccessControl {
         }
         return [creds.clientSecret, nextCmd];
     })
-    .spread((clientSecret, userOrCreds) => {
+    .then(([clientSecret, userOrCreds]) => {
         if(clientSecret) userOrCreds.client_secret = clientSecret;
         if(userOrCreds.hasOwnProperty('email')) {
           delete userOrCreds.id;
@@ -1076,7 +1076,7 @@ class AccessControl {
           deferred.resolve({client_id: userOrCreds.client_id, client_secret: userOrCreds.client_secret});
         }
     })
-    .fail((err) => {
+    .catch((err) => {
         if (err !== undefined && err !== null && typeof (err.AddToError) == 'function') {
             deferred.reject(err.AddToError(__filename, 'createAPIUser'));
         }
@@ -1105,15 +1105,15 @@ class AccessControl {
       let clientId = buf.toString('hex');
       return [clientId, cryptoCall(24)];
     })
-    .spread((clientId, buf) => {
+    .then(([clientId, buf]) => {
       let clientSecret = buf.toString('hex');
       return [clientId, clientSecret, cryptoCall(48)];
     })
-    .spread((clientId, clientSecret, buf) => {
+    .then(([clientId, clientSecret, buf]) => {
       let salt = buf.toString('hex');
       deferred.resolve({clientId: clientId, clientSecret: clientSecret, salt: salt});
     })
-    .fail((err) => {
+    .catch((err) => {
       var errorObj = new ErrorObj(500,
                                 'a1050',
                                 __filename,
@@ -1196,7 +1196,7 @@ class AccessControl {
         delete userObj.id;
         deferred.resolve(userObj);
     })
-    .fail((err) => {
+    .catch((err) => {
         if (err !== undefined && err !== null && typeof (err.AddToError) == 'function') {
             deferred.reject(err.AddToError(__filename, 'createExternalUser'));
         }
