@@ -11,79 +11,77 @@ class Controller {
     this.controllers = null;
   }
 
-  init(da, utils, ac, sr, st, e) {
-    var deferred = Q.defer();
+  async init(da, utils, ac, sr, st, e) {
+    return new Promise((resolve, reject) => {
+      this.dataAccess = da;
+      this.utilities = utils;
+      this.accessControl = ac;
+      this.serviceRegistration = sr;
+      this.settings = st;
+      this.endpoints = e;
 
-    this.dataAccess = da;
-    this.utilities = utils;
-    this.accessControl = ac;
-    this.serviceRegistration = sr;
-    this.settings = st;
-    this.endpoints = e;
+      let hasErrors = false;
+      this.controllers = {};
+      var areaNames = Object.keys(this.endpoints.areas);
+      for(var aIdx = 0; aIdx < areaNames.length; aIdx++) {
+        var areaName = areaNames[aIdx];
+        this.controllers[areaName] = {};
+        var controllerArray = this.endpoints.areas[areaNames[aIdx]];
+        for(var cIdx = 0; cIdx < controllerArray.length; cIdx++) {
+          var controllerObj = controllerArray[cIdx];
+          var controllerName = controllerObj.name;
+          var controllerVersion = controllerObj.version;
+          if(this.controllers[areaName][controllerName] == null) {
+            this.controllers[areaName][controllerName] = {};
+          }
 
-    let hasErrors = false;
-    this.controllers = {};
-    var areaNames = Object.keys(this.endpoints.areas);
-    for(var aIdx = 0; aIdx < areaNames.length; aIdx++) {
-      var areaName = areaNames[aIdx];
-      this.controllers[areaName] = {};
-      var controllerArray = this.endpoints.areas[areaNames[aIdx]];
-      for(var cIdx = 0; cIdx < controllerArray.length; cIdx++) {
-        var controllerObj = controllerArray[cIdx];
-        var controllerName = controllerObj.name;
-        var controllerVersion = controllerObj.version;
-        if(this.controllers[areaName][controllerName] == null) {
-          this.controllers[areaName][controllerName] = {};
-        }
+          // DUPLICATE CONTROLLER DEFINITION
+          if(this.controllers[areaName][controllerName][controllerVersion] != null) {
+            console.warn('DUPLICATE CONTROLLER DEFINITION');
+          }
 
-        // DUPLICATE CONTROLLER DEFINITION
-        if(this.controllers[areaName][controllerName][controllerVersion] != null) {
-          console.warn('DUPLICATE CONTROLLER DEFINITION');
-        }
-
-        let filePath = `./${areaName}/${controllerName}_${controllerVersion.replace(/\./g, '_')}.js`;
-        let thisController = null;
-        try {
-          thisController = require(filePath);
-        }
-        catch(e) {
-          let errorObj = new ErrorObj(500,
-                                      'c0100',
-                                      __filename,
-                                      'init',
-                                      `Error loading controller: ${filePath}`,
-                                      'There was a problem executing your request.',
-                                      e
-                                      );
-          console.error(errorObj);
-          this.utilities.writeErrorToLog(errorObj);
-        }
-        try {
-          this.controllers[areaName][controllerName][controllerVersion] = new thisController(this.dataAccess, this.utilities, this.accessControl, this.serviceRegistration, this.settings, this.endpoints);
-        }
-        catch(e) {
-          let errorObj = new ErrorObj(500,
-                                      'c0101',
-                                      __filename,
-                                      'init',
-                                      `Error initializing controller: ${filePath}`,
-                                      'There was a problem executing your request.',
-                                      e
-                                      );
-          console.error(errorObj);
-          this.utilities.writeErrorToLog(errorObj);
+          let filePath = `./${areaName}/${controllerName}_${controllerVersion.replace(/\./g, '_')}.js`;
+          let thisController = null;
+          try {
+            thisController = require(filePath);
+          }
+          catch(e) {
+            let errorObj = new ErrorObj(500,
+                                        'c0100',
+                                        __filename,
+                                        'init',
+                                        `Error loading controller: ${filePath}`,
+                                        'There was a problem executing your request.',
+                                        e
+                                        );
+            console.error(errorObj);
+            this.utilities.writeErrorToLog(errorObj);
+          }
+          try {
+            this.controllers[areaName][controllerName][controllerVersion] = new thisController(this.dataAccess, this.utilities, this.accessControl, this.serviceRegistration, this.settings, this.endpoints);
+          }
+          catch(e) {
+            let errorObj = new ErrorObj(500,
+                                        'c0101',
+                                        __filename,
+                                        'init',
+                                        `Error initializing controller: ${filePath}`,
+                                        'There was a problem executing your request.',
+                                        e
+                                        );
+            console.error(errorObj);
+            this.utilities.writeErrorToLog(errorObj);
+          }
         }
       }
-    }
 
-    if(!hasErrors) {
-      deferred.resolve({success:true});
-    }
-    else {
-      deferred.reject({success:false, message:'Controller initialization error'});
-    }
-
-    return deferred.promise;
+      if(!hasErrors) {
+        resolve({success:true});
+      }
+      else {
+        reject({success:false, message:'Controller initialization error'});
+      }
+    });
   }
 
   async resolveServiceCall(serviceCallDescriptor, req, callback) {

@@ -1,5 +1,5 @@
-var Q = require('q');
-var fs = require('fs');
+const util = require('util');
+const fs = require('fs');
 
 class Endpoints {
   #file = null;
@@ -80,103 +80,101 @@ class Endpoints {
   }
 
   save() {
-    var deferred = Q.defer();
+    return new Promise((resolve, reject) => {
+      // SEPARATE USER-DEFINED ENDPOINT DESCRIPTORS FROM
+      // CORE SYSTEM ENDPOINT DESCRIPTORS
+      var customEndpoints = {};
+      var systemEndpoints = {};
+      var areaNames = Object.keys(this.areas);
+      // FOR EACH AREA IN THE ENDPOINTS DATA
+      for(var aIdx = 0; aIdx < areaNames.length; aIdx++) {
+        var area = this.areas[areaNames[aIdx]];
+        // FOR EACH CONTROLLER IN THE ENDPOINTS DATA
+        for(var cIdx = 0; cIdx < area.length; cIdx++) {
+          var controller = area[cIdx];
+          // FOR EACH METHOD IN THE ENDPOINTS DATA
+          for(var mIdx = 0; mIdx < controller.methods.length; mIdx++) {
+            var method = controller.methods[mIdx];
 
-    // SEPARATE USER-DEFINED ENDPOINT DESCRIPTORS FROM
-    // CORE SYSTEM ENDPOINT DESCRIPTORS
-    var customEndpoints = {};
-    var systemEndpoints = {};
-    var areaNames = Object.keys(this.areas);
-    // FOR EACH AREA IN THE ENDPOINTS DATA
-    for(var aIdx = 0; aIdx < areaNames.length; aIdx++) {
-      var area = this.areas[areaNames[aIdx]];
-      // FOR EACH CONTROLLER IN THE ENDPOINTS DATA
-      for(var cIdx = 0; cIdx < area.length; cIdx++) {
-        var controller = area[cIdx];
-        // FOR EACH METHOD IN THE ENDPOINTS DATA
-        for(var mIdx = 0; mIdx < controller.methods.length; mIdx++) {
-          var method = controller.methods[mIdx];
+            // USER CREATED METHOD
+            if(method.isUserCreated == null || method.isUserCreated == true) {
+              // THE customEndpoints OBJECT DOES NOT HAVE AN ENTRY FOR THIS AREA
+              if(!customEndpoints.hasOwnProperty(areaNames[aIdx])) {
+                customEndpoints[areaNames[aIdx]] = [];
+              }
+              var cArea = customEndpoints[areaNames[aIdx]];
+              // IF NO MATCHING CONTROLLER IS FOUND,
+              // DEEP COPY USING JSON stringify/parse
+              // AND REMOVE THE METHODS.  THIS WILL GIVE US JUST THE
+              // HEADER INFO FROM THE CONTROLLER
+              var cntrl = JSON.parse(JSON.stringify(controller));
+              cntrl.methods = [];
+              var foundController = false;
+              for(var ctIdx = 0; ctIdx < cArea.length; ctIdx++) {
+                var c = cArea[ctIdx];
+                if(controller.name == c.name && controller.version == c.version) {
+                  // FOUND THE CONTROLLER IN customEndpoints, SO USE THAT ONE
+                  cntrl = c;
+                  foundController = true;
+                  break;
+                }
+              }
 
-          // USER CREATED METHOD
-          if(method.isUserCreated == null || method.isUserCreated == true) {
-            // THE customEndpoints OBJECT DOES NOT HAVE AN ENTRY FOR THIS AREA
-            if(!customEndpoints.hasOwnProperty(areaNames[aIdx])) {
-              customEndpoints[areaNames[aIdx]] = [];
-            }
-            var cArea = customEndpoints[areaNames[aIdx]];
-            // IF NO MATCHING CONTROLLER IS FOUND,
-            // DEEP COPY USING JSON stringify/parse
-            // AND REMOVE THE METHODS.  THIS WILL GIVE US JUST THE
-            // HEADER INFO FROM THE CONTROLLER
-            var cntrl = JSON.parse(JSON.stringify(controller));
-            cntrl.methods = [];
-            var foundController = false;
-            for(var ctIdx = 0; ctIdx < cArea.length; ctIdx++) {
-              var c = cArea[ctIdx];
-              if(controller.name == c.name && controller.version == c.version) {
-                // FOUND THE CONTROLLER IN customEndpoints, SO USE THAT ONE
-                cntrl = c;
-                foundController = true;
-                break;
+              cntrl.methods.push(method);
+              if(!foundController) {
+                cArea.push(cntrl);
               }
             }
-
-            cntrl.methods.push(method);
-            if(!foundController) {
-              cArea.push(cntrl);
-            }
-          }
-          // SYSTEM METHOD
-          else {
-            // THE systemEndpoints OBJECT DOES NOT HAVE AN ENTRY FOR THIS AREA
-            if(!systemEndpoints.hasOwnProperty(areaNames[aIdx])) {
-              systemEndpoints[areaNames[aIdx]] = [];
-            }
-            var cArea = systemEndpoints[areaNames[aIdx]];
-            // IF NO MATCHING CONTROLLER IS FOUND,
-            // DEEP COPY USING JSON stringify/parse
-            // AND REMOVE THE METHODS.  THIS WILL GIVE US JUST THE
-            // HEADER INFO FROM THE CONTROLLER
-            var cntrl = JSON.parse(JSON.stringify(controller));
-            cntrl.methods = [];
-            var foundController = false;
-            for(var ctIdx = 0; ctIdx < cArea.length; ctIdx++) {
-              var c = cArea[ctIdx];
-              if(controller.name == c.name && controller.version == c.version) {
-                // FOUND THE CONTROLLER IN systemEndpoints, SO USE THAT ONE
-                cntrl = c;
-                foundController = true;
-                break;
+            // SYSTEM METHOD
+            else {
+              // THE systemEndpoints OBJECT DOES NOT HAVE AN ENTRY FOR THIS AREA
+              if(!systemEndpoints.hasOwnProperty(areaNames[aIdx])) {
+                systemEndpoints[areaNames[aIdx]] = [];
               }
-            }
+              var cArea = systemEndpoints[areaNames[aIdx]];
+              // IF NO MATCHING CONTROLLER IS FOUND,
+              // DEEP COPY USING JSON stringify/parse
+              // AND REMOVE THE METHODS.  THIS WILL GIVE US JUST THE
+              // HEADER INFO FROM THE CONTROLLER
+              var cntrl = JSON.parse(JSON.stringify(controller));
+              cntrl.methods = [];
+              var foundController = false;
+              for(var ctIdx = 0; ctIdx < cArea.length; ctIdx++) {
+                var c = cArea[ctIdx];
+                if(controller.name == c.name && controller.version == c.version) {
+                  // FOUND THE CONTROLLER IN systemEndpoints, SO USE THAT ONE
+                  cntrl = c;
+                  foundController = true;
+                  break;
+                }
+              }
 
-            cntrl.methods.push(method);
-            if(!foundController) {
-              cArea.push(cntrl);
+              cntrl.methods.push(method);
+              if(!foundController) {
+                cArea.push(cntrl);
+              }
             }
           }
         }
       }
-    }
-    
-    var fswrite = Q.denodeify(fs.writeFile);
-    Q.all([fswrite(this.#file, JSON.stringify(systemEndpoints, null, 4)), fswrite(this.#extensionFile, JSON.stringify(customEndpoints, null, 4))])
-    .then((write_res) => {
-      deferred.resolve(true);
-    })
-    .catch((err) => {
-      var errorObj = new ErrorObj(400, 
-                    'e0002', 
-                    __filename, 
-                    'save', 
-                    'error writing to Endpoints config file',
-                    'External error',
-                    err
-                    );
-      deferred.reject(errorObj);
+      
+      var fswrite = util.promisify(fs.writeFile);
+      Promise.all([fswrite(this.#file, JSON.stringify(systemEndpoints, null, 4)), fswrite(this.#extensionFile, JSON.stringify(customEndpoints, null, 4))])
+      .then((write_res) => {
+        resolve(true);
+      })
+      .catch((err) => {
+        let errorObj = new ErrorObj(400, 
+                      'e0002', 
+                      __filename, 
+                      'save', 
+                      'error writing to Endpoints config file',
+                      'External error',
+                      err
+                      );
+        reject(errorObj);
+      });
     });
-
-    return deferred.promise;
   }
 }
 

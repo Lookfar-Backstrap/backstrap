@@ -1,5 +1,3 @@
-var Q = require('q');
-
 class AccessControlExtension {
   constructor(ac){
     this.accessControl = ac;

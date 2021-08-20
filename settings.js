@@ -1,4 +1,4 @@
-var Q = require('q');
+const util = require('util');
 var fs = require('fs');
 
 class Settings {
@@ -51,61 +51,59 @@ class Settings {
   }
 
   save() {
-    var deferred = Q.defer();
-
-    let writeObj = {
-      api_name: this.api_name,
-      token_header: this.token_header,
-      timeout_check: this.timeout_check,
-      timeout: this.timeout,
-      server_port: this.port,
-      index_service_call: this.index_service_call,
-      access_logging: this.access_logging,
-      session_logging: this.session_logging,
-      log_rotation_period: this.log_rotation_period,
-      server_timeout: this.server_timeout,
-      keep_alive_timeout: this.keep_alive_timeout,
-      headers_timeout: this.headers_timeout,
-      data_service_directory: this.data_service_directory,
-      mail_options: {
-        account: this.mail_options.account,
-        service: this.mail_options.service,
-        user: this.mail_options.user,
-        pass: this.mail_options.pass,
-        api_key: this.mail_options.api_key,
-        template_directory: this.mail_options.template_directory
-      },
-      identity: {
-        provider: this.identity.provider,
-        domain: this.identity.domain,
-        client_id: this.identity.client_id,
-        client_secret: this.identity.client_secret,
-        audience: this.identity.audience,
-        key_url: this.identity.key_url,
-        kid: this.identity.kid,
-        mgmt_client_id: this.identity.mgmt_client_id,
-        mgmt_client_secret: this.identity.mgmt_client_secret
+    return new Promise((resolve, reject) => {
+      let writeObj = {
+        api_name: this.api_name,
+        token_header: this.token_header,
+        timeout_check: this.timeout_check,
+        timeout: this.timeout,
+        server_port: this.port,
+        index_service_call: this.index_service_call,
+        access_logging: this.access_logging,
+        session_logging: this.session_logging,
+        log_rotation_period: this.log_rotation_period,
+        server_timeout: this.server_timeout,
+        keep_alive_timeout: this.keep_alive_timeout,
+        headers_timeout: this.headers_timeout,
+        data_service_directory: this.data_service_directory,
+        mail_options: {
+          account: this.mail_options.account,
+          service: this.mail_options.service,
+          user: this.mail_options.user,
+          pass: this.mail_options.pass,
+          api_key: this.mail_options.api_key,
+          template_directory: this.mail_options.template_directory
+        },
+        identity: {
+          provider: this.identity.provider,
+          domain: this.identity.domain,
+          client_id: this.identity.client_id,
+          client_secret: this.identity.client_secret,
+          audience: this.identity.audience,
+          key_url: this.identity.key_url,
+          kid: this.identity.kid,
+          mgmt_client_id: this.identity.mgmt_client_id,
+          mgmt_client_secret: this.identity.mgmt_client_secret
+        }
       }
-    }
-	
-		var fswrite = Q.denodeify(fs.writeFile);
-		fswrite(file, JSON.stringify(writeObj, null, 4))
-		.then((write_res) => {
-			deferred.resolve(true);
-		})
-		.catch((err) => {
-			var errorObj = new ErrorObj(500, 
-										'se0004', 
-										__filename, 
-										'save', 
-										'external error with fswrite',
-										'External error',
-										err
-										);
-			deferred.reject(errorObj);
-		});
-	
-	  return deferred.promise;
+    
+      var fswrite = util.promisify(fs.writeFile);
+      fswrite(file, JSON.stringify(writeObj, null, 4))
+      .then((write_res) => {
+        resolve(true);
+      })
+      .catch((err) => {
+        let errorObj = new ErrorObj(500, 
+                      'se0004', 
+                      __filename, 
+                      'save', 
+                      'external error with fswrite',
+                      'External error',
+                      err
+                      );
+        reject(errorObj);
+      });
+    });
   }
 }
 

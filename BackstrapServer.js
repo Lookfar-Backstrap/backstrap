@@ -10,7 +10,6 @@ var cors = require('cors');		// Setup CORS
 var path = require('path');			// Import path to control our folder structure
 var bodyParser = require('body-parser');
 var fs = require('fs');
-var Q = require('q');
 
 console.log('==================================================');
 console.log('INITIALIZATION');
@@ -301,10 +300,10 @@ function requestPipeline(req, res, verb) {
       }
       else {
         if(continueWhenInvalid) {
-          return [sc, Q({is_valid: false})];
+          return [sc, Promise.resolve({is_valid: false})];
         }
         else {
-          return [sc, Q.reject(new ErrorObj(403,
+          return [sc, Promise.reject(new ErrorObj(403,
                                             'bs0001',
                                             __filename,
                                             'requestPipeline',
@@ -316,66 +315,66 @@ function requestPipeline(req, res, verb) {
     }
   })
   .then(([sc, validTokenResponse]) => {
-    var inner_deferred = Q.defer();
-    
-    if(validTokenResponse.is_valid === true) {
+    let inner_promise = new Promise((resolve, reject) => {
+      if(validTokenResponse.is_valid === true) {
 
-      // SEE IF THIS IS BACKSTRAP STYLE AUTH OR BASIC/BEARER AUTH
-      if(validTokenResponse.hasOwnProperty('session')) {
-        if(Settings.access_logging === true) accessLogEvent.session_id = validTokenResponse.session.id;
-
-        DataAccess.getUserBySession(validTokenResponse.session.id)
-        .then((usr) => {
-          inner_deferred.resolve(usr);
-        })
-        .catch((usr_err) => {
-          if(sc.authRequired) {
-            var errorObj = new ErrorObj(403,
-                                        'bs0002',
-                                        __filename,
-                                        'requestPipeline',
-                                        'unauthorized',
-                                        'Unauthorized',
-                                        null);
-            inner_deferred.reject(errorObj);
-          }
-          else {
-            inner_deferred.resolve(null);
-          }
-        });
-      }
-      else if(validTokenResponse.hasOwnProperty('user')) {
-        inner_deferred.resolve(validTokenResponse.user);
+        // SEE IF THIS IS BACKSTRAP STYLE AUTH OR BASIC/BEARER AUTH
+        if(validTokenResponse.hasOwnProperty('session')) {
+          if(Settings.access_logging === true) accessLogEvent.session_id = validTokenResponse.session.id;
+  
+          DataAccess.getUserBySession(validTokenResponse.session.id)
+          .then((usr) => {
+            resolve(usr);
+          })
+          .catch((usr_err) => {
+            if(sc.authRequired) {
+              let errorObj = new ErrorObj(403,
+                                          'bs0002',
+                                          __filename,
+                                          'requestPipeline',
+                                          'unauthorized',
+                                          'Unauthorized',
+                                          null);
+              reject(errorObj);
+            }
+            else {
+              resolve(null);
+            }
+          });
+        }
+        else if(validTokenResponse.hasOwnProperty('user')) {
+          resolve(validTokenResponse.user);
+        }
+        else {
+          if(Settings.access_logging === true) accessLogEvent.client_id = validTokenResponse.client_id;
+  
+          DataAccess.getUserByClientId(validTokenResponse.client_id, false)
+          .then((usr) => {
+            resolve(usr);
+          })
+          .catch((usr_err) => {
+            if(sc.authRequired) {
+              let errorObj = new ErrorObj(403,
+                                          'bs0003',
+                                          __filename,
+                                          'requestPipeline',
+                                          'unauthorized',
+                                          'Unauthorized',
+                                          null);
+              reject(errorObj);
+            }
+            else {
+              resolve(null);
+            }
+          });
+        }
       }
       else {
-        if(Settings.access_logging === true) accessLogEvent.client_id = validTokenResponse.client_id;
-
-        DataAccess.getUserByClientId(validTokenResponse.client_id, false)
-        .then((usr) => {
-          inner_deferred.resolve(usr);
-        })
-        .catch((usr_err) => {
-          if(sc.authRequired) {
-            var errorObj = new ErrorObj(403,
-                                        'bs0003',
-                                        __filename,
-                                        'requestPipeline',
-                                        'unauthorized',
-                                        'Unauthorized',
-                                        null);
-            inner_deferred.reject(errorObj);
-          }
-          else {
-            inner_deferred.resolve(null);
-          }
-        });
+        resolve(null);
       }
-    }
-    else {
-      inner_deferred.resolve(null);
-    }
+    });
 
-    return [sc, validTokenResponse, inner_deferred.promise];
+    return [sc, validTokenResponse, inner_promise];
   })
   .then(([sc, validTokenResponse, userOrNull]) => {
     //PUT THE USER OBJECT ON THE REQUEST
@@ -393,7 +392,6 @@ function requestPipeline(req, res, verb) {
     return [sc, validTokenResponse, ServiceRegistration.validateArguments(serviceCall, area, controller, verb, version, args)];
   })
   .then(async ([sc, validTokenResponse]) => {
-    //return [validTokenResponse, Controller.resolveServiceCall(sc, req)];
     try {
       let results = await Controller.resolveServiceCall(sc, req);
       if(validTokenResponse.session != null) {
@@ -597,48 +595,47 @@ function printObject(obj) {
 // CHECK FOR SESSIONS WHICH HAVE TIMED OUT
 // ----------------------------------------
 function checkForInvalidSessions(DataAccess, Settings, callback) {
-	var deferred = Q.defer();
-	//THIS RETURNS STALE SESSIONS
-	DataAccess.GetDeadSessions(Settings.timeout, true)
-	.then((deadSessions) => {
-    let ids = [];
-    // IF LOGGING SESSIONS, WRITE OUT THE DEAD SESSIONS TO
-    // THE SESSION LOG
-    for(var sIdx = 0; sIdx < deadSessions.length; sIdx++) {
-      ids.push(deadSessions[sIdx].id);
-      
-      if(Settings.session_logging === true) {
-        let dsObj = {
-          session_id: deadSessions[sIdx].id,
-          token: deadSessions[sIdx].token,
-          user_id: deadSessions[sIdx].user_id,
-          started_at: deadSessions[sIdx].created_at,
-          ended_at: deadSessions[sIdx].ended_at
+  return new Promise((resolve, reject) => {
+    //THIS RETURNS STALE SESSIONS
+    DataAccess.GetDeadSessions(Settings.timeout, true)
+    .then((deadSessions) => {
+      let ids = [];
+      // IF LOGGING SESSIONS, WRITE OUT THE DEAD SESSIONS TO
+      // THE SESSION LOG
+      for(var sIdx = 0; sIdx < deadSessions.length; sIdx++) {
+        ids.push(deadSessions[sIdx].id);
+        
+        if(Settings.session_logging === true) {
+          let dsObj = {
+            session_id: deadSessions[sIdx].id,
+            token: deadSessions[sIdx].token,
+            user_id: deadSessions[sIdx].user_id,
+            started_at: deadSessions[sIdx].created_at,
+            ended_at: deadSessions[sIdx].ended_at
+          }
+          var logEntry = JSON.stringify(dsObj)+'\n';
+          sessionLog.write(logEntry);
         }
-        var logEntry = JSON.stringify(dsObj)+'\n';
-        sessionLog.write(logEntry);
       }
-    }
 
-    if(ids.length > 0) {
-      DataAccess.DeleteSessions(ids)
-      .then((res) => {
-        deferred.resolve();
-      })
-      .catch((err) => {
-        let logEntry = JSON.stringify(err)+'\n';
-        errorLog.write(logEntry);
-        deferred.resolve();
-      })
-    }
-    else {
-      deferred.resolve();
-    }
-	})
-  .catch((err) => {
-    console.log(err);
-    deferred.resolve();
-  })
-	deferred.promise.nodeify(callback);
-	return deferred.promise;
+      if(ids.length > 0) {
+        DataAccess.DeleteSessions(ids)
+        .then((res) => {
+          resolve();
+        })
+        .catch((err) => {
+          let logEntry = JSON.stringify(err)+'\n';
+          errorLog.write(logEntry);
+          resolve();
+        })
+      }
+      else {
+        resolve();
+      }
+    })
+    .catch((err) => {
+      console.log(err);
+      resolve();
+    })
+  });
 }

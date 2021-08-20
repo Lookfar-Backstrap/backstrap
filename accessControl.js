@@ -22,120 +22,116 @@ class AccessControl {
   }
 
   init(util, s, d, f) {
-    var deferred = Q.defer();
+    return new Promise((resolve, reject) => {
+      this.utilities = util;
+      this.settings = s;
+      this.dataAccess = d;
+      this.extension = new AccessControlExtension(this);
+      this.file = f;
+      try {
+        if(this.file.substring(0,2) !== './') this.file = './'+this.file;
+        let fileData = require(this.file);
+        this.roles = fileData['roles'];
 
-    this.utilities = util;
-    this.settings = s;
-    this.dataAccess = d;
-    this.extension = new AccessControlExtension(this);
-    this.file = f;
-    try {
-      if(this.file.substring(0,2) !== './') this.file = './'+this.file;
-      let fileData = require(this.file);
-      this.roles = fileData['roles'];
-
-      if(this.settings.identity && this.settings.identity.provider && this.settings.identity.provider.toLowerCase() === 'auth0') {
-        let keyUrl = this.settings.identity.key_url || null;
-        let kid = this.settings.identity.kid || null;
-        jwt.getKey(keyUrl, kid)
-        .then((key) => {
-          this.authSigningKey = key;
+        if(this.settings.identity && this.settings.identity.provider && this.settings.identity.provider.toLowerCase() === 'auth0') {
+          let keyUrl = this.settings.identity.key_url || null;
+          let kid = this.settings.identity.kid || null;
+          jwt.getKey(keyUrl, kid)
+          .then((key) => {
+            this.authSigningKey = key;
+            Object.freeze(this);
+            resolve(true);
+          })
+          .catch((keyErr) => {
+            let errorObj = new ErrorObj(500,
+                                        'ac0020',
+                                        __filename,
+                                        'init',
+                                        'problem getting signing key from auth0',
+                                        'Initialization Failure.  Please contact your administrator.',
+                                        keyErr);
+            reject(errorObj);
+          });
+        }
+        else {
           Object.freeze(this);
-          deferred.resolve(true);
-        })
-        .catch((keyErr) => {
-          let errorObj = new ErrorObj(500,
-                                      'ac0020',
-                                      __filename,
-                                      'init',
-                                      'problem getting signing key from auth0',
-                                      'Initialization Failure.  Please contact your administrator.',
-                                      keyErr);
-          deferred.reject(errorObj);
-        });
+          resolve(true);
+        }
       }
-      else {
-        Object.freeze(this);
-        deferred.resolve(true);
+      catch (e) {
+        let errorObj = new ErrorObj(403,
+          'ac0001',
+          __filename,
+          'init',
+          'unauthorized',
+          'You are not authorized to access this endpoint',
+          null);
+        reject(errorObj);
       }
-    }
-    catch (e) {
-      var errorObj = new ErrorObj(403,
-        'ac0001',
-        __filename,
-        'init',
-        'unauthorized',
-        'You are not authorized to access this endpoint',
-        null);
-      deferred.reject(errorObj);
-    }
-
-    return deferred.promise;
+    });
   }
 
   createUser(userType, params, apiToken, thisUser) {
-    var deferred = Q.defer();
-  
-    if(params) {
-      var username = params.username || params.email;
-      var email = params.email || null;
-      var password = params.password || null;
-      var roles = params.roles || null;
-      var exid = params.external_id || null;
-    }
-  
-  
-    if(userType !== 'api' || thisUser == null) {
-      var validEmailRegex = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
-      if (email == null || !validEmailRegex.test(email)) {
-        var errorObj = new ErrorObj(500,
-            'ac0329',
-            __filename,
-            'createUser',
-            'invalid email address'
-        );
-        deferred.reject(errorObj);
-        return deferred.promise;
+    return new Promise((resolve, reject) => {
+      if(params) {
+        var username = params.username || params.email;
+        var email = params.email || null;
+        var password = params.password || null;
+        var roles = params.roles || null;
+        var exid = params.external_id || null;
       }
-    }
-
-    const createAPI = this.#createAPIUser.bind(this);
-    const createExt = this.#createExternalAPIUser.bind(this);
-    const createStd = this.#createStandardUser.bind(this);
+    
+    
+      if(userType !== 'api' || thisUser == null) {
+        var validEmailRegex = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
+        if (email == null || !validEmailRegex.test(email)) {
+          var errorObj = new ErrorObj(500,
+              'ac0329',
+              __filename,
+              'createUser',
+              'invalid email address'
+          );
+          reject(errorObj);
+          return;
+        }
+      }
   
-    var createUserCmd;
-    switch(userType) {
-      case 'api':
-        let uid = null;
-        if(thisUser) uid = thisUser.id;
-        createUserCmd = createAPI(email, roles, uid);
-        break;
-      case 'external-api':
-        createUserCmd = createExt(email, exid, first, last, roles);
-        break;
-      default:
-        createUserCmd = createStd(username, email, password, exid, roles, apiToken);
-    }
-  
-    createUserCmd
-    .then((userObj) => {
-      deferred.resolve(userObj);
-    })
-    .catch((err) => {
-      typeof(err.AddToError) === 'function' ?
-        deferred.reject(err.AddToError(__filename, 'createUser'))
-      :
-        deferred.reject(new ErrorObj(500,
-                                    'ac0300',
-                                    __this.authSigningKeyname,
-                                    'createUser',
-                                    'create user error',
-                                    'There was a problem creating an account.  Please try again.',
-                                    err
-                                    ));
+      const createAPI = this.#createAPIUser.bind(this);
+      const createExt = this.#createExternalAPIUser.bind(this);
+      const createStd = this.#createStandardUser.bind(this);
+    
+      var createUserCmd;
+      switch(userType) {
+        case 'api':
+          let uid = null;
+          if(thisUser) uid = thisUser.id;
+          createUserCmd = createAPI(email, roles, uid);
+          break;
+        case 'external-api':
+          createUserCmd = createExt(email, exid, first, last, roles);
+          break;
+        default:
+          createUserCmd = createStd(username, email, password, exid, roles, apiToken);
+      }
+    
+      createUserCmd
+      .then((userObj) => {
+        resolve(userObj);
+      })
+      .catch((err) => {
+        typeof(err.AddToError) === 'function' ?
+          reject(err.AddToError(__filename, 'createUser'))
+        :
+          reject(new ErrorObj(500,
+                              'ac0300',
+                              __this.authSigningKeyname,
+                              'createUser',
+                              'create user error',
+                              'There was a problem creating an account.  Please try again.',
+                              err
+                              ));
+      });
     });
-  
-    return deferred.promise;
   }
 
   signIn(params, apiToken) {
@@ -507,7 +503,7 @@ class AccessControl {
                                     'validateToken',
                                     'could not find session for this token',
                                     'unauthorized',
-                                    err
+                                    null
                                   );
           deferred.reject(errorObj);
         }
