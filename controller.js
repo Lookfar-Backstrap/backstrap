@@ -1,5 +1,3 @@
-var Q = require('q');
-
 class Controller {
   constructor() {
     this.dataAccess = null;

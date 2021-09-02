@@ -683,7 +683,7 @@ class ServiceRegistration {
             'description':methodObj.desc,
             'authRequired':methodObj.authRequired,
             'args':methodObj.args,
-                  'isUserCreated':methodObj.isUserCreated
+            'isUserCreated':methodObj.isUserCreated
           };
           serviceCalls.push(serviceCall);
         }

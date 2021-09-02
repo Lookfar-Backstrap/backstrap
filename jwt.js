@@ -1,4 +1,3 @@
-const Q = require('q');
 const jwt = require('jsonwebtoken');
 const jwks = require('jwks-rsa');
 
