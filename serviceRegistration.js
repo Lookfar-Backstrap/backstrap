@@ -4,7 +4,6 @@
 // Service Registration handles loading, processing, and validation
 // of endpoints and arguments.  Works in tandem with endpoints.js
 // ==================================================================
-var Q = require('q');
 var moment = require('moment');
 var base64 = require('./base64.js');
 const { localeData } = require('moment');
