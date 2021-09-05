@@ -17,13 +17,13 @@ class SchemaControl {
 				return this.dataAccess.getDbConnection();
 			})
 			.then((connection) => {
-				return [connection, this.#createInitialTables(connection)];
+				return Promise.all([connection, this.#createInitialTables(connection)]);
 			})
 			.then(([connection, res]) => {
-				return [res, this.dataAccess.closeDbConnection(connection)];
+				return Promise.all([res, this.dataAccess.closeDbConnection(connection)]);
 			})
 			.then(([commit_res]) => {
-				return [this.#createDefaultUser()];
+				return this.#createDefaultUser();
 			})
 			.then((res) => {
 				resolve(res);

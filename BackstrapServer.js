@@ -285,7 +285,7 @@ function requestPipeline(req, res, verb) {
     // IF THERE IS A BACKSTRAP STYLE AUTH HEADER OR NEITHER A BACKSTRAP AUTH HEADER NOR BASIC/BEARER AUTH HEADER 
     if(req.headers[Settings.token_header] != null || 
         (req.headers[Settings.token_header] == null && req.headers['authorization'] == null)) {
-      return [sc, AccessControl.validateToken(req.headers[Settings.token_header], continueWhenInvalid)];
+      return Promise.all([sc, AccessControl.validateToken(req.headers[Settings.token_header], continueWhenInvalid)]);
     }
     // OTHERWISE THIS IS BASIC OR BEARER AUTH
     // BASIC AUTH IS BACKSTRAP NATIVE API USERS
@@ -293,23 +293,23 @@ function requestPipeline(req, res, verb) {
     else {
       [authType] = req.headers['authorization'].split(' ');
       if(authType.toLowerCase() === 'basic') {
-        return [sc, AccessControl.validateBasicAuth(req.headers['authorization'], continueWhenInvalid)];
+        return Promise.all([sc, AccessControl.validateBasicAuth(req.headers['authorization'], continueWhenInvalid)]);
       }
       else if(authType.toLowerCase() === 'bearer') {
-        return [sc, AccessControl.validateJwt(req.headers['authorization'], continueWhenInvalid)];
+        return Promise.all([sc, AccessControl.validateJwt(req.headers['authorization'], continueWhenInvalid)]);
       }
       else {
         if(continueWhenInvalid) {
-          return [sc, Promise.resolve({is_valid: false})];
+          return Promise.all([sc, Promise.resolve({is_valid: false})]);
         }
         else {
-          return [sc, Promise.reject(new ErrorObj(403,
+          return Promise.all([sc, Promise.reject(new ErrorObj(403,
                                             'bs0001',
                                             __filename,
                                             'requestPipeline',
                                             'bad auth type',
                                             'Unauthorized',
-                                           null))];
+                                           null))]);
         }
       }
     }
@@ -374,7 +374,7 @@ function requestPipeline(req, res, verb) {
       }
     });
 
-    return [sc, validTokenResponse, inner_promise];
+    return Promise.all([sc, validTokenResponse, inner_promise]);
   })
   .then(([sc, validTokenResponse, userOrNull]) => {
     //PUT THE USER OBJECT ON THE REQUEST
@@ -382,22 +382,20 @@ function requestPipeline(req, res, verb) {
       req.this_user = userOrNull;
     }
     if (sc.authRequired) {
-      return [sc, validTokenResponse, AccessControl.verifyAccess(req, sc)];
+      return Promise.all([sc, validTokenResponse, AccessControl.verifyAccess(req, sc)]);
     }
     else {
       return [sc, validTokenResponse];
     }
   })
   .then(([sc, validTokenResponse]) => {
-    return [sc, validTokenResponse, ServiceRegistration.validateArguments(serviceCall, area, controller, verb, version, args)];
+    return Promise.all([sc, validTokenResponse, ServiceRegistration.validateArguments(serviceCall, area, controller, verb, version, args)]);
   })
   .then(async ([sc, validTokenResponse]) => {
     try {
       let results = await Controller.resolveServiceCall(sc, req);
       if(validTokenResponse.session != null) {
-        let session = validTokenResponse.session;
-        session.last_touch = new Date().toISOString();
-        DataAccess.updateJsonbField('session', 'data', session, `data->>'id' = '${session.id}'`).then()
+        DataAccess.UpdateLastTouch(validTokenResponse.session.id);
       }
   
       // IF ACCESS LOGGING IS ENABLED.  ADD THE END TIMESTAMP

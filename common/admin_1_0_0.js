@@ -320,7 +320,7 @@ class Admin {
       this.dataAccess.getUserById(req.body.id)
       .then((existingUser) => {
         if(username) {
-          return [existingUser, this.utilities.validateUsername(username, existingUser.username)];
+          return Promise.all([existingUser, this.utilities.validateUsername(username, existingUser.username)]);
         }
         else {
           return [existingUser];
@@ -328,7 +328,7 @@ class Admin {
       })
       .then(([existingUser]) => {
         if(email) {
-          return [existingUser, this.utilities.validateEmail(email, existingUser.email)];
+          return Promise.all([existingUser, this.utilities.validateEmail(email, existingUser.email)]);
         }
         else {
           return [existingUser];
@@ -337,7 +337,7 @@ class Admin {
       .then(([existingUser]) => {
         if(password !== undefined) {
           var cryptoCall = util.promisify(crypto.randomBytes);
-          return [existingUser, cryptoCall(48)];
+          return Promise.all([existingUser, cryptoCall(48)]);
         }
         else {
           return [existingUser];

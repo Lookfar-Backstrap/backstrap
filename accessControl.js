@@ -221,7 +221,7 @@ class AccessControl {
         }
       });
 
-      initialProcessing()
+      initialProcessing
       .then((userObj) => {
         // IF THIS IS A USERNAME/PASSWORD SIGNIN, CHECK THE CREDENTIALS AGAINST OUR DB
         // IF THIS IS A TOKEN SIGNIN, JUST PASS THROUGH
@@ -282,16 +282,16 @@ class AccessControl {
       })
       .then((userObj) => {
         // START UP A SESSION
-        return [userObj, this.startSession(userObj, params.clientInfo)];
+        return Promise.all([userObj, this.startSession(userObj, params.clientInfo)]);
       })
       .then(([userObj, sess]) => {
-          return [userObj, sess.token, this.validateToken(apiToken, true)];
+          return Promise.all([userObj, sess.token, this.validateToken(apiToken, true)]);
       })
       .then(([userObj, tkn, validTokenRes]) => {
           var sess = null;
           if (validTokenRes.is_valid === true && validTokenRes.session.anonymous === true) {
               sess = validTokenRes.session;
-              return [userObj, tkn, this.dataAccess.attachUserToSession(userObj.id, sess.id)];
+              return Promise.all([userObj, tkn, this.dataAccess.attachUserToSession(userObj.id, sess.id)]);
           }
           else {
               return [userObj, tkn];
@@ -924,14 +924,13 @@ class AccessControl {
         })
       })
       .then((userObj) => {
-        return [userObj, this.validateToken(apiToken, true)];
+        return Promise.all([userObj, this.validateToken(apiToken, true)]);
       })
       .then(([userObj, validTokenRes]) => {
           var sess;
-          if (validTokenRes.is_valid === true && validTokenRes.session.is_anonymous === true && validTokenRes.session.username === 'anonymous') {
+          if (validTokenRes.is_valid === true && validTokenRes.session.is_anonymous === true) {
               sess = validTokenRes.session;
-              sess.username = username;
-              return [userObj, true, this.dataAccess.updateJsonbField('session', 'data', sess, `data->>'id' = '${sess.id}'`)];
+              return Promise.all([userObj, this.dataAccess.attachUserToSession(userObj, sess)]);
           }
           else {
               return [userObj, false];
@@ -940,7 +939,7 @@ class AccessControl {
       .then(([userObj, isNewAnonSess, sessRes]) => {
           if (isNewAnonSess) {
             let sess = sessRes[0] ? sessRes[0].data : null;
-            return [userObj, this.dataAccess.attachUserToSession(userObj, sess)];
+            return Promise.all([userObj, this.dataAccess.attachUserToSession(userObj, sess)]);
           }
           else {
             return [userObj];
@@ -1021,7 +1020,7 @@ class AccessControl {
             };
             nextCmd = this.dataAccess.createUser(userObj);
           }
-          return [creds.clientSecret, nextCmd];
+          return Promise.all([creds.clientSecret, nextCmd]);
       })
       .then(([clientSecret, userOrCreds]) => {
           if(clientSecret) userOrCreds.client_secret = clientSecret;
@@ -1060,11 +1059,11 @@ class AccessControl {
       cryptoCall(12)
       .then((buf) => {
         let clientId = buf.toString('hex');
-        return [clientId, cryptoCall(24)];
+        return Promise.all([clientId, cryptoCall(24)]);
       })
       .then(([clientId, buf]) => {
         let clientSecret = buf.toString('hex');
-        return [clientId, clientSecret, cryptoCall(48)];
+        return Promise.all([clientId, clientSecret, cryptoCall(48)]);
       })
       .then(([clientId, clientSecret, buf]) => {
         let salt = buf.toString('hex');

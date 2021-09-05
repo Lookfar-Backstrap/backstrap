@@ -569,6 +569,23 @@ class DataAccess {
     });
   }
 
+  UpdateLastTouch(sid) {
+    return new Promise((resolve) => {
+      let sql = 'UPDATE bs3_sessions SET last_touch = NOW() WHERE id = $1 RETURNING id';
+      let params = [sid];
+      this.runSql(sql, params)
+      .then((updRes) => {
+        resolve({success:true});
+      })
+      .catch((updErr) => {
+        console.error(updErr);
+        // DON'T REJECT.  IF THIS FAILS, WE STILL WANT TO RETURN SUCCESS
+        // IF THE CALL WAS SUCCESSFUL
+        resolve({success:false, message:updErr});
+      });
+    })
+  }
+
   findUser(id, username, email, connection) {
     return new Promise((resolve, reject) => {
       if(!id) id = null;
@@ -643,7 +660,7 @@ class DataAccess {
           return;
         }
         else {
-          return [userObj, this.utilities.getHash(null, null, 48)];
+          return Promise.all([userObj, this.utilities.getHash(null, null, 48)]);
         }
       })
       .then(([userObj, tkn]) => {
@@ -653,7 +670,7 @@ class DataAccess {
         else {
           userObj.forgot_password_tokens.push(tkn);
         }
-        return [tkn, this.updateCredentialsForUser(userObj.id, null, null, userObj.forgot_password_tokens)];
+        return Promise.all([tkn, this.updateCredentialsForUser(userObj.id, null, null, userObj.forgot_password_tokens)]);
       })
       .then(([tkn]) => {
         resolve(tkn);
@@ -1007,7 +1024,7 @@ class DataAccess {
       .then((dbHandle) => {
         let sql = `INSERT INTO bs3_users(account_type, username, email, roles, external_id, locked, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`;
         let params = [userObj.account_type, userObj.username, userObj.email, JSON.stringify(userObj.roles), userObj.external_id, false, new Date().toISOString()];
-        return [dbHandle, this.runSql(sql, params, dbHandle)];
+        return Promise.all([dbHandle, this.runSql(sql, params, dbHandle)]);
       })
       .then(([dbHandle, userRes]) => {
         let sql = `INSERT INTO bs3_credentials(salt, password, client_id, client_secret, created_at, user_id) VALUES($1, $2, $3, $4, $5, $6)`;
@@ -1015,10 +1032,10 @@ class DataAccess {
         let outUsr = userRes[0];
         if(userObj.client_id) outUsr['client_id'] = userObj.client_id;
         if(userObj.client_id) outUsr['client_secret'] = userObj.client_secret;
-        return [dbHandle, outUsr, this.runSql(sql, params, dbHandle)];
+        return Promise.all([dbHandle, outUsr, this.runSql(sql, params, dbHandle)]);
       })
       .then(([dbHandle, usr, credRes]) => {
-        return [usr, this.commitTransaction(dbHandle)];
+        return Promise.all([usr, this.commitTransaction(dbHandle)]);
       })
       .then(([usr, commitRes]) => {
         resolve(usr);

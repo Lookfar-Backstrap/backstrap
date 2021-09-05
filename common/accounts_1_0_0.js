@@ -53,7 +53,21 @@ class Accounts {
         resolve(res);
       })
       .catch((err) => {
-        reject(err.AddToError(__filename, 'signIn'));
+        let errorObj;
+        try {
+          errorObj = err.AddToError(__filename, 'signIn');
+        }
+        catch(e) {
+          errorObj = new ErrorObj(500,
+                                  '',
+                                  __filename,
+                                  'signIn',
+                                  'internal error',
+                                  'There was a problem with your request.',
+                                  err);
+          console.error(e);
+        }
+        reject(errorObj);
       })
     });
   }
@@ -269,7 +283,7 @@ class Accounts {
               var reset_link = process.env.reset_password_link || "";
               reset_link = (reset_link == "" || reset_link == "FILL_IN") ? "" : reset_link + '?token=';
               var message = 'Reset password: ' + reset_link + tkn;
-              return [userObj, tkn, this.utilities.sendMail(userObj.email, 'Password Reset', message)];
+              return Promise.all([userObj, tkn, this.utilities.sendMail(userObj.email, 'Password Reset', message)]);
           })
           .then(([userObj, tkn, mail_res]) => {
             return this.dataAccess.updateCredentialsForUser(userObj.id, null, null, tkn);
@@ -338,7 +352,7 @@ class Accounts {
             }
 
             var cryptoCall = util.promisify(crypto.randomBytes);
-            return [userObj, cryptoCall(48)];
+            return Promise.all([userObj, cryptoCall(48)]);
         }
         else {
             var errorObj = new ErrorObj(500,
