@@ -66,7 +66,7 @@ class Utilities {
     }
   }
 
-  getHash(alg, data, length) {
+  async getHash(alg, data, length) {
     if(alg == null) alg = 'sha256';
     var h = crypto.createHash(alg);
 
@@ -92,7 +92,7 @@ class Utilities {
     this.sessionLog = sesl;
   }
 
-  validateUsername(newUsername, existingUsername) {
+  async validateUsername(newUsername, existingUsername) {
     return new Promise((resolve, reject) => {
       if (newUsername === existingUsername) {
         resolve();
@@ -115,7 +115,7 @@ class Utilities {
     });
   }
 
-  validateEmail(newEmail, existingEmail) {
+  async validateEmail(newEmail, existingEmail) {
     return new Promise((resolve, reject) => {
       if (newEmail === existingEmail) {
         resolve();
@@ -155,7 +155,7 @@ class Utilities {
     });
   }
 
-  getUserFromApiToken (apiTkn) {
+  async getUserFromApiToken (apiTkn) {
     return new Promise((resolve, reject) => {
       this.dataAccess.getSession(null, apiTkn)
       .then((sessionObj) => {
@@ -189,7 +189,7 @@ class Utilities {
     });
   }
 
-  copyFile(file_to_copy, destination_path){
+  async copyFile(file_to_copy, destination_path){
     return new Promise((resolve, reject) => {
       try {
         fs.createReadStream(file_to_copy).pipe(fs.createWriteStream(destination_path));
@@ -209,7 +209,7 @@ class Utilities {
     });
   }
 
-  writeToFile(file_path, strData, isBinary) {
+  async writeToFile(file_path, strData, isBinary) {
     return new Promise((resolve, reject) => {
       let binaryArg = isBinary ? 'binary' : null;
   
@@ -234,7 +234,7 @@ class Utilities {
     });
   }
 
-  writeErrorToLog(errObj) {
+  async writeErrorToLog(errObj) {
     return new Promise((resolve, reject) => {
       let logEntry = JSON.stringify(errObj)+'\n';
   
@@ -249,7 +249,7 @@ class Utilities {
     });
   }
 
-  sendMail(send_to, sbj, bdy, html_bdy) {
+  async sendMail(send_to, sbj, bdy, html_bdy) {
     return new Promise((resolve, reject) => {
       var mailOptions = {
         from: this.settings.mail_options.account,
@@ -278,7 +278,7 @@ class Utilities {
     });
   }
 
-  sendMailTemplate(send_to, sbj, template_name, args) {
+  async sendMailTemplate(send_to, sbj, template_name, args) {
     return new Promise((resolve, reject) => {
       if (template_name === undefined || template_name === null) {
         template_name = 'default';
@@ -471,9 +471,8 @@ class Utilities {
   #replaceTemplateValues(template, args) {
     var updatedTemplate = template;
     for(var key in args){
-        updatedTemplate = updatedTemplate.replace('{{' + key + '}}', args[key]);
-      }
-
+      updatedTemplate = updatedTemplate.replace('{{' + key + '}}', args[key]);
+    }
     return updatedTemplate;
   }
 
@@ -485,7 +484,7 @@ class Utilities {
     return token;
   }
 
-  getUID(sync, callback) {
+  getUID(sync) {
     if(sync == null || sync === false) {
       Promise.resolve(this.#createUID());
     }
@@ -494,7 +493,7 @@ class Utilities {
     }
   }
 
-  logEvent(tkn, eventDescriptor) {
+  async logEvent(tkn, eventDescriptor) {
     var loggedEvent = {
       'token': tkn,
       'event_data': eventDescriptor
@@ -505,7 +504,7 @@ class Utilities {
     });
   }
 
-  invalidateSession(sessionObj) {
+  async invalidateSession(sessionObj) {
     return new Promise((resolve, reject) => {
       this.dataAccess.DeleteSessions([sessionObj.id])
       .then(() => {

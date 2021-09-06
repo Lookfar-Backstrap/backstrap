@@ -71,7 +71,7 @@ class AccessControl {
     });
   }
 
-  createUser(userType, params, apiToken, thisUser) {
+  async createUser(userType, params, apiToken, thisUser) {
     return new Promise((resolve, reject) => {
       if(params) {
         var username = params.username || params.email;
@@ -134,7 +134,7 @@ class AccessControl {
     });
   }
 
-  signIn(params, apiToken) {
+  async signIn(params, apiToken) {
     return new Promise((resolve, reject) => {
       var username = params.username || null;
       var email = params.email || null;
@@ -314,7 +314,7 @@ class AccessControl {
     });
   }
 
-  checkCredentials(password, userObj) {
+  async checkCredentials(password, userObj) {
     return new Promise((resolve, reject) => {
       // IF USER IS LOCKED, BAIL OUT
       if (userObj.is_locked) {
@@ -378,7 +378,7 @@ class AccessControl {
     });
   }
 
-  startSession(userObj, clientInfo) {
+  async startSession(userObj, clientInfo) {
     return new Promise((resolve, reject) => {
       this.#getSessionToken()
       .then((tkn) => {
@@ -411,7 +411,7 @@ class AccessControl {
     });
   }
 
-  reload() {
+  async reload() {
     var ac = this;
     return new Promise((resolve, reject) => {
       ac.init(this.file)
@@ -430,7 +430,7 @@ class AccessControl {
     });
   }
 
-  save() {
+  async save() {
     return new Promise((resolve, reject) => {
       let fileData = { roles: this.roles };
       var fswrite = util.promisify(fs.writeFile);
@@ -450,7 +450,7 @@ class AccessControl {
     });
   }
 
-  validateToken(tkn, continueWhenInvalid) {
+  async validateToken(tkn, continueWhenInvalid) {
     return new Promise((resolve, reject) => {
       if (tkn === undefined || tkn === null) {
         if(continueWhenInvalid) {
@@ -516,7 +516,7 @@ class AccessControl {
     });
   }
 
-  validateBasicAuth(authHeader, continueWhenInvalid) {
+  async validateBasicAuth(authHeader, continueWhenInvalid) {
     return new Promise((resolve, reject) => {
       let [authType, authToken] = authHeader.split(' ');
       if(authType.toLowerCase() === 'basic') {
@@ -618,7 +618,7 @@ class AccessControl {
     });
   }
 
-  validateJwt(authHeader, continueWhenInvalid) {
+  async validateJwt(authHeader, continueWhenInvalid) {
     return new Promise((resolve, reject) => {
       let [authType, authToken] = authHeader.split(' ');
       if(authType.toLowerCase() === 'bearer') {
@@ -684,7 +684,7 @@ class AccessControl {
     });
   }
 
-  verifyAccess(req, serviceCall) {
+  async verifyAccess(req, serviceCall) {
     return new Promise((resolve, reject) => {
       var userObj = req.this_user;
       
@@ -782,7 +782,7 @@ class AccessControl {
     });
   }
 
-  roleExists(roleName) {
+  async roleExists(roleName) {
     return new Promise((resolve, reject) => {
       roleName = roleName.toLowerCase();
       var allRoles = [];
@@ -805,11 +805,11 @@ class AccessControl {
     });
   }
 
-  getToken() {
+  async getToken() {
     return this.#getSessionToken();
   }
   
-  #getSessionToken() {
+  async #getSessionToken() {
     return new Promise((resolve, reject) => {
       // DO A COLLISION CHECK.  THIS IS PROBABLY OVERKILL SINCE OUR TOTAL POOL IS 256^48
       // BUT WE REALLY DON'T WANT TWO SESSIONS WITH THE SAME TOKEN
@@ -857,7 +857,7 @@ class AccessControl {
     });
   }
 
-  #createStandardUser(username, email, password = null, exid = null, roles, apiToken = null) {
+  async #createStandardUser(username, email, password = null, exid = null, roles, apiToken = null) {
     return new Promise((resolve, reject) => {
       var cryptoCall = util.promisify(crypto.randomBytes);
 
@@ -972,7 +972,7 @@ class AccessControl {
     });
   }
 
-  #createAPIUser(email, roles, parentAccountId) {
+  async #createAPIUser(email, roles, parentAccountId) {
     return new Promise((resolve, reject) => {
       roles = roles || ['default-user'];
       email = email || null;
@@ -1053,7 +1053,7 @@ class AccessControl {
     });
   }
 
-  #generateApiUserCreds() {
+  async #generateApiUserCreds() {
     return new Promise((resolve, reject) => {
       var cryptoCall = util.promisify(crypto.randomBytes);
       cryptoCall(12)
@@ -1083,7 +1083,7 @@ class AccessControl {
     });
   }
 
-  #createExternalAPIUser(email, exid, first, last, roles) {
+  async #createExternalAPIUser(email, exid, first, last, roles) {
     return new Promise((resolve, reject) => {
       roles = roles || ['default-user'];
       first = first || '';

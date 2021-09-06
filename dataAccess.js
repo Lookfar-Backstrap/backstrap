@@ -49,7 +49,7 @@ class DataAccess {
   }
   }
 
-  CheckForDatabase(db_name) {
+  async CheckForDatabase(db_name) {
     return new Promise((resolve, reject) => {
       var qry_params = [];
       var qry = " IF EXISTS (SELECT 1 FROM pg_database WHERE datname = '" + db_name + "') THEN" +
@@ -67,7 +67,7 @@ class DataAccess {
     });
   }
 
-  CreateDatabase(db_name) {
+  async CreateDatabase(db_name) {
     return new Promise((resolve, reject) => {
       var qryString = 'CREATE DATABASE ' + db_name;
       var qryParams = [];
@@ -83,7 +83,7 @@ class DataAccess {
   }
 
   // START A CONNECTION TO THE DATABASE TO USE FUNCTIONS 
-  getDbConnection() {
+  async getDbConnection() {
     return new Promise((resolve, reject) => {
       this.#pool.connect((err, client, done) => {
         if (!err) {
@@ -105,7 +105,7 @@ class DataAccess {
   }
 
   // CLOSE A CONNECTION TO THE DATABASE AFTER USING FUNCTIONS
-  closeDbConnection(connection) {
+  async closeDbConnection(connection) {
     return new Promise((resolve, reject) => {
       if(connection != null && !connection.isReleased) {
         try {
@@ -132,7 +132,7 @@ class DataAccess {
   }
 
   // GET A CONNECTION TO THE DATABASE AND START A TRANSACTION
-  startTransaction() {
+  async startTransaction() {
     return new Promise((resolve, reject) => {
       this.getDbConnection()
       .then((connection) => {
@@ -170,7 +170,7 @@ class DataAccess {
   }
 
   // COMMIT A TRANSACTION AND CLOSE THE DATABASE CONNECTION
-  commitTransaction(connection) {
+  async commitTransaction(connection) {
     return new Promise((resolve, reject) => {
       connection.client.query('COMMIT', (err) => {
         if (err) {
@@ -202,7 +202,7 @@ class DataAccess {
   }
 
   // ROLLBACK A TRANSACTION AND CLOSE THE DATABASE CONNECTION
-  rollbackTransaction(connection) {
+  async rollbackTransaction(connection) {
     return new Promise((resolve, reject) => {
       if(connection != null && !connection.isReleased) {
         if(connection.transactional) {
@@ -274,7 +274,7 @@ class DataAccess {
   }
 
   // THIS FUNCTION IS USED SO ONE FUNCTION CAN RESOLVE THE CURRENT CONNECTION STATE AND RETURN A CONNECTION
-  resolveDbConnection(connection) {
+  async resolveDbConnection(connection) {
     return new Promise((resolve, reject) => {
       if(connection == null) {
         this.getDbConnection()
@@ -300,7 +300,7 @@ class DataAccess {
   }
 
   // RELEASES A CONNECTION (IF YOU NEED TO DO THAT MANUALLY)
-  releaseConnection(connection) {
+  async releaseConnection(connection) {
     return new Promise((resolve, reject) => {
       if(connection != null && !connection.isReleased) {
         if(connection.transactional) {
@@ -346,7 +346,7 @@ class DataAccess {
   // ================================================================================
   //THIS FUNCTION GLOBALIZES ALL QUERIES (SELECT) AND NON QUERIES (INSERT UPDATE DELETE ETC)
   //CONDITIONALLY CREATES AND DESTROYS CONNECTIONS DEPENDING IF THEY ARE TRANSACTIONAL OR NOT
-  ExecutePostgresQuery(query, params, connection, isStreaming) {
+  async ExecutePostgresQuery(query, params, connection, isStreaming) {
     return new Promise((resolve, reject) => {
       var pg_query = query;
       //THE QUERY CONFIG OBJECT DOES NOT WORK IF THERE IS AN EMPTY ARRAY OF PARAMS
@@ -516,7 +516,7 @@ class DataAccess {
   }
 
   // RUN ARBITRARY SQL STATEMENTS
-  runSql(sqlStatement, params, connection, isStreaming) {
+  async runSql(sqlStatement, params, connection, isStreaming) {
     return new Promise((resolve, reject) => {
       this.ExecutePostgresQuery(sqlStatement, params, connection, isStreaming)
       .then((connection) => {
@@ -540,7 +540,7 @@ class DataAccess {
     });
   }
 
-  GetDeadSessions(timeOut, markAsEnded) {
+  async GetDeadSessions(timeOut, markAsEnded) {
     return new Promise((resolve, reject) => {
       var minutes = "'" + timeOut + " minutes'";
       var qry = "select * from bs3_sessions where last_touch < (NOW() - INTERVAL " + minutes + ")";
@@ -556,7 +556,7 @@ class DataAccess {
     });
   }
 
-  DeleteSessions(dsIds) {
+  async DeleteSessions(dsIds) {
     return new Promise((resolve, reject) => {
       let qry = "DELETE FROM bs3_sessions WHERE id = ANY($1)";
       this.ExecutePostgresQuery(qry, [dsIds])
@@ -569,7 +569,7 @@ class DataAccess {
     });
   }
 
-  UpdateLastTouch(sid) {
+  async UpdateLastTouch(sid) {
     return new Promise((resolve) => {
       let sql = 'UPDATE bs3_sessions SET last_touch = NOW() WHERE id = $1 RETURNING id';
       let params = [sid];
@@ -586,7 +586,7 @@ class DataAccess {
     })
   }
 
-  findUser(id, username, email, connection) {
+  async findUser(id, username, email, connection) {
     return new Promise((resolve, reject) => {
       if(!id) id = null;
       if(!username) username = null;
@@ -623,7 +623,7 @@ class DataAccess {
     });
   }
 
-  getAllUsers(connection) {
+  async getAllUsers(connection) {
     return new Promise((resolve, reject) => {
       let sql = "SELECT * FROM bs3_users WHERE deleted_at IS NULL";
       this.runSql(sql,[],connection)
@@ -644,7 +644,7 @@ class DataAccess {
     });
   }
 
-  GenerateForgotPasswordToken(email, username) {
+  async GenerateForgotPasswordToken(email, username) {
     return new Promise((resolve, reject) => {
       this.findUser(null, username, email)
       .then((userObj) => {
@@ -681,7 +681,7 @@ class DataAccess {
     });
   }
 
-  getActiveTokens() {
+  async getActiveTokens() {
     return new Promise((resolve, reject) => {
       let sql = "SELECT token FROM bs3_sessions WHERE ended_at IS NULL";
       this.runSql(sql, [])
@@ -694,7 +694,7 @@ class DataAccess {
     });
   }
 
-  startSession(token, userId, clientInfo, isAnonymous, connection) {
+  async startSession(token, userId, clientInfo, isAnonymous, connection) {
     return new Promise((resolve, reject) => {
       if(isAnonymous == null) isAnonymous = false;
       let sql = "INSERT INTO bs3_sessions(token, user_id, client_info, anonymous, created_at, last_touch) VALUES($1, $2, $3, $4, NOW(), NOW()) RETURNING *";
@@ -710,7 +710,7 @@ class DataAccess {
     });
   }
 
-  getUserById(id, connection) {
+  async getUserById(id, connection) {
     return new Promise((resolve, reject) => {
       if(id) {
         var qry = "SELECT * FROM bs3_users WHERE id = $1 AND deleted_at IS NULL";
@@ -757,7 +757,7 @@ class DataAccess {
     });
   }
 
-  getUserByUserName(username, connection) {
+  async getUserByUserName(username, connection) {
     return new Promise((resolve, reject) => {
       if(username) {
         var qry = "SELECT * FROM bs3_users WHERE LOWER(username) = LOWER($1) AND deleted_at IS NULL";
@@ -804,7 +804,7 @@ class DataAccess {
     });
   }
 
-  getUserByEmail(email, connection) {
+  async getUserByEmail(email, connection) {
     return new Promise((resolve, reject) => {
       if(email) {
         var qry = "SELECT * FROM bs3_users WHERE LOWER(email) = LOWER($1) AND deleted_at IS NULL";
@@ -850,7 +850,7 @@ class DataAccess {
     });
   }
 
-  getUserByClientId(cid, includeCreds, connection) {
+  async getUserByClientId(cid, includeCreds, connection) {
     return new Promise((resolve, reject) => {
       if(cid) {
         var qry = "SELECT usr.*";
@@ -898,7 +898,7 @@ class DataAccess {
     });
   }
 
-  getUserByExternalIdentityId(exid, connection) {
+  async getUserByExternalIdentityId(exid, connection) {
     return new Promise((resolve, reject) => {
       let sql = "SELECT * FROM bs3_users WHERE external_id = $1 AND deleted_at IS NULL";
       let params = [exid];
@@ -944,7 +944,7 @@ class DataAccess {
     });
   }
 
-  getUserByForgotPasswordToken(fptkn, connection) {
+  async getUserByForgotPasswordToken(fptkn, connection) {
     return new Promise((resolve, reject) => {
       if(fptkn) {
         var qry = "SELECT DISTINCT bu.* FROM bs3_users bu INNER JOIN bs3_credentials bc ON bc.user_id = bu.id WHERE bc.forgot_password ? $1 AND bc.deleted_at IS NULL";
@@ -990,7 +990,7 @@ class DataAccess {
     });
   }
 
-  deleteUser(uid, connection) {
+  async deleteUser(uid, connection) {
     return new Promise((resolve, reject) => {
       let sql = "UPDATE bs3_users SET deleted_at = NOW() WHERE id = $1 RETURNING id";
       let params = [uid];
@@ -1018,7 +1018,7 @@ class DataAccess {
     });
   }
 
-  createUser(userObj) {
+  async createUser(userObj) {
     return new Promise((resolve, reject) => {
       this.startTransaction()
       .then((dbHandle) => {
@@ -1058,7 +1058,7 @@ class DataAccess {
     });
   }
 
-  updateJsonbField(tableName, fieldname, updateObj, whereClause) {
+  async updateJsonbField(tableName, fieldname, updateObj, whereClause) {
     return new Promise((resolve, reject) => {
       let sql = `UPDATE ${tableName} SET ${fieldname} = ${fieldname} || $1`;
       if(whereClause) {
@@ -1077,7 +1077,7 @@ class DataAccess {
     });
   }
 
-  saveApiCredentials(clientId, salt, hashedSecret, uid) {
+  async saveApiCredentials(clientId, salt, hashedSecret, uid) {
     return new Promise((resolve, reject) => {
       if(clientId && salt && hashedSecret && uid) {
         let sql = 'INSERT INTO bs3_credentials(client_id, salt, client_secret, user_id) VALUES($1, $2, $3, $4) RETURNING *';
@@ -1126,7 +1126,7 @@ class DataAccess {
     });
   }
 
-  updateApiCredentials(clientId, salt, hashedSecret) {
+  async updateApiCredentials(clientId, salt, hashedSecret) {
     return new Promise((resolve, reject) => {
       if(clientId && salt && hashedSecret && uid) {
         let sql = 'UPDATE bs3_credentials SET salt = $2, client_secret = $3 WHERE client_id = $1 RETURNING id';
@@ -1163,7 +1163,7 @@ class DataAccess {
     });
   }
 
-  getSession(sid, tkn) {
+  async getSession(sid, tkn) {
     return new Promise((resolve, reject) => {
       let sql = "SELECT * FROM bs3_sessions WHERE";
       let params = [];
@@ -1208,7 +1208,7 @@ class DataAccess {
     });
   }
 
-  getUserBySession(sid, tkn) {
+  async getUserBySession(sid, tkn) {
     return new Promise((resolve, reject) => {
       let sql = "SELECT bu.* FROM bs3_users bu JOIN bs3_sessions bs ON bu.id = bs.user_id WHERE bs.ended_at IS NULL AND"
   
@@ -1254,7 +1254,7 @@ class DataAccess {
     });
   }
 
-  attachUserToSession = (uid, sid) => {
+  async attachUserToSession(uid, sid) {
     return new Promise((resolve, reject) => {
       let sql = "UPDATE bs3_sessions SET user_id = $1 WHERE id = $2";
       this.runSql(sql, [uid, sid])
@@ -1274,7 +1274,7 @@ class DataAccess {
     });
   }
 
-  getCredentialsForUser(userId, connection) {
+  async getCredentialsForUser(userId, connection) {
     return new Promise((resolve, reject) => {
       let sql = "SELECT * FROM bs3_credentials WHERE user_id = $1 AND deleted_at IS NULL";
       let params = [userId];
@@ -1296,7 +1296,7 @@ class DataAccess {
     });
   }
 
-  updateCredentialsForUser(userId, salt, password, forgotPasswordToken, connection) {
+  async updateCredentialsForUser(userId, salt, password, forgotPasswordToken, connection) {
     return new Promise((resolve, reject) => {
       let params = [userId];
       let sql = "UPDATE bs3_credentials SET modified_at = NOW()";
@@ -1330,7 +1330,7 @@ class DataAccess {
     });
   }
 
-  deleteCredentialsByClientId(clientId) {
+  async deleteCredentialsByClientId(clientId) {
     return new Promise((resolve, reject) => {
       let sql = `UPDATE bs3_credentials SET deleted_at = NOW() WHERE client_id = $1 RETURNING id`;
       this.runSql(sql, [clientId])
@@ -1362,7 +1362,7 @@ class DataAccess {
     });
   }
 
-  updateUserInfo(userId, locked, roles, email, exId, username) {
+  async updateUserInfo(userId, locked, roles, email, exId, username) {
     return new Promise((resolve, reject) => {
       let params = [userId];
       let sql = 'UPDATE bs3_users SET modified_at = NOW()';
