@@ -26,17 +26,17 @@ class InternalSystem {
     };
   }
 
-  #version(req, callback) {
+  #version(req) {
 		var pkgJson = JSON.parse(fs.readFileSync('package.json', 'utf8'));
 		var version = pkgJson.version;
 		return Promise.resolve({"version": version});
   }
 
-  #headerTokenKey(req, callback) {
+  #headerTokenKey(req) {
     return Promise.resolve({"header_token_key": this.settings.token_header});
 	}
 
-  #endpoint(req, callback) {
+  #endpoint(req) {
     return new Promise((resolve, reject) => {
       this.serviceRegistration.getAllServiceCalls()
       .then((serviceCalls) => {
@@ -62,7 +62,7 @@ class InternalSystem {
     });
 	}
 
-  async #health(req, callback) {
+  async #health(req) {
 		var interfaces = os.networkInterfaces();
 		var ips = [];
 		for (var i in interfaces) {

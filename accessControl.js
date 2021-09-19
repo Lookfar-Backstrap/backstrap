@@ -108,7 +108,7 @@ class AccessControl {
           createUserCmd = createAPI(email, roles, uid);
           break;
         case 'external-api':
-          createUserCmd = createExt(email, exid, first, last, roles);
+          createUserCmd = createExt(email, exid, roles);
           break;
         default:
           createUserCmd = createStd(username, email, password, exid, roles, apiToken);
@@ -895,23 +895,6 @@ class AccessControl {
               innerReject(innerErr)
             })
           }
-          else if(exid) {
-            var userObj = {
-              'account_type': 'external',
-              'username': email,
-              'email': email,
-              'roles': roles,
-              'locked': false,
-              'external_id': exid
-            };
-            this.dataAccess.createUser(userObj)
-            .then((usr) => {
-              innerResolve(usr);
-            })
-            .catch((innerErr) => {
-              innerReject(innerErr);
-            });
-          }
           else {
             innerReject(new ErrorObj(400,
                                     'ac0350',
@@ -1083,11 +1066,9 @@ class AccessControl {
     });
   }
 
-  async #createExternalAPIUser(email, exid, first, last, roles) {
+  async #createExternalAPIUser(email, exid, roles) {
     return new Promise((resolve, reject) => {
       roles = roles || ['default-user'];
-      first = first || '';
-      last = last || '';
       email = email || null;
       exid = exid || null;
 

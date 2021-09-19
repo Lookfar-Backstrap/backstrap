@@ -19,6 +19,7 @@ class Accounts {
       signIn: this.#signIn.bind(this),
       signUp: this.#signUp.bind(this),
       apiUser: this.#apiUser.bind(this),
+      externalUser: this.#externalUser.bind(this),
       apiCredentials: this.#apiCredentials.bind(this),
       signOut: this.#signOut.bind(this),
       forgotUsername: this.#forgotUsername.bind(this),
@@ -38,12 +39,12 @@ class Accounts {
     };
   }
 
-  #checkToken(req, callback) {
+  #checkToken(req) {
      // AUTH HAS ALREADY BEEN CHECKED, THIS TOKEN IS VALID
      return Promise.resolve({success: true});
   }
 
-  #signIn(req, callback) {
+  #signIn(req) {
     return new Promise((resolve, reject) => {
       var body = req.body;
 
@@ -72,60 +73,82 @@ class Accounts {
     });
   }
 
-  #signUp(req, callback) {
+  #signUp(req) {
     return new Promise((resolve, reject) => {
-      var apiToken = req.headers[this.settings.token_header] || null;
-      // ONLY INITIALIZE A USER WITH 'default-user' ROLE
-      if(req.body.roles) req.body.roles = null;
+      if(this.settings.allow_signup === true) {
+        var apiToken = req.headers[this.settings.token_header] || null;
+        // ONLY INITIALIZE A USER WITH 'default-user' ROLE
+        if(req.body.roles) req.body.roles = null;
 
-      // CREATE THE USER
-      this.accessControl.createUser('standard', req.body, apiToken)
-      .then((usr) => {
-        resolve(usr);
-      })
-      .catch((err) => {
-        typeof(err.AddToError) === 'function' ?
-          reject(err.AddToError(__filename, 'signUp'))
-        :
-          reject(new ErrorObj(500,
-                                      'a0100',
-                                      __filename,
-                                      'signUp',
-                                      'create user error',
-                                      'There was a problem creating an account.  Please try again.',
-                                      err
-                                      ));
-      });
+        // CREATE THE USER
+        this.accessControl.createUser('standard', req.body, apiToken)
+        .then((usr) => {
+          resolve(usr);
+        })
+        .catch((err) => {
+          typeof(err.AddToError) === 'function' ?
+            reject(err.AddToError(__filename, 'signUp'))
+          :
+            reject(new ErrorObj(500,
+                                        'a0100',
+                                        __filename,
+                                        'signUp',
+                                        'create user error',
+                                        'There was a problem creating an account.',
+                                        err
+                                        ));
+        });
+      }
+      else {
+        reject(new ErrorObj(401,
+                            'a0101',
+                            __filename,
+                            'signUp',
+                            'no public signup',
+                            'Public signup is not allowed.',
+                            null));
+      }
     });
   }
 
-  #apiUser(req, callback) {
+  #apiUser(req) {
     return new Promise((resolve, reject) => {
-      // apiUser CAN ONLY INITIALIZE A USER WITH 'default-user' ROLE
-      if(req.body.roles) req.body.roles = null;
+      if(this.settings.allow_api_signup === true) {
+        // apiUser CAN ONLY INITIALIZE A USER WITH 'default-user' ROLE
+        if(req.body.roles) req.body.roles = null;
 
-      // CREATE THE USER
-      this.accessControl.createUser('api', req.body)
-      .then((usr) => {
-        resolve(usr);
-      })
-      .catch((err) => {
-        typeof(err.AddToError) === 'function' ?
-          reject(err.AddToError(__filename, 'apiUser'))
-        :
-          reject(new ErrorObj(500,
-                                      'a0102',
-                                      __filename,
-                                      'signUp',
-                                      'create user error',
-                                      'There was a problem creating an account.  Please try again.',
-                                      err
-                                      ));
-      });
+        // CREATE THE USER
+        this.accessControl.createUser('api', req.body)
+        .then((usr) => {
+          resolve(usr);
+        })
+        .catch((err) => {
+          typeof(err.AddToError) === 'function' ?
+            reject(err.AddToError(__filename, 'apiUser'))
+          :
+            reject(new ErrorObj(500,
+                                'a0110',
+                                __filename,
+                                'apiUser',
+                                'create user error',
+                                'There was a problem creating an account.',
+                                err
+                                ));
+        });
+      }
+      else {
+        reject(new ErrorObj(401,
+                            'a0111',
+                            __filename,
+                            'apiUser',
+                            'no public api signup',
+                            'Public signup for api users is not allowed.',
+                            null));
+      }
     });
   }
 
-  #apiCredentials(req, callback) {
+  #apiCredentials(req) {
     return new Promise((resolve, reject) => {
       if(req.body.roles) {
         let validRoles = [];
@@ -146,18 +169,55 @@ class Accounts {
           reject(err.AddToError(__filename, 'apiCredentials'))
         :
           reject(new ErrorObj(500,
-                              'a0102',
+                              'a0120',
                               __filename,
                               'apiCredentials',
                               'create user error',
-                              'There was a problem creating an account.  Please try again.',
+                              'There was a problem creating an account.',
                               err
                               ));
       });
     });
   }
 
-  #signOut(req, callback) {
+  #externalUser(req) {
+    return new Promise((resolve, reject) => {
+      if(this.settings.allow_external_signup === true) {
+        // ONLY INITIALIZE A USER WITH 'default-user' ROLE
+        if(req.body.roles) req.body.roles = null;
+
+        // CREATE THE USER
+        this.accessControl.createUser('external-api', req.body)
+        .then((usr) => {
+          resolve(usr);
+        })
+        .catch((err) => {
+          typeof(err.AddToError) === 'function' ?
+            reject(err.AddToError(__filename, 'externalUser'))
+          :
+            reject(new ErrorObj(500,
+                                        'a0130',
+                                        __filename,
+                                        'externalUser',
+                                        'create external user error',
+                                        'There was a problem creating an account.',
+                                        err
+                                        ));
+        });
+      }
+      else {
+        reject(new ErrorObj(401,
+                            'a0101',
+                            __filename,
+                            'signUp',
+                            'no public external signup',
+                            'Public signup of external accounts is not allowed.',
+                            null));
+      }
+    });
+  }
+
+  #signOut(req) {
     return new Promise((resolve, reject) => {
       var token = req.headers[this.settings.token_header];
     
@@ -174,7 +234,7 @@ class Accounts {
     });
   }
 
-  #forgotUsername(req, callback) {
+  #forgotUsername(req) {
     return new Promise((resolve, reject) => {
       this.dataAccess.getUserByEmail(req.body.email)
       .then((user) => {
@@ -227,7 +287,7 @@ class Accounts {
     });
   }
 
-  #forgotPassword(req, callback) {
+  #forgotPassword(req) {
     return new Promise((resolve, reject) => {
       var args = req.body;
       var email = args.email;
@@ -328,7 +388,7 @@ class Accounts {
     });
   }
 
-  #resetPassword(req, callback) {
+  #resetPassword(req) {
     return new Promise((resolve, reject) => {
       var args = req.body;
       var tkn = args.token;
@@ -393,7 +453,7 @@ class Accounts {
     });
   }
 
-  #startAnonymousSession(req, callback) {
+  #startAnonymousSession(req) {
     return new Promise((resolve, reject) => {
       // ACCESS CONTROL'S startSession() CREATES AN ANONYMOUS SESSION IF
       // YOU DO NOT PASS IT A USER OBJECT AS THE FIRST ARGUMENT
@@ -423,7 +483,7 @@ class Accounts {
     });
   }
 
-  #updatePassword(req, callback) {
+  #updatePassword(req) {
     return new Promise((resolve, reject) => {
       // TODO: validate password if possible
 
@@ -459,7 +519,7 @@ class Accounts {
     });
   }
 
-  #updateEmail(req, callback) {
+  #updateEmail(req) {
     return new Promise((resolve, reject) => {
       var updateUser = req.body;
       var existingUser = req.this_user;
@@ -498,7 +558,7 @@ class Accounts {
     });
   }
 
-  #deleteUser(req, callback) {
+  #deleteUser(req) {
     return new Promise((resolve, reject) => {
       this.dataAccess.deleteUser(req.this_user.id)
       .then(() => {
@@ -523,7 +583,7 @@ class Accounts {
     });
   }
 
-  #deleteApiCredentials(req, callback) {
+  #deleteApiCredentials(req) {
     return new Promise((resolve, reject) => {
       this.dataAccess.deleteCredentialsByClientId(req.body.client_id)
       .then((res) => {

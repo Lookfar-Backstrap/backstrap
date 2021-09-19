@@ -43,6 +43,9 @@ class Settings {
         mgmt_client_id: data.identity.mgmt_client_id || null,
         mgmt_client_secret: data.identity.mgmt_client_secret ||null
       };
+      this.allow_signup = data.allow_signup != null ? data.allow_signup : true;
+      this.allow_api_signup = data.allow_api_signup != null ? data.allow_api_signup : true;
+      this.allow_external_signup = data.allow_external_signup != null ? data.allow_external_signup : true;
     }
     catch(e) {
       console.error('Initialization Error - settings.js');
@@ -84,7 +87,10 @@ class Settings {
           kid: this.identity.kid,
           mgmt_client_id: this.identity.mgmt_client_id,
           mgmt_client_secret: this.identity.mgmt_client_secret
-        }
+        },
+        allow_signup: this.allow_signup,
+        allow_api_signup: this.allow_api_signup,
+        allow_external_signup: this.allow_external_signup
       }
     
       var fswrite = util.promisify(fs.writeFile);

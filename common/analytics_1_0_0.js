@@ -18,7 +18,7 @@ class Analytics {
     this.delete = {};
   }
 
-  #event(req, callback) {
+  #event(req) {
     return new Promise((resolve, reject) => {
       var eventDescriptor = req.body.event_descriptor;
       var tkn = req.headers[this.settings.token_header];

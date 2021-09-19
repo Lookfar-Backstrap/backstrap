@@ -93,22 +93,10 @@
                             "description": "Used for Forgot Password and Welcome Email"
                         },
                         {
-                            "name": "external_identity_id",
+                            "name": "external_id",
                             "type": "string",
                             "isRequired": false,
                             "description": "Identifier given by an external identity provider"
-                        },
-                        {
-                            "name": "first",
-                            "type": "string",
-                            "isRequired": false,
-                            "description": "User's first name"
-                        },
-                        {
-                            "name": "last",
-                            "type": "string",
-                            "isRequired": false,
-                            "description": "User's last name"
                         }
                     ],
                     "isUserCreated": false
@@ -118,6 +106,21 @@
                     "call": "apiUser",
                     "desc": "Sign up for api credentials",
                     "authRequired": false,
+                    "arg       s": [
+                        {
+                            "name": "email",
+                            "type": "string",
+                            "isRequired": true,
+                            "description": ""
+                        }
+                    ],
+                    "isUserCreated": false
+                },
+                {
+                    "verb": "POST",
+                    "call": "externalUser",
+                    "desc": "Sign up using an external werivce's id",
+                    "authRequired": false,
                     "args": [
                         {
                             "name": "email",
@@ -126,23 +129,17 @@
                             "description": ""
                         },
                         {
-                            "name": "first",
+                            "name": "external_id",
                             "type": "string",
-                            "isRequired": false,
-                            "description": "User's first name"
-                        },
-                        {
-                            "name": "last",
-                            "type": "string",
-                            "isRequired": false,
-                            "description": "User's last name"
+                            "isRequired": true,
+                            "description": ""
                         }
                     ],
                     "isUserCreated": false
                 },
                 {
                     "verb": "POST",
-                    "call": "apiCredentials",
+                    "call": "apiCredentials",                                                                                                                                                                                                                                                                                                                 
                     "desc": "Get api credentials for an existing user",
                     "authRequired": true,
                     "args": [
@@ -391,13 +388,13 @@
                         {
                             "name": "username",
                             "type": "string",
-                            "isRequired": true,
+                            "isRequired": false,
                             "description": null
                         },
                         {
                             "name": "password",
                             "type": "string",
-                            "isRequired": true,
+                            "isRequired": false,
                             "description": null
                         },
                         {
@@ -407,26 +404,20 @@
                             "description": null
                         },
                         {
-                            "name": "first",
-                            "type": "string",
-                            "isRequired": false,
-                            "description": null
-                        },
-                        {
-                            "name": "last",
-                            "type": "string",
-                            "isRequired": false,
-                            "description": null
-                        },
-                        {
                             "name": "roles",
                             "type": "array",
                             "isRequired": false,
                             "description": null
                         },
                         {
-                            "name": "userprofile",
-                            "type": "object",
+                            "name": "type",
+                            "type": "string",
+                            "isRequired": false,
+                            "description": null
+                        },
+                        {
+                            "name": "external_id",
+                            "type": "string",
                             "isRequired": false,
                             "description": null
                         }

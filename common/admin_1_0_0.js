@@ -27,7 +27,7 @@ class Admin {
     };
   }
 
-  #getUser(req, callback) {
+  #getUser(req) {
     return new Promise((resolve, reject) => {
       var searchObj = {};
       if (req.query.username !== undefined && req.query.username !== null) {
@@ -89,7 +89,7 @@ class Admin {
     });
 	}
 
-  #getUserRole(req, callback) {
+  #getUserRole(req) {
     return new Promise((resolve, reject) => {
       var uid = req.query.id || null;
       var username = req.query.username ? req.query.username.toLowerCase() : null;
@@ -143,86 +143,51 @@ class Admin {
     });
 	}
 
-  #createUser(req, callback) {
+  #createUser(req) {
     return new Promise((resolve, reject) => {
-      var username = req.body.username.toLowerCase();
+      var username = req.body.username ? req.body.username.toLowerCase() : null;
       var password = req.body.password;
       var roles = (req.body.roles == null ? ['default-user'] : req.body.roles);
       var email = req.body.email;
+      var exid = req.body.external_id;
+      var userType = req.body.type || 'native';
+      userType = userType.toLowerCase();
 
-      var validEmailRegex = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
-      if(!validEmailRegex.test(email)){
-        var errorObj = new ErrorObj(500, 
-                    'a0060', 
-                    __filename, 
-                    'signUp', 
-                    'invalid email address'
-                    );
+      if(!['native', 'api', 'external-api'].includes(userType)) {
+        let errorObj = new ErrorObj(400, 
+                                    'ad0061', 
+                                    __filename, 
+                                    'createUser', 
+                                    'invalid user type'
+                                    );
         reject(errorObj);
+        return;
       }
-      else if (username.indexOf('@') > -1){
-        var errorObj = new ErrorObj(500,
-                    'a0029',
-                    __filename,
-                    'signUp',
-                    'username cannot contain special characters'
-                    );
-        reject(errorObj);
-      }
-      else {
-        this.utilities.validateEmail(email)
-        .then(() => {
-          return this.utilities.validateUsername(username);
-        })
-        .then(() => {
-          var cryptoCall = util.promisify(crypto.randomBytes);
-          return cryptoCall(48);
-        })
-        .then((buf) => {
-          var salt = buf.toString('hex');
-          var saltedPassword = password + salt;
-          var hashedPassword = crypto.createHash('sha256').update(saltedPassword).digest('hex');
 
-          var userObj = {
-            'account_type': 'native',
-            'username': username,
-            'email': email,
-            'salt': salt,
-            'password': hashedPassword,
-            'roles': roles,
-            'locked': false
-          };
-
-          return this.dataAccess.createUser(userObj);
-        })
-        .then((userDbEntity) => {
-          delete userDbEntity.password;
-          delete userDbEntity.salt;
-
-          var resolveObj = userDbEntity;
-          resolve(resolveObj);
-        })
-        .catch((err) => {
-          if(err !== undefined && err !== null && typeof(err.AddToError) == 'function') {
-            reject(err.AddToError(__filename, 'signUp'));
-          }
-          else {
-            var errorObj = new ErrorObj(500,
-                          'ad0010',
-                          __filename,
-                          'user',
-                          'error creating user',
-                          'Error creating user',
-                          err
-                          );
-            reject(errorObj);
-          }
-        });
-      }
+      this.accessControl.createUser(userType, {username: username, email: email, password: password, roles: roles, external_id: exid})
+      .then((usr) => {
+        resolve(usr);
+      })
+      .catch((err) => {
+        if(err !== undefined && err !== null && typeof(err.AddToError) == 'function') {
+          reject(err.AddToError(__filename, 'createUser'));
+        }
+        else {
+          var errorObj = new ErrorObj(500,
+                        'ad0011',
+                        __filename,
+                        'createUser',
+                        'error creating user',
+                        'Error creating user',
+                        err
+                        );
+          reject(errorObj);
+        }
+      });
     });
   }
 
-  #addUserRole(req, callback) {
+  #addUserRole(req) {
     return new Promise((resolve, reject) => {
       var uid = req.body.user_id;
       var email = req.body.email ? req.body.email.toLowerCase() : null;
@@ -278,7 +243,7 @@ class Admin {
     });
   }
 
-  #updateUser(req, callback) {
+  #updateUser(req) {
     return new Promise((resolve, reject) => {
       var username;
       if (req.body.username !== undefined) {
@@ -319,7 +284,7 @@ class Admin {
 
       this.dataAccess.getUserById(req.body.id)
       .then((existingUser) => {
-        if(username) {
+        if(existingUser.account_type === 'native' && username) {
           return Promise.all([existingUser, this.utilities.validateUsername(username, existingUser.username)]);
         }
         else {
@@ -335,7 +300,7 @@ class Admin {
         }
       })
       .then(([existingUser]) => {
-        if(password !== undefined) {
+        if(existingUser.account_type === 'native' && password != null) {
           var cryptoCall = util.promisify(crypto.randomBytes);
           return Promise.all([existingUser, cryptoCall(48)]);
         }
@@ -346,15 +311,15 @@ class Admin {
       .then(([existingUser, buf]) => {
         var salt = null;
         var hashedPassword = null;
-        if(buf !== undefined && password != null) {
+        if(buf != null && password != null) {
           salt = buf.toString('hex');
           let saltedPassword = password + salt;
           hashedPassword = crypto.createHash('sha256').update(saltedPassword).digest('hex');
         }
 
         let updCmds = [this.dataAccess.updateUserInfo(existingUser.id, locked, roles, email, exid, username)];
-        if(password && salt) {
-          updCmds.push(this.dataAccess.updateCredentialsForUser(existingUser.id));
+        if(existingUser.account_type === 'native' && password && salt) {
+          updCmds.push(this.dataAccess.updateCredentialsForUser(existingUser.id, salt, hashedPassword, null));
         }
         return Promise.all(updCmds);
       })
@@ -381,7 +346,7 @@ class Admin {
     });
   }
 
-  #deleteUser(req, callback) {
+  #deleteUser(req) {
     return new Promise((resolve, reject) => {
       this.dataAccess.deleteUser(req.body.id)
       .then((del_res) => {
@@ -407,7 +372,7 @@ class Admin {
     });
   }
 
-  #deleteUserRole(req, callback) {
+  #deleteUserRole(req) {
     return new Promise((resolve, reject) => {
       var uid = req.body.id;
       var username = req.body.username ? eq.body.username.toLowerCase() : null;
