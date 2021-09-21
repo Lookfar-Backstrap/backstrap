@@ -11,7 +11,15 @@ const nodemailerSendgrid = require('nodemailer-sendgrid');
 
 const crypto = require('crypto');
 
-var UtilitiesExtension = require('./utilities_ext.js');
+var UtilitiesExtension;
+try {
+  UtilitiesExtension = require('../../utilities_ext.js');
+}
+catch(e) {
+  console.error('INITIALIZATION ERROR -- utilities_ext.js');
+  throw(e);
+}
+
 
 class Utilities {
   constructor() {

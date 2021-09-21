@@ -1,15 +1,15 @@
 const util = require('util');
-var fs = require('fs');
+const fs = require('fs');
 
 class Settings {
   constructor() {
     this.port = 3000;
-    this.load("./Settings.json");
+    this.load("../../Settings.json");
   }
 
   load(file) {
     try {
-      if(file.substring(0,2) !== './') file = './'+file;
+      if(file.substring(0,2) !== '../../') file = '../../'+file;
       let data = require(file);
       this.port = process.env.PORT || data.server_port;
       this.api_name = null;

@@ -1,9 +1,16 @@
 const { Pool, Client } = require('pg');
 const QueryStream = require('pg-query-stream');
-var fs = require('fs');
+const fs = require('fs');
 const Stream = require('stream');
 
-var DataAccessExtension = require('./dataAccess_ext.js');
+var DataAccessExtension;
+try {
+  DataAccessExtension = require('../../dataAccess_ext.js');
+}
+catch(e) {
+  console.error('INITIALIZATION ERROR -- dataAccess_ext.js');
+  throw(e);
+}
 
 
 class DataAccess {

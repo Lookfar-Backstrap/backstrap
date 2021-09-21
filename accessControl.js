@@ -1,9 +1,17 @@
 const util = require('util');
-var fs = require('fs');
-var crypto = require('crypto');
+const fs = require('fs');
+const crypto = require('crypto');
 
 const jwt = require('./jwt.js');
-var AccessControlExtension = require('./accessControl_ext.js');
+
+var AccessControlExtension;
+try {
+  AccessControlExtension = require('../../accessControl_ext.js');
+}
+catch(e) {
+  console.error('INITIALIZATION ERROR -- accessControl_ext.js');
+  throw(e);
+}
 
 const permissions = {
 	some: 'some',

@@ -38,7 +38,16 @@ class Controller {
             console.warn('DUPLICATE CONTROLLER DEFINITION');
           }
 
-          let filePath = `./${areaName}/${controllerName}_${controllerVersion.replace(/\./g, '_')}.js`;
+          let filePath;
+          if(areaName != null && areaName.toLowerCase() === 'common') {
+            // COMMON AREA IS INCLUDED IN THE PACKAGE
+            filePath = `./common/${controllerName}_${controllerVersion.replace(/\./g, '_')}.js`;
+          }
+          else {
+            // CUSTOM ENDPOINTS WILL BE IN THE PROJECT ROOT
+            filePath = `../../${areaName}/${controllerName}_${controllerVersion.replace(/\./g, '_')}.js`;
+          }
+          
           let thisController = null;
           try {
             thisController = require(filePath);

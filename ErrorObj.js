@@ -1,4 +1,4 @@
-var path = require('path');
+const path = require('path');
 
 ErrorObj = function (_status, _err_code, _class, _func, _message, _display_message, _results) {
 	var stackObj = {};

@@ -4,12 +4,12 @@
 // ---------------------------------
 // IMPORT MODULES
 // ---------------------------------
-var http = require('http');		// We'll create our server with the http module
-var express = require('express');	// Import express to handle routing and server details
-var cors = require('cors');		// Setup CORS
-var path = require('path');			// Import path to control our folder structure
-var bodyParser = require('body-parser');
-var fs = require('fs');
+const http = require('http');		// We'll create our server with the http module
+const express = require('express');	// Import express to handle routing and server details
+const cors = require('cors');		// Setup CORS
+const path = require('path');			// Import path to control our folder structure
+const bodyParser = require('body-parser');
+const fs = require('fs');
 
 console.log('==================================================');
 console.log('INITIALIZATION');
@@ -39,7 +39,7 @@ app.use(cors());
 // PASS THE HANDLE TO THE EXPRESS APP INTO
 // express_init.js SO THE USER CAN ADD EXPRESS MODULES
 try {
-  require('./expressSettings').init(app);
+  require('../../expressSettings').init(app);
 }
 catch(expressInitErr) {
   if(expressInitErr && expressInitErr.code === 'MODULE_NOT_FOUND') {
@@ -58,9 +58,15 @@ if(process.env.DEBUG_MODE != null && (process.env.DEBUG_MODE === true || process
 
 
 //Config File, contains DB params
+var config;
 var nodeEnv = process.env.NODE_ENV || 'local';
-var configFile = './dbconfig/dbconfig.' + nodeEnv + '.js';
-var config = require(configFile);
+var configFile = '../../dbconfig/dbconfig.' + nodeEnv + '.js';
+try {
+  config = require(configFile);
+}
+catch(e) {
+  console.error('INITIALIZATION ERROR -- dbconfig');
+}
 
 var errorLog;
 var sessionLog;
@@ -92,7 +98,7 @@ AccessControl.init(Utilities, Settings, DataAccess, 'Security.json')
   // CREATE A LOG DIRECTORY IF NEEDED
   // DO IT SYNCHRONOUSLY WHICH IS ALRIGHT SINCE THIS IS JUST ONCE
   // DURING STARTUP
-  if(!fs.existsSync('./logs')) fs.mkdirSync('./logs');
+  if(!fs.existsSync('../../logs')) fs.mkdirSync('../../logs');
   
   changeErrorLogs();
   Utilities.setLogs(eventLog, errorLog, sessionLog);
@@ -106,7 +112,7 @@ AccessControl.init(Utilities, Settings, DataAccess, 'Security.json')
   
   // EVERYTHING IS INITIALIZED.  RUN ANY INITIALIZATION CODE
   try {
-    require('./onInit').run(DataAccess, Utilities, AccessControl, ServiceRegistration, Settings);
+    require('../../onInit').run(DataAccess, Utilities, AccessControl, ServiceRegistration, Settings);
   }
   catch(onInitErr) {
     if(onInitErr && onInitErr.code === 'MODULE_NOT_FOUND') {
@@ -481,10 +487,10 @@ function changeErrorLogs() {
   var monthString = monthNum < 10 ? '0'+monthNum : monthNum;
   var dateString = today.getDate() < 10 ? '0'+today.getDate() : today.getDate();
   let todayString = monthString+'-'+dateString+'-'+today.getFullYear();
-  let errorLogPath = './logs/error-'+todayString;
-  let accessLogPath = './logs/access-'+todayString;
-  let sessionLogPath = './logs/session-'+todayString;
-  let eventLogPath = './logs/event-'+todayString;
+  let errorLogPath = '../../logs/error-'+todayString;
+  let accessLogPath = '../../logs/access-'+todayString;
+  let sessionLogPath = '../../logs/session-'+todayString;
+  let eventLogPath = '../../logs/event-'+todayString;
   
 
   var newErrorLog = fs.createWriteStream(errorLogPath, {flags:'a'});
@@ -524,10 +530,10 @@ function changeErrorLogs() {
   var evictionDate = new Date();
   evictionDate.setDate(evictionDate.getDate()-Settings.log_rotation_period);
   evictionDate.setHours(0,0,0,0);
-  fs.readdir('./logs/', (err, files) => {
+  fs.readdir('../../logs/', (err, files) => {
     if(!err) {
       for(var fIdx = 0; fIdx < files.length; fIdx++) {
-        let filepath = './logs/'+files[fIdx];
+        let filepath = '../../logs/'+files[fIdx];
         fs.stat(filepath, (stat_err, stats) => {
           if(!stat_err) {
             var createDate = new Date(stats.birthtime);
