@@ -12,6 +12,7 @@
   "keep_alive_timeout": null,
   "headers_timeout": null,
   "data_service_directory": null,
+  "utilities_directory": null,
 	"mail_options": {
 		"account": "FILL ME IN",
 		"service": "sendgrid",
