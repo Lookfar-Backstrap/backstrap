@@ -35,25 +35,25 @@ class DataAccess {
 
     this.extension = new DataAccessExtension(this);
   
-  // IF THERE IS A SERVICES DIRECTORY SPECIFIED IN Settings.json
-  // RUN THROUGH IT AND INSTANTIATE EACH SERVICE FILE
-  let serviceDir = this.settings.data_service_directory;
-  if(serviceDir != null) {
-    let services = fs.readdirSync(serviceDir);
-    services.forEach((serviceFile) => {
-      // DON'T OVERWRITE dataAccess.extension
-      if(serviceFile.toLowerCase() !== 'extension') {
-        let fileNoExt = serviceFile.replace('.js', '');
-        try {
-          let Service = require(serviceDir+'/'+serviceFile)[fileNoExt];
-          this[fileNoExt] = new Service(this, util);
+    // IF THERE IS A SERVICES DIRECTORY SPECIFIED IN Settings.json
+    // RUN THROUGH IT AND INSTANTIATE EACH SERVICE FILE
+    let serviceDir = this.settings.data_service_directory;
+    if(serviceDir != null) {
+      let services = fs.readdirSync(serviceDir);
+      services.forEach((serviceFile) => {
+        // DON'T OVERWRITE dataAccess.extension
+        if(serviceFile.toLowerCase() !== 'extension') {
+          let fileNoExt = serviceFile.replace('.js', '');
+          try {
+            let Service = require(serviceDir+'/'+serviceFile)[fileNoExt];
+            this[fileNoExt] = new Service(this, util);
+          }
+          catch(e) {
+            throw e;
+          }
         }
-        catch(e) {
-          throw e;
-        }
-      }
-    });
-  }
+      });
+    }
   }
 
   async CheckForDatabase(db_name) {

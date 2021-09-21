@@ -9,7 +9,7 @@ class Settings {
 
   load(file) {
     try {
-      if(file.substring(0,2) !== '../../') file = '../../'+file;
+      if(file.substring(0,6) !== '../../') file = '../../'+file;
       let data = require(file);
       this.port = process.env.PORT || data.server_port;
       this.api_name = null;
@@ -24,6 +24,7 @@ class Settings {
       this.keep_alive_timeout = data.keep_alive_timeout || null;
       this.headers_timeout = data.headers_timeout || null,
       this.data_service_directory = data.data_service_directory || null;
+      this.utilities_directory = data.utilities_directory || null;
       this.mail_options = {
         account: data.mail_options.account || null,
         service: data.mail_options.service || null,
@@ -69,6 +70,7 @@ class Settings {
         keep_alive_timeout: this.keep_alive_timeout,
         headers_timeout: this.headers_timeout,
         data_service_directory: this.data_service_directory,
+        utilities_directory: this.utilities_directory,
         mail_options: {
           account: this.mail_options.account,
           service: this.mail_options.service,
