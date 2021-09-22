@@ -75,7 +75,7 @@ class Utilities {
         if(utilFile.toLowerCase() !== 'extension') {
           let fileNoExt = utilFile.replace('.js', '');
           try {
-            let Util = require(utilsDir+'/'+utilFile)[fileNoExt];
+            let Util = require(utilsDir+'/'+utilFile);
             this[fileNoExt] = new Util(this);
           }
           catch(e) {

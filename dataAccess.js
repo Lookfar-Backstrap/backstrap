@@ -38,7 +38,7 @@ class DataAccess {
         if(serviceFile.toLowerCase() !== 'extension') {
           let fileNoExt = serviceFile.replace('.js', '');
           try {
-            let Service = require(serviceDir+'/'+serviceFile)[fileNoExt];
+            let Service = require(serviceDir+'/'+serviceFile);
             this[fileNoExt] = new Service(this, util);
           }
           catch(e) {
