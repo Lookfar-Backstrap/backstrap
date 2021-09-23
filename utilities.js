@@ -72,6 +72,26 @@ class Utilities {
         this.mailTransport = nodemailer.createTransport(smtpTransport(options));
       } 
     }
+
+    // IF THERE IS A UTILITIES DIRECTORY SPECIFIED IN Settings.json
+    // RUN THROUGH IT AND INSTANTIATE EACH SERVICE FILE
+    let utilsDir = this.settings.utilities_directory;
+    if(utilsDir != null) {
+      let utils = fs.readdirSync(utilsDir);
+      utils.forEach((utilFile) => {
+        // DON'T OVERWRITE utilities.extension
+        if(utilFile.toLowerCase() !== 'extension') {
+          let fileNoExt = utilFile.replace('.js', '');
+          try {
+            let Util = require(utilsDir+'/'+utilFile);
+            this[fileNoExt] = new Util(this);
+          }
+          catch(e) {
+            throw e;
+          }
+        }
+      });
+    }
   }
 
   async getHash(alg, data, length) {
