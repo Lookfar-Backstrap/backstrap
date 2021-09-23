@@ -37,7 +37,7 @@ class AccessControl {
       this.extension = new AccessControlExtension(this);
       this.file = f;
       try {
-        if(this.file.substring(0,2) !== './') this.file = './'+this.file;
+        if(this.file.substring(0,6) !== '../../') this.file = '../../'+this.file;
         let fileData = require(this.file);
         this.roles = fileData['roles'];
 

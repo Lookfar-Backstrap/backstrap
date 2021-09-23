@@ -254,7 +254,8 @@ class SchemaControl {
         //QUERYING A DB THAT DOESNT EXIST, WE CANNOT DO SELECT 1 FROM pg_database WHERE datname = '" + db_name + "'
         //SO WE JUST CREATE AND IGNORE IF ERRORS BECAUSE IT EXISTS
         //42P04 == Datbase already exists
-        if (res.results && res.results.code !== '42P04') {
+        // 42501 == User lacks create database privileges...assume the db is created
+        if (res.results && !['42P04', '42501'].includes(res.results.code)) {
           var errorObj = new ErrorObj(500,
             'sc0013',
             __filename,

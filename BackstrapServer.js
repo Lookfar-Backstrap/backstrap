@@ -98,7 +98,7 @@ AccessControl.init(Utilities, Settings, DataAccess, 'Security.json')
   // CREATE A LOG DIRECTORY IF NEEDED
   // DO IT SYNCHRONOUSLY WHICH IS ALRIGHT SINCE THIS IS JUST ONCE
   // DURING STARTUP
-  if(!fs.existsSync('../../logs')) fs.mkdirSync('../../logs');
+  if(!fs.existsSync('./logs')) fs.mkdirSync('./logs');
   
   changeErrorLogs();
   Utilities.setLogs(eventLog, errorLog, sessionLog);
@@ -487,10 +487,11 @@ function changeErrorLogs() {
   var monthString = monthNum < 10 ? '0'+monthNum : monthNum;
   var dateString = today.getDate() < 10 ? '0'+today.getDate() : today.getDate();
   let todayString = monthString+'-'+dateString+'-'+today.getFullYear();
-  let errorLogPath = '../../logs/error-'+todayString;
-  let accessLogPath = '../../logs/access-'+todayString;
-  let sessionLogPath = '../../logs/session-'+todayString;
-  let eventLogPath = '../../logs/event-'+todayString;
+  // THESE PATHS ARE USED WITH fs WHICH USES THE PROJECT ROOT AS PWD
+  let errorLogPath = './logs/error-'+todayString;
+  let accessLogPath = './logs/access-'+todayString;
+  let sessionLogPath = './logs/session-'+todayString;
+  let eventLogPath = './logs/event-'+todayString;
   
 
   var newErrorLog = fs.createWriteStream(errorLogPath, {flags:'a'});
@@ -530,10 +531,10 @@ function changeErrorLogs() {
   var evictionDate = new Date();
   evictionDate.setDate(evictionDate.getDate()-Settings.log_rotation_period);
   evictionDate.setHours(0,0,0,0);
-  fs.readdir('../../logs/', (err, files) => {
+  fs.readdir('./logs/', (err, files) => {
     if(!err) {
       for(var fIdx = 0; fIdx < files.length; fIdx++) {
-        let filepath = '../../logs/'+files[fIdx];
+        let filepath = './logs/'+files[fIdx];
         fs.stat(filepath, (stat_err, stats) => {
           if(!stat_err) {
             var createDate = new Date(stats.birthtime);
