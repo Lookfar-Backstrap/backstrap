@@ -423,16 +423,38 @@ Utilities.prototype.writeErrorToLog = function (errObj) {
 	return deferred.promise;
 };
 
-Utilities.prototype.sendMail = function (send_to, sbj, bdy, html_bdy, callback) {
+Utilities.prototype.sendMail = function (send_to, sbj, bdy, html_bdy, attachments, callback) {
 	var deferred = Q.defer();
 
 	var mailOptions = {
 		from: settings.data.mail_options.account,
 		to: send_to,
-		subject: sbj,
-		text: bdy,
-		html: html_bdy
+		subject: sbj
 	};
+  if(html_bdy) {
+    mailOptions.html = html_bdy;
+  }
+  if(bdy) {
+    mailOptions.text = bdy;
+  }
+  if(html_bdy == null && bdy == null) {
+    deferred.reject(new ErrorObj(500,
+                                  'u0100',
+                                  __filename,
+                                  'sendMail',
+                                  'no content',
+                                  'Attempt to send empty email.'));
+    return deferred.promise.nodeify(callback);
+  }
+
+  if(attachments) {
+    if(Array.isArray(attachments)) {
+      mailOptions.attachments = attachments;
+    }
+    else if(typeof(attachments) === 'object') {
+      mailOptions.attachments = [attachments];
+    }
+  }
 	mailTransport.sendMail(mailOptions, function (email_err, email_res) {
 		if (!email_err) {
 			deferred.resolve(email_res);
@@ -454,7 +476,7 @@ Utilities.prototype.sendMail = function (send_to, sbj, bdy, html_bdy, callback) 
 	return deferred.promise
 };
 
-Utilities.prototype.sendMailTemplate = function (send_to, sbj, template_name, args, callback) {
+Utilities.prototype.sendMailTemplate = function (send_to, sbj, template_name, args, attachments, callback) {
 	var deferred = Q.defer();
 
 	if (template_name === undefined || template_name === null) {
@@ -503,6 +525,14 @@ Utilities.prototype.sendMailTemplate = function (send_to, sbj, template_name, ar
 							text: txtBody,
 							html: htmlBody
 						};
+            if(attachments) {
+              if(Array.isArray(attachments)) {
+                mailOptions.attachments = attachments;
+              }
+              else if(typeof(attachments) === 'object') {
+                mailOptions.attachments = [attachments];
+              }
+            }
 						mailTransport.sendMail(mailOptions, function (email_err, email_res) {
 							if (!email_err) {
 								deferred.resolve(email_res);
@@ -558,6 +588,14 @@ Utilities.prototype.sendMailTemplate = function (send_to, sbj, template_name, ar
 					subject: sbj,
 					text: txtBody
 				};
+        if(attachments) {
+          if(Array.isArray(attachments)) {
+            mailOptions.attachments = attachments;
+          }
+          else if(typeof(attachments) === 'object') {
+            mailOptions.attachments = [attachments];
+          }
+        }
 				mailTransport.sendMail(mailOptions, function (email_err, email_res) {
 					if (!email_err) {
 						deferred.resolve(email_res);
@@ -599,6 +637,14 @@ Utilities.prototype.sendMailTemplate = function (send_to, sbj, template_name, ar
 					subject: sbj,
 					html: htmlBody
 				};
+        if(attachments) {
+          if(Array.isArray(attachments)) {
+            mailOptions.attachments = attachments;
+          }
+          else if(typeof(attachments) === 'object') {
+            mailOptions.attachments = [attachments];
+          }
+        }
 				mailTransport.sendMail(mailOptions, function (email_err, email_res) {
 					if (!email_err) {
 						deferred.resolve(email_res);
@@ -631,113 +677,16 @@ Utilities.prototype.sendMailTemplate = function (send_to, sbj, template_name, ar
 		});
 	}
 	else {
-		// WE COULDN'T FIND THIS TEMPLATE.  TRY USING THE DEFAULT
-		templatePath = settings.data.mail_options.template_directory + 'default';
-		txtPath = templatePath + '.txt';
-		htmlPath = templatePath + '.html';
-		fs.readFile(txtPath, 'utf8', function (txt_err, txt_data) {
-			if (!txt_err) {
-				txtBody = replaceTemplateValues(txt_data, args);
-
-				fs.readFile(htmlPath, 'utf8', function (html_err, html_data) {
-					if (!html_err) {
-						// FOUND BOTH THE TXT AND HTML DEFAULT TEMPLATES
-						htmlBody = replaceTemplateValues(html_data, args);
-						var mailOptions = {
-							from: settings.data.mail_options.account,
-							to: send_to,
-							subject: sbj,
-							text: txtBody,
-							html: htmlBody
-						};
-						mailTransport.sendMail(mailOptions, function (email_err, email_res) {
-							if (!email_err) {
-								deferred.resolve(email_res);
-							}
-							else {
-								var errorObj = new ErrorObj(500,
-									'u0018',
-									__filename,
-									'sendMailTemplate',
-									'error with mailTransport.sendMail',
-									'External error',
-									email_err
-								);
-								deferred.reject(errorObj);
-							}
-						});
-					}
-					else {
-						// FOUND DEFAULT TXT TEMPLATE, BUT NO HTML TEMPLATE
-						txtBody = replaceTemplateValues(txt_data, args);
-						var mailOptions = {
-							from: settings.data.mail_options.account,
-							to: send_to,
-							subject: sbj,
-							text: txtBody
-						};
-						mailTransport.sendMail(mailOptions, function (email_err, email_res) {
-							if (!email_err) {
-								deferred.resolve(email_res);
-							}
-							else {
-								var errorObj = new ErrorObj(500,
-									'u0019',
-									__filename,
-									'sendMailTemplate',
-									'error with mailTransport.sendMail',
-									'External error',
-									email_err
-								);
-								deferred.reject(errorObj);
-							}
-						});
-					}
-				});
-			}
-			else {
-				fs.readFile(htmlPath, 'utf8', function (html_err, html_data) {
-					if (!html_err) {
-						// FOUND THE HTML DEFAULT TEMPLATE, BUT NO TXT TEMPLATE
-						htmlBody = replaceTemplateValues(html_data, args);
-						var mailOptions = {
-							from: settings.data.mail_options.account,
-							to: send_to,
-							subject: sbj,
-							html: htmlBody
-						};
-						mailTransport.sendMail(mailOptions, function (email_err, email_res) {
-							if (!email_err) {
-								deferred.resolve(email_res);
-							}
-							else {
-								var errorObj = new ErrorObj(500,
-									'u0020',
-									__filename,
-									'sendMailTemplate',
-									'error with mailTransport.sendMail',
-									'External error',
-									email_err
-								);
-								deferred.reject(errorObj);
-							}
-						});
-					}
-					else {
-						// FAILED TO FIND DEFAULT TEMPLATE.  SEND BACK AN ERROR
-						var errorObj = new ErrorObj(500,
-							'u0021',
-							__filename,
-							'sendMailTemplate',
-							'no template found',
-							'There is no email template by this name and no default template',
-							html_err
-						);
-						deferred.reject(errorObj);
-					}
-				});
-			}
-		});
+		// WE COULDN'T FIND THIS TEMPLATE.
+    var errorObj = new ErrorObj(500,
+      'u0021',
+      __filename,
+      'sendMailTemplate',
+      'no template found',
+      'There is no email template by this name',
+      null
+    );
+    deferred.reject(errorObj);
 	}
 
 	deferred.promise.nodeify(callback);
