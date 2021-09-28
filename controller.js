@@ -1,3 +1,6 @@
+const path = require('path');
+const rootDir = path.dirname(require.main.filename);
+
 class Controller {
   constructor() {
     this.dataAccess = null;
@@ -45,7 +48,7 @@ class Controller {
           }
           else {
             // CUSTOM ENDPOINTS WILL BE IN THE PROJECT ROOT
-            filePath = `../../${areaName}/${controllerName}_${controllerVersion.replace(/\./g, '_')}.js`;
+            filePath = `${rootDir}/${areaName}/${controllerName}_${controllerVersion.replace(/\./g, '_')}.js`;
           }
           
           let thisController = null;

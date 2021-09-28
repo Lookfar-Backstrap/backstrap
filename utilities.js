@@ -3,6 +3,7 @@
 // ===============================================================================
 const util = require('util');
 const path = require('path');
+const rootDir = path.dirname(require.main.filename);
 const fs = require('fs');
 
 var nodemailer = require('nodemailer');
@@ -13,7 +14,7 @@ const crypto = require('crypto');
 
 var UtilitiesExtension;
 try {
-  UtilitiesExtension = require('../../utilities_ext.js');
+  UtilitiesExtension = require(`${rootDir}/utilities_ext.js`);
 }
 catch(e) {
   console.error('INITIALIZATION ERROR -- utilities_ext.js');
@@ -76,6 +77,8 @@ class Utilities {
     // IF THERE IS A UTILITIES DIRECTORY SPECIFIED IN Settings.json
     // RUN THROUGH IT AND INSTANTIATE EACH SERVICE FILE
     let utilsDir = this.settings.utilities_directory;
+    utilsDir.replace(/^\.\//, '');
+    utilsDir.replace(/^\//, '');
     if(utilsDir != null) {
       let utils = fs.readdirSync(utilsDir);
       utils.forEach((utilFile) => {
@@ -83,7 +86,7 @@ class Utilities {
         if(utilFile.toLowerCase() !== 'extension') {
           let fileNoExt = utilFile.replace('.js', '');
           try {
-            let Util = require(utilsDir+'/'+utilFile);
+            let Util = require(`${rootDir}/${utilsDir}/${utilFile}`);
             this[fileNoExt] = new Util(this);
           }
           catch(e) {

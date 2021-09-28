@@ -2,10 +2,12 @@ const { Pool, Client } = require('pg');
 const QueryStream = require('pg-query-stream');
 const fs = require('fs');
 const Stream = require('stream');
+const path = require('path');
+const rootDir = path.dirname(require.main.filename);
 
 var DataAccessExtension;
 try {
-  DataAccessExtension = require('../../dataAccess_ext.js');
+  DataAccessExtension = require(`${rootDir}/dataAccess_ext.js`);
 }
 catch(e) {
   console.error('INITIALIZATION ERROR -- dataAccess_ext.js');
@@ -38,6 +40,8 @@ class DataAccess {
     // IF THERE IS A SERVICES DIRECTORY SPECIFIED IN Settings.json
     // RUN THROUGH IT AND INSTANTIATE EACH SERVICE FILE
     let serviceDir = this.settings.data_service_directory;
+    serviceDir.replace(/^\.\//, '');
+    serviceDir.replace(/^\//, '');
     if(serviceDir != null) {
       let services = fs.readdirSync(serviceDir);
       services.forEach((serviceFile) => {
@@ -45,8 +49,8 @@ class DataAccess {
         if(serviceFile.toLowerCase() !== 'extension') {
           let fileNoExt = serviceFile.replace('.js', '');
           try {
-            let Service = require(serviceDir+'/'+serviceFile);
-            this[fileNoExt] = new Service(this, util);
+            let Service = require(`${rootDir}/${serviceDir}/${serviceFile}`);
+            this[fileNoExt] = new Service(this, this.utilities);
           }
           catch(e) {
             throw e;
