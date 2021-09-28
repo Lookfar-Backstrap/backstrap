@@ -67,6 +67,8 @@ try {
 }
 catch(e) {
   console.error('INITIALIZATION ERROR -- dbconfig');
+  console.error(e);
+  throw {message: 'problem loading database config file', error: e};
 }
 
 var errorLog;
