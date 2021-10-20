@@ -1315,7 +1315,7 @@ Accounts.prototype.post = {
 
                     // IF WE HAVE A TEMPLATE SPECIFIED IN THE ENV VARS
                     // USE THAT.  OTHERWISE, JUST SEND OFF THE LINK/TOKEN
-                    if(process.env.reset_password_email && process.env.reset_password_email !== '') {
+                    if(process.env.reset_password_email) {
                       return [userObj, tkn, utilities.sendMailTemplate(userObj.email, 'Password Reset', process.env.reset_password_email, {resetLink: reset_link})];
                     }
                     else {
