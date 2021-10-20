@@ -1311,9 +1311,17 @@ Accounts.prototype.post = {
                 })
                 .spread(function(userObj, tkn) {
                     var reset_link = process.env.reset_password_link || "";
-                    reset_link = (reset_link == "" || reset_link == "FILL_IN") ? "" : reset_link + '?token=';
-                    var message = 'Reset password: ' + reset_link + tkn;
-                    return [userObj, tkn, utilities.sendMail(userObj.email, 'Password Reset', message)];
+                    reset_link = (reset_link == "" || reset_link == "FILL_IN") ? tkn : reset_link + '?token=' + tkn;
+
+                    // IF WE HAVE A TEMPLATE SPECIFIED IN THE ENV VARS
+                    // USE THAT.  OTHERWISE, JUST SEND OFF THE LINK/TOKEN
+                    if(process.env.reset_password_email) {
+                      return [userObj, tkn, utilities.sendMailTemplate(userObj.email, 'Password Reset', process.env.reset_password_email, {resetLink: reset_link})];
+                    }
+                    else {
+                      var message = 'Reset password: ' + reset_link;
+                      return [userObj, tkn, utilities.sendMail(userObj.email, 'Password Reset', message)];
+                    }
                 })
                 .spread(function(userObj, tkn, mail_res) {
                     if (userObj.forgot_password_tokens === undefined || userObj.forgot_password_tokens === null) {
