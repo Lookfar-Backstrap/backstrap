@@ -341,9 +341,18 @@ class Accounts {
           })
           .then(([userObj, tkn]) => {
               var reset_link = process.env.reset_password_link || "";
-              reset_link = (reset_link == "" || reset_link == "FILL_IN") ? "" : reset_link + '?token=';
-              var message = 'Reset password: ' + reset_link + tkn;
-              return Promise.all([userObj, tkn, this.utilities.sendMail(userObj.email, 'Password Reset', message)]);
+              reset_link = (reset_link == "" || reset_link == "FILL_IN") ? tkn : reset_link + '?token=' + tkn;
+
+              // IF WE HAVE A TEMPLATE SPECIFIED IN THE ENV VARS
+              // USE THAT.  OTHERWISE, JUST SEND OFF THE LINK/TOKEN
+              if(process.env.reset_password_email) {
+                return Promise.all([userObj, tkn, utilities.sendMailTemplate(userObj.email, 'Password Reset', process.env.reset_password_email, {resetLink: reset_link})]);
+              }
+              else {
+                var message = 'Reset password: ' + reset_link;
+                return Promise.all([userObj, tkn, utilities.sendMail(userObj.email, 'Password Reset', message)]);
+              }
+
           })
           .then(([userObj, tkn, mail_res]) => {
             return this.dataAccess.updateCredentialsForUser(userObj.id, null, null, tkn);
