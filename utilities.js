@@ -696,8 +696,8 @@ Utilities.prototype.sendMailTemplate = function (send_to, sbj, template_name, ar
 function replaceTemplateValues(template, args) {
 	var updatedTemplate = template;
 	for(var key in args){
-      updatedTemplate = updatedTemplate.replace('{{' + key + '}}', args[key]);
-    }
+    updatedTemplate = updatedTemplate.replace(new RegExp('{{' + key + '}}', 'g'), args[key]);
+  }
 
 	return updatedTemplate;
 }
