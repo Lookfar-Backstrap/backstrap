@@ -107,7 +107,7 @@ class Utilities {
 
     var digest = h.digest('hex');
     if(length != null) digest = digest.substring(0, length);
-    Promise.resolve(digest);
+    return Promise.resolve(digest);
   }
 
   setDataAccess(da) {
@@ -568,7 +568,7 @@ class Utilities {
 
   getUID(sync) {
     if(sync == null || sync === false) {
-      Promise.resolve(this.#createUID());
+      return Promise.resolve(this.#createUID());
     }
     else {
       return this.#createUID();
@@ -582,7 +582,7 @@ class Utilities {
     };
     let logEntry = JSON.stringify(loggedEvent)+'\n';
     this.eventLog.write(logEntry, () => {
-      Promise.resolve();
+      return Promise.resolve();
     });
   }
 
