@@ -96,7 +96,7 @@ class Utilities {
 
     var digest = h.digest('hex');
     if(length != null) digest = digest.substring(0, length);
-    Promise.resolve(digest);
+    return Promise.resolve(digest);
   }
 
   setDataAccess(da) {
@@ -258,7 +258,7 @@ class Utilities {
     return new Promise((resolve, reject) => {
       let logEntry = JSON.stringify(errObj)+'\n';
   
-      var writeToLog = util.promisify(errorLog.write);
+      var writeToLog = util.promisify(this.errorLog.write);
       writeToLog(logEntry)
       .then((write_res) => {
         resolve();
@@ -506,7 +506,7 @@ class Utilities {
 
   getUID(sync) {
     if(sync == null || sync === false) {
-      Promise.resolve(this.#createUID());
+      return Promise.resolve(this.#createUID());
     }
     else {
       return this.#createUID();
@@ -520,7 +520,7 @@ class Utilities {
     };
     let logEntry = JSON.stringify(loggedEvent)+'\n';
     this.eventLog.write(logEntry, () => {
-      Promise.resolve();
+      return Promise.resolve();
     });
   }
 
