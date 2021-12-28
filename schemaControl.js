@@ -98,6 +98,7 @@ class SchemaControl {
           let sessTblCreate = `CREATE TABLE bs3_sessions (
                                 id SERIAL PRIMARY KEY NOT NULL,
                                 token VARCHAR(256),
+                                client_info JSONB,
                                 created_at TIMESTAMP,
                                 ended_at TIMESTAMP,
                                 last_touch TIMESTAMP,

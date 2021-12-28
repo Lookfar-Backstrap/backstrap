@@ -1,5 +1,4 @@
 ## Table of Contents
-- [Changes In BS3](#changes-from-bs-classic-to-bs3)
 - [Overview](#overview)
 - [Quick Start](#quick-start)
 - [Project Structure](#project-structure)
@@ -10,47 +9,6 @@
 - [Using Extension Files](#using-extension-files)
 - [Using the ORM](#using-the-orm)
 - [Additional Features](#additional-features)
-## Changes from BS Classic to BS3:
-BS3 (backstrap-server 3.0.0) represents a major breaking change from versions 1 & 2.  A conversion guide will be available at some point in the future.  The new version was built to be lighter, faster, and easier to maintain.  Here are the primary differences:
-
-#### Javascript Classes
-Rather than relying on .prototype, BS3 uses true classes.  This means that your controller files will need to be formatted with this in mind.  See the example below or check out /node_modules/backstrap-server/common/analytics_1_0_0.js in your project to see a simple version.
-
-#### Async/Await
-BS3 supports native promises (BS classic relied on Q).  This means you can use async/await or .then() syntax (or mix-and-match).
-
-#### Data & Utility Services
-BS Classic has data services, but BS3 allows you to define a directory for utility services and another for data services.  Specify the directory you will use for utility or data services in __Settings.json__ with the properties `data_service_directory` and `utilities_directory`, and BS3 will automatically load any files it finds there into the utilities or dataAccess modules making them available in your controller files as `dataAccess.my_service.some_function()` and `utilities.my_service.some_function()` respectively.
-
-#### onInit.js
-We added a place to execute arbitrary code after BS3 has started up.  Anything your system may need to do on startup can be included here.
-
-#### expressSettings.js
-BS3 is capable of modifying certain common settings in Express through use of __Settings.json__, but if you need finer-grained control, `app` is passed into this file/function so you can add `.use()` statements.
-
-#### Settings Syntax
-In BS Classic, you accessed the properties of Settings.json by using `settings.data.MY_PROPERTY`.  This is now `settings.MY_PROPERTY` but you can no longer add arbitrary properties to that file.
-
-#### Endpoints_ext.json is now Endpoints.json
-BS Classic used __Endpoints.json__ for internal endpoints made __Endpoints_ext.json__ available to the user.  BS3 give the user __Endpoints.json__ to modify and relegates internal endpoints to another file.
-
-#### config/ is now dbconfig/
-The connection information for your db is stored in dbconfig files `dbconfig/dbconfig.local.js`, `dbconfig/dbconfig.development.js`, etc corresponding to your various environments.  Aside from the name change, the only difference is the removal of a "bucket" property which is no used in BS3. 
-
-#### DB Tables
-The tables used by BS3 and the structure of these tables is a departure form BS Classic.  The new BS3 managed tables are:
-- __bs3_users__
-- __bs3_credentials__
-- __bs3_sessions__
-
-#### Web Console Removed
-The web console was removed entirely.  Instead,  modify the json files for __Endpoints__, __Settings__, & __Security__ directly.
-Users should be added or modified using the built-in endpoints or through the functions in accessControl.js
-The initial user used to bootstrap other admin users(`bsroot`) is now assigned a generic password until you change it.  BS Classic relied on the web console to setup a password for this user.
-
-#### ORM Removed
-The ORM system relied heavily on JSONB fields in postgres which meant that table statistics were inaccurate and query times weren't optimal.  And given the limitations on the built-in database object access control system, most users were writing their accessors manually anyway.  So there is no __Models.json__ file and no /common/models endpoints in BS3.
-
 
 
 ## Overview:
@@ -58,9 +16,11 @@ Backstrap Server was built on the premise that there should be a clear line betw
 
 The underlying technologies which power Backstrap Server are Nodejs, Express, and Postgresql.  The requests you will deal with in your controllers are raw Express requests, so their properties will be familiar.  Backstrap simply runs all the processing you would ordinarily have to handle yourself.  By the time a request hits your controller, you can be sure that it has the proper arguments and was sent by an authenticated user.
 
-To accomplish this task, Backstrap Server manages its own tables in an Postgresql >= v9 database.  This includes bs3_users, bs3_credentials, and bs3_sessions data. 
+To accomplish this task, Backstrap Server manages its own tables in an Postgresql >= v9 database.  This includes user, session, and analytics data.  If you choose to make use of the onboard ORM, Backstrap will manage a table for each model in the same db.  As long as there are no naming conflicts, you can create tables and store data in that database manually as well.
 
-You will also find a number of common endpoints which are ready to go out-of-the-box.  These include the basic functions of any API such as sign in/out, sign up, forgot/reset password and more.  Also there are a number of utility functions available to the methods of your controllers.
+You will also find a number of common endpoints which are ready to go out-of-the-box.  These include the basic functions of any API such as sign in/out, sign up, forgot/reset password and a few dozen more.  Also there are a number of utility functions available to the methods of your controllers.
+
+Finally, Backstrap Server includes an onboard web console which allows developers to register/view/edit endpoints and their arguments, register/edit users and permissions, create/view/edit data models and their relationships, and even create/view/edit records in the database.
 
 
 ## Quick Start
@@ -97,29 +57,34 @@ __Install And Run Backstrap Server__
 
 
 __Setup First User__
-On startup, the system checks for the user `bsroot` and if it does not find it, a new super-user is created in that name with password `abcd@1234`.
+- Using a browser, navigate to http://localhost:3000
+- There should be a prompt for you to add a password for the user "bsroot" which is the super-user which is created by default.
+- Enter a password
+- You should now be able to use the web console to add more users, add endpoints, add models, etc.
 
-__CHANGE THIS PASSWORD IMMEDIATELY AND DO NOT DELETE THAT USER IN THE FUTURE!__
-
-bsroot is a super-user capable of creating accounts with any permissions and those credentials should be treated with care. 
+** You may need to log out and log back in after setting up the bsroot user.  This is a known bug.
 
 
 ## Project Structure:
-There are five types of files used in Backstrap projects. 
+There are four types of files used in Backstrap projects. 
 
-__Core files__ are those used by the framework and which require no modifications by the developer.  These are the files included in the npm package included in `node_modules/backstrap-server`.  Some of these you will likely interact with such as utilities.js (which contains some useful common functions) and dataAccess.js (which has functions for reading and writing to the db), but others require no conscious interaction such as controller.js (which routes requests to the proper method in its corresponding controller file) and BackstrapServer.js (which starts up the server and initializes everything).  Here is a full list:
+__Core files__ are those used by the framework and which require no modifications by the developer.  Some of these you will likely interact with such as utilities.js (which contains some useful common functions) and dataAccess.js (which has functions for reading and writing to the db), but others require no conscious interaction such as controller.js (which routes requests to the proper method in its corresponding controller file) and BackstrapServer.js (which starts up the server and initializes everything).  Here is a full list:
 ```
 /common
+/public
+/src
 accessControl.js
 BackstrapServer.js
+backstrapSql.js
 base64.js
 controller.js
 dataAccess.js
-Endpoints_in.json
 endpoints.js
+Endpoints.json
+entityMethods.js
 ErrorObj.js
-jwt.js
-schemaControl.js
+models.js
+schema.js
 serviceRegistration.js
 settings.js
 utilities.js
@@ -128,17 +93,15 @@ utilities.js
 *NOTE: These files are overwritten in Backstrap Server updates.  Any changes you make will be clobbered.
 
 
-__Extension files__ are editable files which extend some of the Core files.  accessControl.js, dataAccess.js, and utilities.js are injected into controller files on instantiation, and you can add your own functions to these classes using accessControl_ext.js, dataAccess_ext.js, and utilities_ext.js.  Those functions will then be available by calling this.accessControl.extension.yourFunction(), this.dataAccess.extension.yourFunction(), or this.utilities.extension.yourFunction().
+__Extension files__ are editable files which extend some of the Core files.  accessControl.js, dataAccess.js, and utilities.js are injected into controller files on instantiation, and you can add your own functions to these classes using accessControl_ext.js, dataAccess_ext.js, and utilities_ext.js.  Those functions will then be available by calling accessControl.extension.yourFunction(), dataAccess.extension.yourFunction(), or utilities.extension.yourFunction().
+You may also notice an additional file with "_ext" in the name Endpoints_ext.json is both an extension file and a configuration file.  It is an extension of Endpoints_in.json which contains information about the system generated endpoints and it's a configuration file which contains information on endpoints defined by you.
 There is more information on using Extension files in following sections.
-
-
-__Data & Utility Services__ are user defined files injected into `dataAccess` and `utilities` respectively.  Functions you add to your service files will be available by calling this.dataAccess.yourServiceFile.yourFunction() or this.utilities.yourServiceFile.yourFunction().
-There is more information on using Services files in following sections.
 
 
 __Configuration files__ include
 - `Settings.json` - the fundamentals: server port, timeout, auth headers, email account options, etc.
 - `Security.json` - define user roles for the api and what areas, controllers, methods each role may access.
+- `Models.json` - describe your models.
 - `Endpoints_in.json / Endpoints.json` - describes all API endpoints and their parameters.
 
 All of these files are editable except `Endpoints_in.json`.  Instead use `Endpoints.json`.  There is more specific information on Configuration files in following sections.
@@ -215,28 +178,32 @@ You can install Backstrap Server either by checking out the git repository (http
 Once you've checked out the repository, you'll have a project root with many of the Core, Configuration, and Extension files all mixed together.  This method of installing is useful if you intend to work on/contribute code to the Backstrap Server open-source project, or if you expect to heavily modify the Core files and do not intend to update your version of Backstrap.  Here is what your project root will contain:
 ```
 /common — Core controllers with the logic for all out-of-the-box endpoints.
-/dbconfig — Configuration files with connection information for the Postgresql database
+/config — Configuration files with connection information for the Postgresql database and default S3  bucket (if running the server in distributed mode—more on that later).
 /node_modules — Npm controlled directory with dependencies
+/public — Source for the angularjs web console.
+/src — Static assets for the angularjs web console.
 /templates — html and txt templates used for system generated emails.
 /uploads — default directory for files uploads
 
 accessControl_ext.js — Extension file for accessControl.js
 accessControl.js — Core file with functions related to user permission
+backstrap_errors.txt — Text file for optional logging of errors
 BackstrapServer.js — Main Core file.  Runs initialization of all components.
+backstrapSql.js — Core file offering methods to create/parse queries of data managed by the ORM in sql-like syntax.
 base64.js — Core file base64 codec.  Does not handle header info, just pure base64 data.
 controller.js — Core file handling routing of Express requests to the correct controller file and method based on url
 dataAccess_ext.js — Extension file for dataAccess.js
-dataAccess.js — Core file for dealing with database reading/writing.
-Endpoints.json — Configuration file holding info on endpoints you have defined (non-system-generated endpoints)
+dataAccess.js — Core file for dealing with database reading/writing.  Some functions are for use with the onboard ORM, and others allow you to run arbitrary SQL commands.
+Endpoints_ext.json — Extension/Configuration file holding info on endpoints you have defined (non-system-generated endpoints)
 endpoints.js — Core file which manipulates and exposes the data in Endpoints_in.json/Endpoints.json to the rest of the system.
 Endpoints_in.json — Core/Configuration file with information on out-of-the-box endpoints
+entityMethods.js — Core file which can optionally be used to handle reading/writing using the ORM.
 ErrorObj.js — Core file definition of the general error class in Backstrap.
-expressSettings.js - Extension file with direct access to Express for adding .use() statements
-jwt.js - used for decoding jwts when using an identity service
 LICENSES.txt — Standard MIT license
-onInit.js - User-defined startup script
+models.js — Core file which manipulates and exposes the data in Models.json
+Models.json — Configuration file with info on data models defined using the onboard ORM
 package.json — NPM configuration file
-schemaControl.js — Core file for managing the tables in the Postgresql database.
+schema.js — Core file for managing the tables in the Postgresql database.
 Security.json — Configuration file for defining user roles and permissions
 serviceRegistration.js — Core file handling checks that a request is hitting a valid endpoint and that arguments are valid
 settings.js — Core file which manipulates and exposes the data in Settings.json
@@ -245,13 +212,13 @@ utilities_ext.js — Extension file for utilities.js
 utilities.js — Core file with general functions useful across all controllers
 ```
 
-Before starting up the server, you'll need to add some connection info for the database you want Backstrap to use.  In the `/dbconfig` directory, you'll see three files:
+Before starting up the server, you'll need to add some connection info for the database you want Backstrap to use.  In the `/config` directory, you'll see three files:
 
-- dbconfig.development.js
-- dbconfig.local.js
-- dbconfig.production.js
+- config.development.js
+- config.local.js
+- config.production.js
 
-They all have the same format, but depending on the environment variable NODE_ENV detected by the system, it will select the matching connection info.  This lets you change from your development server to your prod server by just restarting after changing your environment variables.  If NODE_ENV isn't found or doesn't match 'development', 'local', or 'production', the system will default to 'local' and use `dbconfig.local.js`.  Here is `dbconfig.local.js` as it comes out-of-the-box:
+They all have the same format, but depending on the environment variable NODE_ENV detected by the system, it will select the matching connection info.  This lets you change from your development server to your prod server by just restarting after changing your environment variables.  If NODE_ENV isn't found or doesn't match 'development', 'local', or 'production', the system will default to 'local' and use `config.local.js`.  Here is `config.local.js` as it comes out-of-the-box:
 ```
 module.exports = {
  db: {
@@ -260,10 +227,13 @@ module.exports = {
    pass: process.env.DB_PASS || '[YOUR DB PASSWORD HERE]',
    host: process.env.DB_HOST || 'localhost',
    port: process.env.DB_PORT || '5432'
+ },
+ s3: {
+   bucket: '[YOUR BUCKET HERE]'
  }
 };
 ```
-Fill in the required information the database you plan to use.  Don't worry about setting up any tables, as Backstrap will spool up everything it needs automatically to get going (assuming your postgres user permissions permit this).
+If you are running Backstrap Server locally, or on a single server instance (eg. one ec2 instance), you can leave s3.bucket alone.  Fill in the required information the database you plan to use.  Don't worry about setting up any tables, as Backstrap will spool up everything it needs automatically to get going (assuming your postgres user permissions permit this).  If you are running Backstrap Server on a horizontally scaled network of servers, s3.bucket must point to the s3 bucket where you plan to store the Configuration files to which all instances will need access (more on this later).
 
 Check your package.json file to make sure the npm start script will run `node BackstrapServer.js`.  And finally run `npm start` to launch the server.
 
@@ -281,11 +251,11 @@ Your project root should now look like this:
 /node_modules — Npm controlled directory with dependencies
 
 accessControl_ext.js — Extension file for accessControl.js
+backstrap_errors.txt —
 dataAccess_ext.js — Extension file for dataAccess.js
-Endpoints.json — Extension/Configuration file holding info on endpoints you have defined (non-system-generated endpoints)
-expressSettings.js - includes function to configure Express directly (rather than through config files)
+Endpoints_ext.json — Extension/Configuration file holding info on endpoints you have defined (non-system-generated endpoints)
 index.js — Core main file.  Just kicks off the BackstrapServer.js code.
-onInit.js - custom startup script
+Models.json — Configuration file with info on data models defined using the onboard ORM
 package.json — NPM configuration file
 Security.json — Configuration file for defining user roles and permissions
 Settings.json — Configuration file with general server settings such as session timeout and default port
@@ -299,11 +269,7 @@ Run `npm start` to launch the server.
 
 
 ## On First Launch:
-If Backstrap detects no users in the database, it assumes this is the initial launch and will automatically create a single user account with username `bsroot`.  This user has the role of `super-user` and can be used to bootstrap other admin/super-user accounts for you and your support team.  The password for this initial user is `abcd@1234`.
-
-__CHANGE THIS PASSWORD IMMEDIATELY AND DO NOT DELETE THAT USER IN THE FUTURE!__
-
-bsroot is a super-user capable of creating accounts with any permissions and those credentials should be treated with care. 
+If Backstrap detects no users in the database, it assumes this is the initial launch and will automatically create a single user account with username `bsroot`.  This user has the role of `super-user` and can be used to bootstrap other admin/super-user accounts for you and your support team.  If you use a browser to navigate to `http://[YOUR URL]:[YOUR PORT]` you will be presented with a form for assigning the `bsroot` user a password.  For example, if you are running Backstrap Server locally on the default port, the address you will hit is `http://localhost:3000`.  This is the only user that gets created in this way, all other users must either be entered inside the web console or by using the sign up endpoint.
 
 ## Create a New Endpoint/Controller
 As stated previously, the location and name of the controller file within the larger project is based on the endpoints it serves.  So let's make an endpoint for:
@@ -320,41 +286,42 @@ So in our case, that will be `newController_1_0_0.js`.  We now have a correctly 
 Now it's time to look at the format of Controller files.  Here is the skeleton for our controller file newController_1_0_0.js
 
 ```
-class NewController {
-  constructor(da, utils, ac, sr, st) {
-    this.dataAccess = da;
-    this.utilities = utils;
-    this.accessControl = ac;
-    this.serviceRegistration = sr;
-    this.settings = st;
+var dataAccess;
+var utilities;
+var accessControl;
+var serviceRegistration;
+var settings;
+var models;
 
-    this.get = {};
-    this.post = {
-      myMethod: this.#processMyMethod.bind(this)
-    };
-    this.patch = {};
-    this.put = {};
-    this.delete = {};
-  }
+var Q = require('q');
 
-  #processMyMethod(req) {
-    return new Promise((resolve, reject) => {
-      // do some async stuff
-      // and then resolve or reject
-      resolve({success: true});
-    });
-	}
-}
+var Controller = function(da, utils, ac, sr, st, m) {
+  dataAccess = da;
+  utilities = utils;
+  accessControl = ac;
+  serviceRegistration = sr;
+  settings = st;
+  models = m;
+};
 
-module.exports = NewController;
+Controller.prototype.get = {};
 
+Controller.prototype.post = {};
+
+Controller.prototype.put = {};
+
+Controller.prototype.patch = {};
+
+Controller.prototype.delete = {};
+
+exports.newController = Controller;
 ```
 
 So we instantiate a class with a constructor that allows Backstrap Server to inject some of it's files for use in all controllers.  We have already given a general idea of what dataAccess, utilities, and accessControl do.  The others you will see are serviceRegistration which provides access to metadata about the endpoint, settings which provides programmatic access to the general settings of the server from `Settings.json`, and models which likewise provides programmatic access to metadata on the defined models from the onboard ORM.  You certainly do not need to use all of these, but they will be passed into the constructor of controller files regardless.
 
-It does not matter what you name the class internally, but the file name must match the controller section of the endpoint.  
+It does not matter what you name the class internally, but the exports statement (the very last line) must match the controller file up to the version component.  For example, our controller file is called `newController_1_0_0.js`, so we MUST export the class as `newController`.  This match is case sensitive and your controller will not function if the match is not perfect.  Further, this means you MUST NOT use underscores in controller names.
 
-Now our controller is defined and set up, it's time to register our new endpoint with the system by manually editing the `Endpoints.json` file.  The web console approach should be fairly straightforward, but let's take a quick look at the `Endpoints.json` Configuration file.  When you first get setup, this file should contain an empty object {}.  Within this object you will add key/value pair for each area where the key is the name of the area and the value is an array of objects describing the various controllers in that area.  To get started, here's what we would enter for our area and controller:
+Now our controller is defined and set up, it's time to register our new endpoint with the system.  This can be accomplished in two ways.  You can log into the web console, navigate to `Endpoints` on the left, and click `Create Endpoint` on the subsequent screen.  This will give you a form that lets you enter the area name, controller name, version, argument names/types, and some descriptions for metadata.  Or you can manually edit the `Endpoints_ext.json` file (which is what the web console does under the hood).  The web console approach should be fairly straightforward, but let's take a quick look at the `Endpoints_ext.json` Configuration file.  When you first get setup, this file should contain an empty object {}.  Within this object you will add key/value pair for each area where the key is the name of the area and the value is an array of objects describing the various controllers in that area.  To get started, here's what we would enter for our area and controller:
 ```
 {
   "newArea": [
@@ -366,7 +333,7 @@ Now our controller is defined and set up, it's time to register our new endpoint
   ]
 }
 ```
-That defines our area and controller for the system, but we still need to add a definition for our new method that includes the http verb, method name, description, whether a user must be authenticated with an api token when making the request, and the argument names/types.  Let's say that our endpoint is a GET request with single, string argument called `id` which is required.  Our `Endpoints.json` file will be updated to:
+That defines our area and controller for the system, but we still need to add a definition for our new method that includes the http verb, method name, description, whether a user must be authenticated with an api token when making the request, and the argument names/types.  Let's say that our endpoint is a GET request with single, string argument called `id` which is required.  Our `Endpoints_ext.json` file will be updated to:
 ```
 {
   "newArea": [
@@ -393,44 +360,57 @@ That defines our area and controller for the system, but we still need to add a 
 ```
 With that, we have defined the method including it's arguments.  The system will now recognize GET /newArea/newController/newMethod/1.0.0 as a valid endpoint and will check for the existence of the required argument `id` as well as it's type to make sure it matches the definition.
 
-__NOTE__: The "isUserCreated" flag will be true for all endpoints defined in `Endpoints.json`.
+__NOTE__: The "isUserCreated" flag will be true for all endpoints defined in `Endpoints_ext.json`.
 
-We are now set to define the actual logic of our endpoint.  So back in `/newArea/newController_1_0_0.js` we can create the new method.
+We are now set to define the actual logic of our endpoint.  So back in `/newArea/newController_1_0_0.js` we can add a method.
 
 ```
-class NewController {
-  constructor(da, utils, ac, sr, st) {
-    this.dataAccess = da;
-    this.utilities = utils;
-    this.accessControl = ac;
-    this.serviceRegistration = sr;
-    this.settings = st;
+var dataAccess;
+var utilities;
+var accessControl;
+var serviceRegistration;
+var settings;
+var models;
 
-    this.get = {};
-    this.post = {
-      newMethod: this.#processNewMethod.bind(this)
-    };
-    this.patch = {};
-    this.put = {};
-    this.delete = {};
-  }
+var Q = require('q');
 
-  #processNewMethod(req) {
-    return new Promise((resolve, reject) => {
-      var idArg = req.query.id;
-      var successResponse = true;
-      var jsonResponseObj = {id: idArg};
-      if(successResponse) {
-            resolve(jsonResponseObj);
-      }
-      else {
-        reject(new ErrorObj(500, 'myErrorCode001', __filename, 'GET newMethod', 'internal error description', 'external error description', {}));
-      }
-    });
-	}
-}
+var Controller = function(da, utils, ac, sr, st, m) {
+  dataAccess = da;
+  utilities = utils;
+  accessControl = ac;
+  serviceRegistration = sr;
+  settings = st;
+  models = m;
+};
 
-module.exports = NewController;
+Controller.prototype.get = {
+  newMethod: function(req, callback) {
+        var deferred = Q.defer();
+    var idArg = req.query.id;
+
+    var successResponse = true;
+       var jsonResponseObj = {id: idArg};
+    if(successResponse) {
+          deferred.resolve(jsonResponseObj);
+    }
+    else {
+      deferred.reject(new ErrorObj(500, 'myErrorCode001', __filename, 'GET newMethod', 'internal error description', 'external error description', {}));
+    }
+
+        deferred.promise.nodeify(callback);
+        return deferred.promise;
+    }
+};
+
+Controller.prototype.post = {};
+
+Controller.prototype.put = {};
+
+Controller.prototype.patch = {};
+
+Controller.prototype.delete = {};
+
+exports.newController = Controller;
 ```
 
 Backstrap will look in the controller under the block defined by http verb.  Since our new method is a GET endpoint, we need to define the method as a kv-pair in that object (as above).  All endpoint controller methods include as input parameters the Express request and a callback (the framework was designed to handle both native callbacks and promises, but over time we have moved towards a promises-only structure).  Name the method the same as the method name from the endpoint url.  Ours is called `newMethod` from /newArea/newController/newMethod/1.0.0.
@@ -442,7 +422,7 @@ __NOTE__: For authenticated requests, Backstrap will append to the req input a p
 In the method defined above, we are simply responding with the id argument supplied in the request.  But you can also see how we would return an error:
 
 ```
-reject(new ErrorObj(500, 'myErrorCode001', __filename, 'GET newMethod', 'internal error description', 'external error description', {}));
+deferred.reject(new ErrorObj(500, 'myErrorCode001', __filename, 'GET newMethod', 'internal error description', 'external error description', {}));
 ```
 
 The ErrorObj includes an http status which the server will return as well as information about where the error originated and any messaging you wish to apply.  The last argument is meant to hold any other payload data you may want in an error response.  You can look through the Controller files in /common/ to get a sense of how to use the onboard error system.
@@ -765,6 +745,154 @@ exports.testService = testService;
 ```
 
 If setup correctly, your methods will be available in `dataAccess.MY_SERVICE_FILE.MY_FUNCTION()`.  Otherwise, initialization will fail.
+
+
+## Using the ORM
+Backstrap Server comes with an onboard ORM built for maximum flexibility.  You can define model with an arbitrary number of properties using types:
+- string — text
+- number — numeric
+- object — JSON
+- array — JSON
+- date — ISO formatted string
+- file — base64 with no header info
+- * — any type / no validation
+
+All models include by default a uuid called `id`, the model name called `object_type`, and a name field.  The framework will also handle adding and managing `created_at` and `updated_at` fields in the database.  We manage schema flexibility by storing ORM data as JSONB in the Postgres tables.  This means we can add and remove properties quickly and without hassle, but you must be mindful of schema changes as that can cause exceptions if you attempt to access a property which has been removed or hasn't yet been added.  If you read through dataAccess.js, you will see that the ORM makes heavy use of  Postgresql's JSONB operators such as containment `@> ` and json property to string `->>`.  You can find more information on Psql's handling of JSONB in the Postgresql docs (__https://www.postgresql.org/docs/9.4/static/functions-json.html__).
+
+A major advantage of using the ORM is that it automatically generates endpoints for each model you define so you that you can GET by any of the model's properties, POST new instances of the  model, PATCH the instances in the db, and DELETE them as well.  For Proof of Concept and smaller projects where data security restrictions can be looser or at the beginning of a project when all models haven't yet been finalized, this is an extremely fast way to get a REST server up and running.  For example, we can make a model called `car` and give it parameters such as color, make, and model.  The framework automatically creates the following endpoints
+
+- GET /common/models/car
+- POST /common/models/car
+- PATCH /common/models/car
+- DELETE /common/models/car
+
+GET includes arguments for each model parameter, so you could use endpoints like `GET /common/models/car?color=blue` to return all blue cars
+POST takes one argument for each property of the model and determines whether or not that property is required based on the info in `Models.json`
+PATCH takes the id of the object in question and any parameters to be updated or added.  For example, `PATCH /common/models/car` with body: `{make:'mazda', color:'black', model: '3'}`
+DELETE takes only the id of the object to be deleted
+
+Relationships can also be created between data models.  The framework will automatically create linking tables in the database to hold the relationship data.  For example, we may want a relationship between our `car` model and an `address` model.  That will cause a new linking table to be created (on restart) that will keep an indexed set of id-pairs linking the model instances.  You create/delete relationships using the dataAccess `addRelationship` and `removeRelationship` functions.  You can then use the dataAccess functions `join`, `joinOne`, `joinWhere`, etc to get the addresses related to a set of or specific car.
+
+Taking it a step further, you may want to name these relationships.  For example, a car may have a home address and a work address associated with it.  We can name our relationships when creating them with dataAccess.addRelationship(CAR_OBJ, ADDRESS_OBJ, 'home') or dataAccess.addRelationship(CAR_OBJ, ADDRESS_OBJ, 'work').  You can then use that relationship name when pulling data with dataAccess.join(CAR_OBJ, 'address', 'home').  That will return the set of address models which are related to CAR_OBJ labeled 'home'.
+
+`Models.json` file format:
+```
+{
+   "models": [
+       {
+           "obj_type": "car",
+           "description": "A car",
+           "date_created": "2018-10-15T00:00:00.000Z",
+           "date_updated": "2018-11-21T00:00:00.000Z",
+           "relationships": [
+               {
+                   "relates_to": "address",
+                   "plural_name": "addresses",
+                   "relates_from": "car",
+                   "plural_rev": "cars",
+                   "linking_table": "car_address",
+                   "is_active": true
+               }
+           ],
+           "properties": [
+               {
+                   "name": "id",
+                   "data_type": "string",
+                   "required": true,
+                   "hint": "This is a system generated field. It is a unique identifier for a record."
+               },
+               {
+                   "name": "name",
+                   "data_type": "string",
+                   "required": true,
+                   "hint": "a name for this car"
+               },
+               {
+                   "name": "make",
+                   "required": true,
+                   "hint": "",
+                   "data_type": "string"
+               },
+               {
+                   "name": "model",
+                   "required": true,
+                   "hint": "",
+                   "data_type": "string"
+               },
+               {
+                   "name": "color",
+                   "required": false,
+                   "hint": "primary paint color",
+                   "data_type": "string"
+               }
+           ],
+           "roles": [
+               "super-user"
+           ],
+           "updated_date": "2018-11-21"
+       },
+       {
+           "obj_type": "address",
+           "description": "an address",
+           "date_created": "2018-10-15T00:00:00.000Z",
+           "date_updated": "2018-11-06T00:00:00.000Z",
+           "relationships": [
+               {
+                   "relates_to": "car",
+                   "plural_name": "cars",
+                   "relates_from": "address",
+                   "plural_rev": "addresses",
+                   "linking_table": "car_address",
+                   "is_active": true
+               }
+           ],
+           "properties": [
+               {
+                   "name": "id",
+                   "data_type": "string",
+                   "required": true,
+                   "hint": "This is a system generated field. It is a unique identifier for a record."
+               },
+               {
+                   "name": "name",
+                   "data_type": "string",
+                   "required": true,
+                   "hint": ""
+               },
+               {
+                   "name": "street_address",
+                   "required": true,
+                   "hint": "",
+                   "data_type": "string"
+               },
+               {
+                   "name": "city",
+                   "required": true,
+                   "hint": "",
+                   "data_type": "string"
+               },
+               {
+                   "name": "state",
+                   "required": true,
+                   "hint": "",
+                   "data_type": "string"
+               },
+               {
+                   "name": "county",
+                   "required": false,
+                   "hint": "",
+                   "data_type": "string"
+               }
+           ],
+           "roles": [
+               "super-user"
+           ],
+           "updated_date": "2018-11-06"
+       }
+   ]
+}
+```
+This describes simple car and address models with a relationship between them.
 
 ---
 
