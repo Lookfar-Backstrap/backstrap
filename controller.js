@@ -13,7 +13,7 @@ class Controller {
   }
 
   async init(da, utils, ac, sr, st, e) {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
       this.dataAccess = da;
       this.utilities = utils;
       this.accessControl = ac;
