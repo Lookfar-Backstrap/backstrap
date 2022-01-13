@@ -337,8 +337,8 @@ class NewController {
     this.delete = {};
   }
 
-  #processMyMethod(req) {
-    return new Promise((resolve, reject) => {
+  async #processMyMethod(req) {
+    return new Promise(async (resolve, reject) => {
       // do some async stuff
       // and then resolve or reject
       resolve({success: true});
@@ -350,7 +350,7 @@ module.exports = NewController;
 
 ```
 
-So we instantiate a class with a constructor that allows Backstrap Server to inject some of it's files for use in all controllers.  We have already given a general idea of what dataAccess, utilities, and accessControl do.  The others you will see are serviceRegistration which provides access to metadata about the endpoint, settings which provides programmatic access to the general settings of the server from `Settings.json`, and models which likewise provides programmatic access to metadata on the defined models from the onboard ORM.  You certainly do not need to use all of these, but they will be passed into the constructor of controller files regardless.
+So we instantiate a class with a constructor that allows Backstrap Server to inject some of its files for use in all controllers.  We have already given a general idea of what dataAccess, utilities, and accessControl do.  The others you will see are serviceRegistration which provides access to metadata about the endpoint, and settings which provides programmatic access to the general settings of the server from `Settings.json`.  You certainly do not need to use all of these, but they will be passed into the constructor of controller files regardless.
 
 It does not matter what you name the class internally, but the file name must match the controller section of the endpoint.  
 
@@ -391,7 +391,7 @@ That defines our area and controller for the system, but we still need to add a 
   ]
 }
 ```
-With that, we have defined the method including it's arguments.  The system will now recognize GET /newArea/newController/newMethod/1.0.0 as a valid endpoint and will check for the existence of the required argument `id` as well as it's type to make sure it matches the definition.
+With that, we have defined the method including its arguments.  The system will now recognize GET /newArea/newController/newMethod/1.0.0 as a valid endpoint and will check for the existence of the required argument `id` as well as its type to make sure it matches the definition.
 
 __NOTE__: The "isUserCreated" flag will be true for all endpoints defined in `Endpoints.json`.
 
@@ -415,8 +415,8 @@ class NewController {
     this.delete = {};
   }
 
-  #processNewMethod(req) {
-    return new Promise((resolve, reject) => {
+  async #processNewMethod(req) {
+    return new Promise(async (resolve, reject) => {
       var idArg = req.query.id;
       var successResponse = true;
       var jsonResponseObj = {id: idArg};
@@ -424,7 +424,13 @@ class NewController {
             resolve(jsonResponseObj);
       }
       else {
-        reject(new ErrorObj(500, 'myErrorCode001', __filename, 'GET newMethod', 'internal error description', 'external error description', {}));
+        reject(new ErrorObj(500, 
+                            'myErrorCode001', 
+                            __filename, 
+                            'GET newMethod', 
+                            'internal error description', 
+                            'external error description', 
+                            {someKey: 'someVal'}));
       }
     });
 	}
@@ -433,21 +439,33 @@ class NewController {
 module.exports = NewController;
 ```
 
-Backstrap will look in the controller under the block defined by http verb.  Since our new method is a GET endpoint, we need to define the method as a kv-pair in that object (as above).  All endpoint controller methods include as input parameters the Express request and a callback (the framework was designed to handle both native callbacks and promises, but over time we have moved towards a promises-only structure).  Name the method the same as the method name from the endpoint url.  Ours is called `newMethod` from /newArea/newController/newMethod/1.0.0.
+Backstrap will look in the controller under the block defined by http verb.  Since our new method is a GET endpoint, we need to define the method as a kv-pair in that object (as above).  All endpoint controller methods include the Express request as input parameter.  Name the method the same as the method name from the endpoint url.  Ours is called `newMethod` from /newArea/newController/newMethod/1.0.0.
 We create a promise at the beginning, use denodeify with the callback specified on input, and return the promise at the end.  Since `req` is an Express request, you will find the arguments supplied in the request at req.query or req.body depending on the http verb used in the request.  Also, you can be sure of the existence and type-match of the argument `id` as that was checked by the framework before the request arrives at the controller.
+
+Upon resolve or reject of the promise in the method, Express will fire off the response to the request.
 
 __NOTE__: For authenticated requests, Backstrap will append to the req input a parameter named `this_user` which contains the basic account information on the user making the request.
 
 
+### Backstrap Error Object:
 In the method defined above, we are simply responding with the id argument supplied in the request.  But you can also see how we would return an error:
 
 ```
-reject(new ErrorObj(500, 'myErrorCode001', __filename, 'GET newMethod', 'internal error description', 'external error description', {}));
+reject(new ErrorObj(500, 
+                    'myErrorCode001', 
+                    __filename, 
+                    'GET newMethod', 
+                    'internal error description', 
+                    'external error description', 
+                    {someKey: 'someVal'}));
 ```
 
-The ErrorObj includes an http status which the server will return as well as information about where the error originated and any messaging you wish to apply.  The last argument is meant to hold any other payload data you may want in an error response.  You can look through the Controller files in /common/ to get a sense of how to use the onboard error system.
+The ErrorObj includes an http status which the server will return as well as information about where the error originated and any messaging you wish to apply.  The last argument is meant to hold any other payload data you may want in an error response.  Importantly, if you put a Backstrap ErrorObj in the payload section, the framework will automatically build a stack of functions called when the error was generated.  
 
-Upon resolve or reject of the promise in the method, Express will fire off the response to the request.
+Additional functions such as `updateError()` and `setMessage()` are available on the error object to control what is returned to the user.
+
+You can look through the Controller files in /common/ or read through /ErrorObj.js to get a sense of how to use the onboard error system.
+
 
 
 ### Versioning:
@@ -502,7 +520,18 @@ __NOTE__: You can leave out the version entirely from the URL when making a requ
 ---
 
 ## Security
-### Authenticated Requests
+### User Types, Sessions, & Authenticated Requests
+
+There are 3 user types in Backstrap.
+
+- `Native` users have a username and password.  Those users sign in with their credential and receive a token.  The name of the token is dependent on the property `token_header` in Settings.json.  By default, this is set to `"bs_api_token"`.  In subsequent calls to the API, the token should be included as a header with the same name.  So authenticated calls would include a header `bs_api_token: TOKEN RETURNED BY SIGN IN`.  All requests with that token are included in a single session in the system.
+
+- `API` users have an email, a client_id, and a client_secret.  This type of user leverages Basic Auth.  The token is computed by combining `client_id + ":" + client_secret`, encoding as base64 and prepending "Basic".  In pseudocode, it's `"Basic " + encodeAsBase64(client_id + ":" + client_secret)`.  This type of user includes the basic auth header in all request and lacks all session tracking (since there is no signing in or signing out).
+
+- `External` users rely on a 3rd party service (only Auth0 at the moment) to handle authentication.
+
+#HERE HERE HERE
+
 In Settings.json, you will find three fields related to authenticated requests.  They are `token_header`, `timeout_check`, and `timeout`.  By default, their values are:
 ```
 {
@@ -531,11 +560,6 @@ That explains how to make an authenticated requests, but you may not want all au
        {
            "name": "super-user",
            "title": "Super User",
-           "created_by": "backstrap",
-           "created_date": "8/16/2016",
-           "pattern_matches": [
-               "Area: common"
-           ],
            "description": "This is a super user. They can do everything!",
            "areas": [
                {
@@ -547,13 +571,6 @@ That explains how to make an authenticated requests, but you may not want all au
        {
            "name": "admin-user",
            "title": "Admin User",
-           "created_by": "backstrap",
-           "created_date": "9/10/2016",
-           "pattern_matches": [
-               "Area: common | Controller: accounts",
-               "Area: common | Controller: analytics",
-               "Area: common | Controller: cms"
-           ],
            "description": "This is an admin user. They can do some stuff!",
            "areas": [
                {
@@ -582,13 +599,6 @@ That explains how to make an authenticated requests, but you may not want all au
        {
            "name": "default-user",
            "title": "Default User",
-           "created_by": "backstrap",
-           "created_date": "8/14/2016",
-           "pattern_matches": [
-               "Area: common | Controller: accounts",
-               "Area: common | Controller: analytics",
-               "Area: common | Controller: cms"
-           ],
            "description": "This is a default user. They can do some stuff!",
            "areas": [
                {
@@ -616,7 +626,7 @@ That explains how to make an authenticated requests, but you may not want all au
    ]
 }
 ```
-As you can see, there is an object for each user role with a name, title, and description.  You can ignore the pattern_matches field as it is used by the web console to do some fuzzy matching.  The actual specification of permissions takes place in the "areas" array.  Each area to which a user role has some permissions should appear as an object with properties `name` and `permission`.  If you are granting permission to an entire area, you can just fill out the object like this:
+As you can see, there is an object for each user role with a name, title, and description.  The actual specification of permissions takes place in the "areas" array.  Each area to which a user role has some permissions should appear as an object with properties `name` and `permission`.  If you are granting permission to an entire area, you can just fill out the object like this:
 ```
 {
   "name": "newArea",
