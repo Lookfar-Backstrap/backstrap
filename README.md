@@ -528,11 +528,10 @@ There are 3 user types in Backstrap.
 
 - `API` users have an email, a client_id, and a client_secret.  This type of user leverages Basic Auth.  The token is computed by combining `client_id + ":" + client_secret`, encoding as base64 and prepending "Basic".  In pseudocode, it's `"Basic " + encodeAsBase64(client_id + ":" + client_secret)`.  This type of user includes the basic auth header in all request and lacks all session tracking (since there is no signing in or signing out).
 
-- `External` users rely on a 3rd party service (only Auth0 at the moment) to handle authentication.
+- `External` users rely on a 3rd party service (only Auth0 at the moment) to handle authentication.  The external service provdes a JWT to the user who can either swap that for a backstrap header token (if logical sessions are required), or include that JWT in subsequent calls.
 
-#HERE HERE HERE
-
-In Settings.json, you will find three fields related to authenticated requests.  They are `token_header`, `timeout_check`, and `timeout`.  By default, their values are:
+#### Sessions
+If you use backstrap header tokens to handle sessions there are a handful of properties in Settings.json of interest.  They are `token_header`, `timeout_check`, and `timeout`.  By default, their values are:
 ```
 {
   "token_header": "bs_api_token",
@@ -550,7 +549,7 @@ This tells the framework that API tokens for authenticated requests can be found
 ```
 And now the framework will expect that API tokens will be found in a header called `myProj_api_token`.
 
-You obtain that token by using the out-of-the-box endpoint /common/accounts/signIn/1.0.0 which if successful returns the token as a parameter of the response.
+You obtain that token by using the out-of-the-box endpoint /common/accounts/signIn/1.0.0 which if successful returns the token as a parameter of the response or through a custom endpoint that leverages AccessControl.signIn().
 
 ### Permissions
 That explains how to make an authenticated requests, but you may not want all authenticated users to have access to the same endpoints.  For example, you may have an endpoint designed for admins which retrieves information on any user in the system based on name.  You certainly do not want your standard users to have the ability to get private information about each other.  The framework handles this by using endpoint level permissions based on user role.  You can define a new user role (super-user, admin-user, and default-user are set up out-of-the-box), and then assign either whole areas, whole controllers, or specific methods from specific controllers in specific areas as valid endpoints for that role.  This is accomplished in the Security.json file.  Initially, the file looks like this:
@@ -670,73 +669,52 @@ If you are granting permissions to a specific method within a specific controlle
 
 ---
 
-## Using Extension Files
-As you saw in the explanation of Controller files, a number of dependencies are injected into controllers.  Probably the two most common of these are dataAccess and utilities.  These two classes contain the framework's functions for reading/writing in the db and those which we have found to be useful in all controllers.  But what if you want to add some functionality to one of these injected files for use in all of your controllers?  For example, if you choose not to use the ORM, you will want to add all of your functions for accessing your database in `dataAccess_ext.js`.  Let's say we have a function which executes some SQL statements on your data and returns the results (we'll call it myCustomSqlMethod()).  When a project is started, `dataAccess_ext.js` will look like this:
-```
-var Q = require('q');
-const { Pool } = require('pg')
-var pool;
-var dataAccess;
-var models;
+## Custom Injectables (Extensions Files, Data Services, & Utility Services)
+As you saw in the explanation of Controller files, a number of dependencies are injected into controllers.  BS3 offers a few options to add your own functions to these dependencies so you can use them in your controllers.  `dataAccess.js`, `utilities.js`, and `accessControl.js` are all injected into all controllers and are used as the vehicle to include your own code.  These three classes contain the framework's functions for reading/writing in the db, general functions useful in all controllers, and functions related to permissions.  
 
-var DataAccessExtension = function(da, dbConfig, mdls) {  
-  models = mdls;
-  dataAccess = da;  
-}
-
-
-module.exports = DataAccessExtension;
-```
-
-We put our new function in `dataAccess_ext.js` like this:
+#### Extension Files
+BS3 projects include `dataAccess_ext.js`, `utilities_ext.js`, and `accessControl_ext.js` in the user-editable files.  They are nearly identical, so we will looks only at `dataAccess_ext.js`.  When a project is started, `dataAccess_ext.js` will look like this:
 
 ```
-var Q = require('q');
-const { Pool } = require('pg')
-var pool;
-var dataAccess;
-var models;
+class DataAccessExtension {
+  constructor(da) {
+    this.dataAccess = da;
+  }
 
-var DataAccessExtension = function(da, dbConfig, mdls) {  
-  models = mdls;
-  dataAccess = da;  
-}
+// SAMPLE QUERY
+// async SomeQuery() {
+//  return new Promise(async (resolve, reject) => {
+// 	  var qry = "SELECT * FROM person WHERE person.id = $1";
+// 	  var qry_params = [1];
+//    try {
+// 	    let person_res = await this.dataAccess.ExecutePostgresQuery(qry, qry_params, null);
+// 		  // do something with person...
+//      resolve(person_res);
+//    }
+//    catch(err) {
+//      reject(err);
+//    }
+//  })
+// }
 
-DataAccessExtension.prototype.myCustomSqlMethod = (make, model, color) => {
- var deferred = Q.defer();
-
- var qry = "INSERT INTO car(make, model, color) VALUES($1, $2, $3)";
- var params = [make, model, color];
-
- dataAccess.runSql(qry, params)
- .then((res) => {
-     deferred.resolve(res);
-   })
-   .catch((err) => {
-     var errorObj = new ErrorObj(500,
-                                 'dae0001',
-                                 __filename,
-                                 'myCustomSqlMethod',
-                                 'there was a problem executing this insert',
-                                 'There was a problem creating this car object in the database',
-                                 err
-                               );
-     deferred.reject(errorObj);
-   });
-   return deferred.promise;
 }
 
 module.exports = DataAccessExtension;
 ```
+You can see from the sample query how this system works.  You add public functions to the class like 'SomeQuery()', and they will become available in your controllers at dataAccess.extension.YOUR_FUNCTION (eg. `dataAccess.extensions.SomeQuery()`).  The same is true for `utilites_ext.js` and `accessControl_ext.js`.  Functions defined in those files will be available in controllers at `utilities.extension.YOUR_FUNCTION()` and `accessControl.extension.YOUR_FUNCTION()`.
 
-In this way, you will be able to call from any controller `dataAccess.extension.myCustomSqlMethod('mazda', '3', 'black')`.  This is the exact same process for dataAccess_ext.js, accessControl_ext.js, and utilities_ext.js.  The functions you define in them will be available at dataAccess.extension, accessControl.extension, and utilities.extension in all controllers.
-
-
-## Using Data Services Directory
-To enable a services directory in your project, add the following line to your Settings.json file:
+#### Data Services & Utilities Directories
+To enable a data services directory in your project, add the following line to your Settings.json file:
 ```
-data_service_directory: ./path/to/directory
+data_service_directory: path/to/directory/from/project/root
 ```
+
+To enable a utilities directory in your project, add the following line to your Settings.json file:
+```
+utilities_directory: path/to/directory/from/project/root
+```
+
+HERE-------------------------_HERE
 
 On startup, Backstrap Server will attempt to instantiate each file in that directory, so it is important these files are named appropriately and contain a proper constructor.  Your service files should look like the following.
 

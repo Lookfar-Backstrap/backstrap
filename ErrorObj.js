@@ -16,6 +16,7 @@ ErrorObj = function (_status, _err_code, _class, _func, _message, _display_messa
 	else {
 		this.err_code = '';
 	}
+  stackObj['err_code'] = _err_code;
 
 	if(_class == null || typeof(_class) !== 'string') {
 		_class = 'unspecified';
@@ -48,7 +49,7 @@ ErrorObj = function (_status, _err_code, _class, _func, _message, _display_messa
 
 	if(_results != null) {
     if(typeof(_results.AddToError) === 'function') {
-      _results.stack_trace.push({'class': _class, 'function': _func, 'message': _message});
+      _results.stack_trace.push({'class': _class, 'function': _func, 'message': _message, 'err_code': _err_code});
       this.http_status = _results.http_status;
       this.err_code = _results.err_code;
       this.class = _results.class;
@@ -66,21 +67,24 @@ ErrorObj = function (_status, _err_code, _class, _func, _message, _display_messa
 	}
 };
 
-ErrorObj.prototype.AddToError = function(_class, _func, _message) {
-	if(_class === undefined || _class === null) {
+ErrorObj.prototype.AddToError = function(_class, _func, _message, _err_code) {
+	if(_class == null) {
 		_class = 'unspecified';
 	}
 	else {
 		_class = path.basename(_class);
 	}
-	if(_func === undefined || _func === null) {
+	if(_func == null) {
 		_func = 'unspecified';
 	}
-	if(_message === undefined || _message === null) {
+	if(_message == null) {
 		_message = '';
 	}
+  if(_err_code == null) {
+    _err_code = null;
+  }
 	
-	this.stack_trace.push({'class': _class, 'function': _func, 'message': _message});
+	this.stack_trace.push({'class': _class, 'function': _func, 'message': _message, 'err_code': _err_code});
 	return this;
 };
 
