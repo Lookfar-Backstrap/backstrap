@@ -423,11 +423,11 @@ Utilities.prototype.writeErrorToLog = function (errObj) {
 	return deferred.promise;
 };
 
-Utilities.prototype.sendMail = function (send_to, sbj, bdy, html_bdy, attachments, callback) {
+Utilities.prototype.sendMail = function (send_to, sbj, bdy, html_bdy, attachments, replyTo, inReplyTo, from, callback) {
 	var deferred = Q.defer();
 
 	var mailOptions = {
-		from: settings.data.mail_options.account,
+		from: from || settings.data.mail_options.account,
 		to: send_to,
 		subject: sbj
 	};
@@ -445,6 +445,14 @@ Utilities.prototype.sendMail = function (send_to, sbj, bdy, html_bdy, attachment
                                   'no content',
                                   'Attempt to send empty email.'));
     return deferred.promise.nodeify(callback);
+  }
+
+  if (replyTo) {
+    mailOptions.replyTo = replyTo;
+  }
+
+  if (inReplyTo) {
+    mailOptions.inReplyTo = inReplyTo;
   }
 
   if(attachments) {
