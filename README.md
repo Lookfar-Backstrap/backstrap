@@ -7,37 +7,36 @@
 - [On First Launch](#on-first-launch)
 - [Create a New Endpoint/Controller](#create-a-new-endpoint/controller)
 - [Security](#security)
-- [Using Extension Files](#using-extension-files)
-- [Using the ORM](#using-the-orm)
+- [Custom Injectables](#custom-injectables)
 - [Additional Features](#additional-features)
 ## Changes from BS Classic to BS3:
 BS3 (backstrap-server 3.0.0) represents a major breaking change from versions 1 & 2.  A conversion guide will be available at some point in the future.  The new version was built to be lighter, faster, and easier to maintain.  Here are the primary differences:
 
-#### Javascript Classes
+#### __Javascript Classes__
 Rather than relying on .prototype, BS3 uses true classes.  This means that your controller files will need to be formatted with this in mind.  See the example below or check out /node_modules/backstrap-server/common/analytics_1_0_0.js in your project to see a simple version.
 
-#### Async/Await
+#### __Async/Await__
 BS3 supports native promises (BS classic relied on Q).  This means you can use async/await or .then() syntax (or mix-and-match).
 
-#### Data & Utility Services
+#### __Data & Utility Services__
 BS Classic has data services, but BS3 allows you to define a directory for utility services and another for data services.  Specify the directory you will use for utility or data services in __Settings.json__ with the properties `data_service_directory` and `utilities_directory`, and BS3 will automatically load any files it finds there into the utilities or dataAccess modules making them available in your controller files as `dataAccess.my_service.some_function()` and `utilities.my_service.some_function()` respectively.
 
-#### onInit.js
+#### __onInit.js__
 We added a place to execute arbitrary code after BS3 has started up.  Anything your system may need to do on startup can be included here.
 
-#### expressSettings.js
+#### __expressSettings.js__
 BS3 is capable of modifying certain common settings in Express through use of __Settings.json__, but if you need finer-grained control, `app` is passed into this file/function so you can add `.use()` statements.
 
-#### Settings Syntax
+#### __Settings Syntax__
 In BS Classic, you accessed the properties of Settings.json by using `settings.data.MY_PROPERTY`.  This is now `settings.MY_PROPERTY` but you can no longer add arbitrary properties to that file.
 
-#### Endpoints_ext.json is now Endpoints.json
+#### __Endpoints_ext.json is now Endpoints.json__
 BS Classic used __Endpoints.json__ for internal endpoints made __Endpoints_ext.json__ available to the user.  BS3 give the user __Endpoints.json__ to modify and relegates internal endpoints to another file.
 
-#### config/ is now dbconfig/
+#### __config/ is now dbconfig/__
 The connection information for your db is stored in dbconfig files `dbconfig/dbconfig.local.js`, `dbconfig/dbconfig.development.js`, etc corresponding to your various environments.  Aside from the name change, the only difference is the removal of a "bucket" property which is no used in BS3. 
 
-#### DB Tables
+#### __DB Tables__
 The tables used by BS3 and the structure of these tables is a departure form BS Classic.  The new BS3 managed tables are:
 - __bs3_users__
 - __bs3_credentials__
@@ -48,7 +47,7 @@ The web console was removed entirely.  Instead,  modify the json files for __End
 Users should be added or modified using the built-in endpoints or through the functions in accessControl.js
 The initial user used to bootstrap other admin users(`bsroot`) is now assigned a generic password until you change it.  BS Classic relied on the web console to setup a password for this user.
 
-#### ORM Removed
+#### __ORM Removed__
 The ORM system relied heavily on JSONB fields in postgres which meant that table statistics were inaccurate and query times weren't optimal.  And given the limitations on the built-in database object access control system, most users were writing their accessors manually anyway.  So there is no __Models.json__ file and no /common/models endpoints in BS3.
 
 
@@ -445,7 +444,8 @@ We create a promise at the beginning, use denodeify with the callback specified 
 Upon resolve or reject of the promise in the method, Express will fire off the response to the request.
 
 __NOTE__: For authenticated requests, Backstrap will append to the req input a parameter named `this_user` which contains the basic account information on the user making the request.
-
+\
+&nbsp;
 
 ### Backstrap Error Object:
 In the method defined above, we are simply responding with the id argument supplied in the request.  But you can also see how we would return an error:
@@ -465,8 +465,8 @@ The ErrorObj includes an http status which the server will return as well as inf
 Additional functions such as `updateError()` and `setMessage()` are available on the error object to control what is returned to the user.
 
 You can look through the Controller files in /common/ or read through /ErrorObj.js to get a sense of how to use the onboard error system.
-
-
+\
+&nbsp;
 
 ### Versioning:
 In the previous example, we created the endpoint /newArea/newController/newMethod/1.0.0.  But let's say that has been deployed and we have a version of a mobile app using that endpoint.  We want our next version of the mobile app to use an updated version of our endpoint, but we need to keep the original version running as part of legacy support.  Backstrap Server supports versioning of controller files, so all we would need to do is create a new Controller file named `/newArea/newControler_1_0_1.js` and register a new controller and method in `Endpoints_ext.json`.  `Endpoints_ext.json` would now look like:
@@ -669,10 +669,12 @@ If you are granting permissions to a specific method within a specific controlle
 
 ---
 
-## Custom Injectables (Extensions Files, Data Services, & Utility Services)
+## Custom Injectables 
+### Extensions Files, Data Services, & Utility Services
 As you saw in the explanation of Controller files, a number of dependencies are injected into controllers.  BS3 offers a few options to add your own functions to these dependencies so you can use them in your controllers.  `dataAccess.js`, `utilities.js`, and `accessControl.js` are all injected into all controllers and are used as the vehicle to include your own code.  These three classes contain the framework's functions for reading/writing in the db, general functions useful in all controllers, and functions related to permissions.  
-
-#### Extension Files
+\
+&nbsp;
+### Extension Files
 BS3 projects include `dataAccess_ext.js`, `utilities_ext.js`, and `accessControl_ext.js` in the user-editable files.  They are nearly identical, so we will looks only at `dataAccess_ext.js`.  When a project is started, `dataAccess_ext.js` will look like this:
 
 ```
@@ -702,8 +704,9 @@ class DataAccessExtension {
 module.exports = DataAccessExtension;
 ```
 You can see from the sample query how this system works.  You add public functions to the class like 'SomeQuery()', and they will become available in your controllers at dataAccess.extension.YOUR_FUNCTION (eg. `dataAccess.extensions.SomeQuery()`).  The same is true for `utilites_ext.js` and `accessControl_ext.js`.  Functions defined in those files will be available in controllers at `utilities.extension.YOUR_FUNCTION()` and `accessControl.extension.YOUR_FUNCTION()`.
-
-#### Data Services & Utilities Directories
+\
+&nbsp;
+### Data Services & Utilities Directories
 To enable a data services directory in your project, add the following line to your Settings.json file:
 ```
 data_service_directory: path/to/directory/from/project/root
@@ -714,50 +717,64 @@ To enable a utilities directory in your project, add the following line to your 
 utilities_directory: path/to/directory/from/project/root
 ```
 
-HERE-------------------------_HERE
+On startup, Backstrap Server will attempt to instantiate each file in those directories and inject them into `dataAccess` or `utilities` respectively.  These files must be typical javascript classes as demonstrated below.
 
-On startup, Backstrap Server will attempt to instantiate each file in that directory, so it is important these files are named appropriately and contain a proper constructor.  Your service files should look like the following.
-
+Data Service
 ```
-var Q = require('q');
-var dataAccess;       // GLOBAL HANDLE TO dataAccess.js TO GET ACCESS TO MAIN DATA FUNCTIONS
-var utilities;        // HANDLE TO utilities.js 
+class myDataService {
+  constructor(da, u) {
+    this.dataAccess = da;
+    this.utilities = u;
+  }
 
-// THE CONSTRUCTOR INJECTS dataAccess & utilties.
-// ASSIGN THEM TO THE GLOBAL VARS ABOVE
-var testService = function(da, util) {
-  dataAccess = da;
-  utilities = util;
+  async someFunction(someArg) {
+    return new Promise(async (resolve, reject) => {
+      try {
+        // ... do something
+      }
+      catch(err) {
+        // ... failed.  reject promise
+      }
+    })
+  }
+  
 }
-
-// ADD TO THE PROTOTYPE WITH YOUR MODEL-SPECIFIC FUNCTIONS.
-// THEY WILL BE AVAILABLE IN YOUR CONTROLLERS AT dataAccess.MY_FILE_NAME.MY_FUNCTION_NAME,
-// IN THIS CASE dataAccess.testService.test()
-testService.prototype.test = () => {
-  var deferred = Q.defer();
-
-  dataAccess.runSql('SELECT * FROM bsuser', [])
-  .then((res) => {
-    deferred.resolve(res);
-  })
-  .catch((err) => {
-    deferred.reject(err);
-  });
-
-  return deferred.promise;
-}
-
-// EXPORTS PROPERTY MUST MATCH FILE NAME EXACTLY
-// INCLUDING CAPITALIZATION
-exports.testService = testService;
+module.exports = myDataService;
 ```
 
-If setup correctly, your methods will be available in `dataAccess.MY_SERVICE_FILE.MY_FUNCTION()`.  Otherwise, initialization will fail.
+If setup correctly, your method will be accessible with `dataAccess.myDataService.someFunction()`.
+
+
+Utility Service
+```
+class myUtility {
+  constructor(u) {
+    this.utilities = u;
+    this.dataAccess = u.dataAccess;
+  }
+
+  async someFunction(someArg) {
+    return new Promise(async (resolve, reject) => {
+      try {
+        // ... do something
+      }
+      catch(err) {
+        // ... failed.  reject promise
+      }
+    });
+  }
+}
+module.exports = myUtility;
+```
+
+Again, if setup correctly, your method will be accessible with `utilities.myUtility.someFunction()`.
+
+__NOTE__: The constructors for data services & utilities take slightly different arguments.
 
 ---
 
 ## Additional Features:
-Backstrap Server also includes some other features to make development simpler.  For example, you can use the mail settings in Settings.json, the mail methods in utilities.js, and the text and html templates in /templates to generate all sorts of system emails.  These include variable replacement so you can include user-specific information in your system emails.  It relies on the npm package node-mailer and has integrations with a number of popular email services.  It has been tested extensively with SendGrid.
+Backstrap Server includes some other features to make development simpler.  For example, you can use the mail settings in Settings.json, the mail methods in utilities.js, and the text and html templates in /templates to generate all sorts of system emails.  These include variable replacement so you can include user-specific information in your system emails.  It relies on the npm package node-mailer and has integrations with a number of popular email services.  It has been tested extensively with SendGrid.
 
 We will be updating this section of the readme with other additional features.  Check back with us to see this new documentation.
 
