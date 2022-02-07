@@ -281,10 +281,10 @@ class Utilities {
     });
   }
 
-  async sendMail(send_to, sbj, bdy, html_bdy) {
+  async sendMail(send_to, sbj, bdy, html_bdy, attachments, replyTo, inReplyTo, from) {
     return new Promise((resolve, reject) => {
       var mailOptions = {
-        from: this.settings.mail_options.account,
+        from: from || this.settings.mail_options.account,
         to: send_to,
         subject: sbj
       };
@@ -299,6 +299,14 @@ class Utilities {
                             'Attempt to send empty email.'));
         return;
       }
+
+      if (replyTo) {
+        mailOptions.replyTo = replyTo;
+      }
+    
+      if (inReplyTo) {
+        mailOptions.inReplyTo = inReplyTo;
+      }    
     
       if(attachments) {
         if(Array.isArray(attachments)) {
@@ -328,7 +336,7 @@ class Utilities {
     });
   }
 
-  async sendMailTemplate(send_to, sbj, template_name, args, attachments) {
+  async sendMailTemplate(send_to, sbj, template_name, args, attachments, replyTo, inReplyTo, from) {
     return new Promise((resolve, reject) => {
       if (template_name === undefined || template_name === null) {
         template_name = 'default';
@@ -370,12 +378,20 @@ class Utilities {
                 htmlBody = this.#replaceTemplateValues(html_data, args);
     
                 var mailOptions = {
-                  from: this.settings.mail_options.account,
+                  from: from || this.settings.mail_options.account,
                   to: send_to,
                   subject: sbj,
                   text: txtBody,
                   html: htmlBody
                 };
+
+                if (replyTo) {
+                  mailOptions.replyTo = replyTo;
+                }
+              
+                if (inReplyTo) {
+                  mailOptions.inReplyTo = inReplyTo;
+                }  
 
                 // ADD ATTACHMENT IF NECESSARY
                 if(attachments) {
@@ -437,11 +453,19 @@ class Utilities {
           if (!txt_err) {
             txtBody = this.#replaceTemplateValues(txt_data, args);
             var mailOptions = {
-              from: this.settings.mail_options.account,
+              from: from || this.settings.mail_options.account,
               to: send_to,
               subject: sbj,
               text: txtBody
             };
+
+            if (replyTo) {
+              mailOptions.replyTo = replyTo;
+            }
+          
+            if (inReplyTo) {
+              mailOptions.inReplyTo = inReplyTo;
+            }  
 
             // ADD ATTACHMENT IF NECESSARY
             if(attachments) {
@@ -489,11 +513,19 @@ class Utilities {
           if (!html_err) {
             htmlBody = this.#replaceTemplateValues(html_data, args);
             var mailOptions = {
-              from: this.settings.mail_options.account,
+              from: from || this.settings.mail_options.account,
               to: send_to,
               subject: sbj,
               html: htmlBody
             };
+
+            if (replyTo) {
+              mailOptions.replyTo = replyTo;
+            }
+          
+            if (inReplyTo) {
+              mailOptions.inReplyTo = inReplyTo;
+            }  
 
             // ADD ATTACHMENT IF NECESSARY
             if(attachments) {
@@ -554,7 +586,7 @@ class Utilities {
   #replaceTemplateValues(template, args) {
     var updatedTemplate = template;
     for(var key in args){
-      updatedTemplate = updatedTemplate.replace('{{' + key + '}}', args[key]);
+      updatedTemplate = updatedTemplate.replace(new RegExp('{{' + key + '}}', 'g'), args[key]);
     }
     return updatedTemplate;
   }
