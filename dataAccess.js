@@ -40,9 +40,9 @@ class DataAccess {
     // IF THERE IS A SERVICES DIRECTORY SPECIFIED IN Settings.json
     // RUN THROUGH IT AND INSTANTIATE EACH SERVICE FILE
     let serviceDir = this.settings.data_service_directory;
-    serviceDir.replace(/^\.\//, '');
-    serviceDir.replace(/^\//, '');
     if(serviceDir != null) {
+      serviceDir.replace(/^\.\//, '');
+      serviceDir.replace(/^\//, '');
       let services = fs.readdirSync(serviceDir);
       services.forEach((serviceFile) => {
         // DON'T OVERWRITE dataAccess.extension

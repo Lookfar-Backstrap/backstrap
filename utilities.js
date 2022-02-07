@@ -77,9 +77,10 @@ class Utilities {
     // IF THERE IS A UTILITIES DIRECTORY SPECIFIED IN Settings.json
     // RUN THROUGH IT AND INSTANTIATE EACH SERVICE FILE
     let utilsDir = this.settings.utilities_directory;
-    utilsDir.replace(/^\.\//, '');
-    utilsDir.replace(/^\//, '');
+    
     if(utilsDir != null) {
+      utilsDir.replace(/^\.\//, '');
+      utilsDir.replace(/^\//, '');
       let utils = fs.readdirSync(utilsDir);
       utils.forEach((utilFile) => {
         // DON'T OVERWRITE utilities.extension
