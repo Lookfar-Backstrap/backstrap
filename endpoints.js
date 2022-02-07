@@ -1,5 +1,7 @@
 const util = require('util');
 const fs = require('fs');
+const path = require('path');
+const rootDir = path.dirname(require.main.filename);
 
 class Endpoints {
   #file = null;
@@ -14,11 +16,13 @@ class Endpoints {
 
   init(s) {
      this.settings = s;
-     this.#extensionFile = this.#file.replace('_in', '');
+     this.#extensionFile = this.#file.replace(/^\.\//, '').replace('_in', '');
 
      try {
+      // INTERNAL ENDPOINTS JSON IS INCLUDED IN THE PACKAGE
       if(this.#file.substring(0,2) !== './') this.#file = './'+this.#file;
-      if(this.#extensionFile.substring(0,2) !== './') this.#extensionFile = './'+this.#extensionFile;
+      // USER-DEFINED ENDPOINT JSON IS IN THE PROJECT ROOT
+      this.#extensionFile = `${rootDir}/${this.#extensionFile}`;
       this.areas = require(this.#file);
   
       // FOR EACH CUSTOM ENDPOINT SPECIFIED IN USER DEFINED ENDPOINTS FILE

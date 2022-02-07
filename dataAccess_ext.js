@@ -5,17 +5,17 @@ class DataAccessExtension {
 
 //SAMPLE QUERY
 // SomeQuery() {
-//  return new Promise((resolve, reject) => {
+//  return new Promise(async (resolve, reject) => {
 // 	  var qry = "SELECT * FROM person WHERE person.id = $1";
 // 	  var qry_params = [1];
-// 	  this.dataAccess.ExecutePostgresQuery(qry, qry_params, null)
-// 	  .then((person_res) => {
+//    try {
+// 	    let person_res = await this.dataAccess.ExecutePostgresQuery(qry, qry_params, null);
 // 		  //do something with person
 //      resolve(person_res);
-// 	  })
-//    .catch((err) => {
+//    }
+//    catch(err) {
 //      reject(err);
-//    })
+//    }
 //  })
 // }
 }

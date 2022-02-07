@@ -3,6 +3,7 @@
 // ===============================================================================
 const util = require('util');
 const path = require('path');
+const rootDir = path.dirname(require.main.filename);
 const fs = require('fs');
 
 var nodemailer = require('nodemailer');
@@ -11,7 +12,15 @@ const nodemailerSendgrid = require('nodemailer-sendgrid');
 
 const crypto = require('crypto');
 
-var UtilitiesExtension = require('./utilities_ext.js');
+var UtilitiesExtension;
+try {
+  UtilitiesExtension = require(`${rootDir}/utilities_ext.js`);
+}
+catch(e) {
+  console.error('INITIALIZATION ERROR -- utilities_ext.js');
+  throw(e);
+}
+
 
 class Utilities {
   constructor() {
@@ -68,14 +77,17 @@ class Utilities {
     // IF THERE IS A UTILITIES DIRECTORY SPECIFIED IN Settings.json
     // RUN THROUGH IT AND INSTANTIATE EACH SERVICE FILE
     let utilsDir = this.settings.utilities_directory;
+    
     if(utilsDir != null) {
+      utilsDir.replace(/^\.\//, '');
+      utilsDir.replace(/^\//, '');
       let utils = fs.readdirSync(utilsDir);
       utils.forEach((utilFile) => {
         // DON'T OVERWRITE utilities.extension
         if(utilFile.toLowerCase() !== 'extension') {
           let fileNoExt = utilFile.replace('.js', '');
           try {
-            let Util = require(utilsDir+'/'+utilFile);
+            let Util = require(`${rootDir}/${utilsDir}/${utilFile}`);
             this[fileNoExt] = new Util(this);
           }
           catch(e) {
@@ -278,6 +290,24 @@ class Utilities {
       };
       if(bdy) mailOptions.text = bdy;
       if(html_bdy) mailOptions.html = html_bdy;
+      if(html_bdy == null && bdy == null) {
+        reject(new ErrorObj(500,
+                            'u0100',
+                            __filename,
+                            'sendMail',
+                            'no content',
+                            'Attempt to send empty email.'));
+        return;
+      }
+    
+      if(attachments) {
+        if(Array.isArray(attachments)) {
+          mailOptions.attachments = attachments;
+        }
+        else if(typeof(attachments) === 'object') {
+          mailOptions.attachments = [attachments];
+        }
+      }
     
       this.mailTransport.sendMail(mailOptions, function (email_err, email_res) {
         if (!email_err) {
@@ -298,7 +328,7 @@ class Utilities {
     });
   }
 
-  async sendMailTemplate(send_to, sbj, template_name, args) {
+  async sendMailTemplate(send_to, sbj, template_name, args, attachments) {
     return new Promise((resolve, reject) => {
       if (template_name === undefined || template_name === null) {
         template_name = 'default';
@@ -346,6 +376,17 @@ class Utilities {
                   text: txtBody,
                   html: htmlBody
                 };
+
+                // ADD ATTACHMENT IF NECESSARY
+                if(attachments) {
+                  if(Array.isArray(attachments)) {
+                    mailOptions.attachments = attachments;
+                  }
+                  else if(typeof(attachments) === 'object') {
+                    mailOptions.attachments = [attachments];
+                  }
+                }
+        
                 this.mailTransport.sendMail(mailOptions, function (email_err, email_res) {
                   if (!email_err) {
                     resolve(email_res);
@@ -401,6 +442,17 @@ class Utilities {
               subject: sbj,
               text: txtBody
             };
+
+            // ADD ATTACHMENT IF NECESSARY
+            if(attachments) {
+              if(Array.isArray(attachments)) {
+                mailOptions.attachments = attachments;
+              }
+              else if(typeof(attachments) === 'object') {
+                mailOptions.attachments = [attachments];
+              }
+            }
+
             this.mailTransport.sendMail(mailOptions, function (email_err, email_res) {
               if (!email_err) {
                 resolve(email_res);
@@ -442,6 +494,17 @@ class Utilities {
               subject: sbj,
               html: htmlBody
             };
+
+            // ADD ATTACHMENT IF NECESSARY
+            if(attachments) {
+              if(Array.isArray(attachments)) {
+                mailOptions.attachments = attachments;
+              }
+              else if(typeof(attachments) === 'object') {
+                mailOptions.attachments = [attachments];
+              }
+            }
+            
             this.mailTransport.sendMail(mailOptions, function (email_err, email_res) {
               if (!email_err) {
                 resolve(email_res);

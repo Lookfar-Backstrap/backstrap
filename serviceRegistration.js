@@ -4,9 +4,8 @@
 // Service Registration handles loading, processing, and validation
 // of endpoints and arguments.  Works in tandem with endpoints.js
 // ==================================================================
-var moment = require('moment');
-var base64 = require('./base64.js');
-const { localeData } = require('moment');
+const moment = require('moment');
+const base64 = require('./base64.js');
 
 class ServiceRegistration {
   constructor() {
@@ -17,7 +16,7 @@ class ServiceRegistration {
     this.endpoints = e;
   }
 
-  registerServiceCall(call, area, controller, verb, version, args, authRequired, description, callback) {
+  registerServiceCall(call, area, controller, verb, version, args, authRequired, description) {
     return new Promise((resolve, reject) => {
       // -------------------------------------------------------------------
       // VALIDATE THAT WE HAVE ALL THE INFO NECESSARY TO CREATE AN ENDPOINT
@@ -182,7 +181,7 @@ class ServiceRegistration {
     });
   }
 
-  updateServiceCall(call, area, controller, verb, version, args, authRequired, description, callback) {
+  updateServiceCall(call, area, controller, verb, version, args, authRequired, description) {
     return new Promise((resolve, reject) => {
       this.serviceCallExists(call, area, controller, verb, version)
       .then(() => {
@@ -267,7 +266,7 @@ class ServiceRegistration {
     });
   }
 
-  deleteServiceCall(call, area, controller, verb, version, callback) {
+  deleteServiceCall(call, area, controller, verb, version) {
     return new Promise((resolve, reject) => {
       this.serviceCallExists(call, area, controller, verb, version)
       .then(() => {
@@ -345,7 +344,7 @@ class ServiceRegistration {
     });
   }
 
-  getServiceCall(call, area, controller, verb, version, callback) {
+  getServiceCall(call, area, controller, verb, version) {
     return new Promise((resolve, reject) => {
       var serviceCallObj = {
         'object_type':'webServiceCallDescriptor'
@@ -473,7 +472,7 @@ class ServiceRegistration {
     });
   }
 
-  serviceCallExists(call, area, controller, verb, version, callback) {
+  serviceCallExists(call, area, controller, verb, version) {
     return new Promise((resolve, reject) => {
       this.getServiceCall(call, area, controller, verb, version)
       .then((sc_res) => {
@@ -498,7 +497,7 @@ class ServiceRegistration {
     });
   }
 
-  validateArguments(call, area, controller, verb, version, inputArgs, callback) {
+  validateArguments(call, area, controller, verb, version, inputArgs) {
     return new Promise((resolve, reject) => {
       this.getServiceCall(call, area, controller, verb, version)
       .then((get_res) => {
@@ -656,7 +655,7 @@ class ServiceRegistration {
     });
   }
 
-  getAllServiceCalls(callback) {
+  getAllServiceCalls() {
     var serviceCalls = [];
   
     var areaNames = Object.keys(this.endpoints.areas);

@@ -1,15 +1,17 @@
 const util = require('util');
-var fs = require('fs');
+const fs = require('fs');
+const path = require('path');
+const rootDir = path.dirname(require.main.filename);
 
 class Settings {
   constructor() {
     this.port = 3000;
-    this.load("./Settings.json");
+    this.load(`${rootDir}/Settings.json`);
   }
 
   load(file) {
     try {
-      if(file.substring(0,2) !== './') file = './'+file;
+      if(file.indexOf(rootDir) !== 0) file = `${rootDir}/${file}`;
       let data = require(file);
       this.port = process.env.PORT || data.server_port;
       this.api_name = null;

@@ -1,9 +1,19 @@
 const util = require('util');
-var fs = require('fs');
-var crypto = require('crypto');
+const fs = require('fs');
+const crypto = require('crypto');
+const path = require('path');
+const rootDir = path.dirname(require.main.filename);
 
 const jwt = require('./jwt.js');
-var AccessControlExtension = require('./accessControl_ext.js');
+
+var AccessControlExtension;
+try {
+  AccessControlExtension = require(`${rootDir}/accessControl_ext.js`);
+}
+catch(e) {
+  console.error('INITIALIZATION ERROR -- accessControl_ext.js');
+  throw(e);
+}
 
 const permissions = {
 	some: 'some',
@@ -29,7 +39,7 @@ class AccessControl {
       this.extension = new AccessControlExtension(this);
       this.file = f;
       try {
-        if(this.file.substring(0,2) !== './') this.file = './'+this.file;
+        if(this.file.indexOf(rootDir) !== 0) this.file = `${rootDir}/${this.file}`;
         let fileData = require(this.file);
         this.roles = fileData['roles'];
 

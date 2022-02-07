@@ -1,3 +1,6 @@
+const path = require('path');
+const rootDir = path.dirname(require.main.filename);
+
 class Controller {
   constructor() {
     this.dataAccess = null;
@@ -10,7 +13,7 @@ class Controller {
   }
 
   async init(da, utils, ac, sr, st, e) {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
       this.dataAccess = da;
       this.utilities = utils;
       this.accessControl = ac;
@@ -38,7 +41,16 @@ class Controller {
             console.warn('DUPLICATE CONTROLLER DEFINITION');
           }
 
-          let filePath = `./${areaName}/${controllerName}_${controllerVersion.replace(/\./g, '_')}.js`;
+          let filePath;
+          if(areaName != null && areaName.toLowerCase() === 'common') {
+            // COMMON AREA IS INCLUDED IN THE PACKAGE
+            filePath = `./common/${controllerName}_${controllerVersion.replace(/\./g, '_')}.js`;
+          }
+          else {
+            // CUSTOM ENDPOINTS WILL BE IN THE PROJECT ROOT
+            filePath = `${rootDir}/${areaName}/${controllerName}_${controllerVersion.replace(/\./g, '_')}.js`;
+          }
+          
           let thisController = null;
           try {
             thisController = require(filePath);

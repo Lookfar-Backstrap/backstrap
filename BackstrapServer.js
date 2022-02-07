@@ -4,12 +4,13 @@
 // ---------------------------------
 // IMPORT MODULES
 // ---------------------------------
-var http = require('http');		// We'll create our server with the http module
-var express = require('express');	// Import express to handle routing and server details
-var cors = require('cors');		// Setup CORS
-var path = require('path');			// Import path to control our folder structure
-var bodyParser = require('body-parser');
-var fs = require('fs');
+const http = require('http');		// We'll create our server with the http module
+const express = require('express');	// Import express to handle routing and server details
+const cors = require('cors');		// Setup CORS
+const path = require('path');			// Import path to control our folder structure
+const rootDir = path.dirname(require.main.filename);
+const bodyParser = require('body-parser');
+const fs = require('fs');
 
 console.log('==================================================');
 console.log('INITIALIZATION');
@@ -39,7 +40,7 @@ app.use(cors());
 // PASS THE HANDLE TO THE EXPRESS APP INTO
 // express_init.js SO THE USER CAN ADD EXPRESS MODULES
 try {
-  require('./expressSettings').init(app);
+  require(`${rootDir}/expressSettings`).init(app);
 }
 catch(expressInitErr) {
   if(expressInitErr && expressInitErr.code === 'MODULE_NOT_FOUND') {
@@ -58,9 +59,17 @@ if(process.env.DEBUG_MODE != null && (process.env.DEBUG_MODE === true || process
 
 
 //Config File, contains DB params
+var config;
 var nodeEnv = process.env.NODE_ENV || 'local';
-var configFile = './dbconfig/dbconfig.' + nodeEnv + '.js';
-var config = require(configFile);
+var configFile = `${rootDir}/dbconfig/dbconfig.${nodeEnv}.js`;
+try {
+  config = require(configFile);
+}
+catch(e) {
+  console.error('INITIALIZATION ERROR -- dbconfig');
+  console.error(e);
+  throw {message: 'problem loading database config file', error: e};
+}
 
 var errorLog;
 var sessionLog;
@@ -106,7 +115,7 @@ AccessControl.init(Utilities, Settings, DataAccess, 'Security.json')
   
   // EVERYTHING IS INITIALIZED.  RUN ANY INITIALIZATION CODE
   try {
-    require('./onInit').run(DataAccess, Utilities, AccessControl, ServiceRegistration, Settings);
+    require(`${rootDir}/onInit`).run(DataAccess, Utilities, AccessControl, ServiceRegistration, Settings);
   }
   catch(onInitErr) {
     if(onInitErr && onInitErr.code === 'MODULE_NOT_FOUND') {
@@ -481,6 +490,7 @@ function changeErrorLogs() {
   var monthString = monthNum < 10 ? '0'+monthNum : monthNum;
   var dateString = today.getDate() < 10 ? '0'+today.getDate() : today.getDate();
   let todayString = monthString+'-'+dateString+'-'+today.getFullYear();
+  // THESE PATHS ARE USED WITH fs WHICH USES THE PROJECT ROOT AS PWD
   let errorLogPath = './logs/error-'+todayString;
   let accessLogPath = './logs/access-'+todayString;
   let sessionLogPath = './logs/session-'+todayString;
