@@ -1,45 +1,56 @@
-/*jshint expr: true, es5: true, unused:false */
-
 // ==================================================================================
 // SETUP
 // ==================================================================================
 // ---------------------------------
 // IMPORT MODULES
 // ---------------------------------
-var http = require('http');		// We'll create our server with the http module
-var express = require('express');	// Import express to handle routing and server details
-var cors = require('cors');		// Setup CORS
-var path = require('path');			// Import path to control our folder structure
-var bodyParser = require('body-parser');
-var Q = require('q');
-var fs = require('fs');
-var async = require('async');
+const http = require('http');		// We'll create our server with the http module
+const express = require('express');	// Import express to handle routing and server details
+const cors = require('cors');		// Setup CORS
+const path = require('path');			// Import path to control our folder structure
+const rootDir = path.dirname(require.main.filename);
+const bodyParser = require('body-parser');
+const fs = require('fs');
 
+console.log('==================================================');
+console.log('INITIALIZATION');
+console.log('==================================================');
 
 require('./ErrorObj');
 
-var Settings = require('./settings').Settings;
-var Endpoints = require('./endpoints').Endpoints;
-var DataAccess = require('./dataAccess').DataAccess;
-var ServiceRegistration = require('./serviceRegistration').ServiceRegistration;
-var Controller = require('./controller').Controller;		// GETS THE CORRECT WEB SERVICE FILE AND ROUTES CALLS
-var Utilities = require('./utilities').Utilities;
-var AccessControl = require('./accessControl').AccessControl;
-var Models = require('./models.js').Models;
-var schemaControl = require('./schema.js');
+var Settings = require('./settings');
+var Endpoints = require('./endpoints');
+var DataAccess = require('./dataAccess');
+var ServiceRegistration = require('./serviceRegistration');
+var Controller = require('./controller');		// GETS THE CORRECT WEB SERVICE FILE AND ROUTES CALLS
+var Utilities = require('./utilities');
+var AccessControl =  require('./accessControl');
+var SchemaControl = require('./schemaControl.js');
 
 // ---------------------------------
 // SETUP EXPRESS
 // ---------------------------------
 var app = express();
-app.set('views', path.join(__dirname, 'views'));	// MAP views TO FOLDER STRUCTURE
-app.set('view engine', 'jade');						// USE JADE FOR TEMPLATING
 
 const requestSizeLimit = (process.env.MAX_REQUEST_SIZE && !isNaN(process.env.MAX_REQUEST_SIZE) && Number(process.env.MAX_REQUEST_SIZE > 0)) ? process.env.MAX_REQUEST_SIZE+'mb' : '50mb';
 app.use(bodyParser.json({ limit: requestSizeLimit }));		// THIS IS A HIGH DEFAULT LIMIT SINCE BACKSTRAP ALLOWS BASE64 ENCODED FILE UPLOAD
 app.use(bodyParser.urlencoded({ extended: true }));			// DETERMINE IF THIS IS HTML OR JSON REQUEST
-app.use(express.static(path.join(__dirname, 'public')));	// MAP STATIC PAGE CALLS TO public FOLDER
 app.use(cors());
+
+// PASS THE HANDLE TO THE EXPRESS APP INTO
+// express_init.js SO THE USER CAN ADD EXPRESS MODULES
+try {
+  require(`${rootDir}/expressSettings`).init(app);
+}
+catch(expressInitErr) {
+  if(expressInitErr && expressInitErr.code === 'MODULE_NOT_FOUND') {
+    console.log('Express settings script skipped -- no file found');
+  }
+  else {
+    console.error(expressInitErr);
+  }
+}
+
 
 if(process.env.DEBUG_MODE != null && (process.env.DEBUG_MODE === true || process.env.DEBUG_MODE.toString().toLowerCase() === 'true')) {
   process.on('warning', e => console.warn(e.stack));       // USEFUL IN DEBUGGING
@@ -47,201 +58,175 @@ if(process.env.DEBUG_MODE != null && (process.env.DEBUG_MODE === true || process
 }
 
 
-//Settings File, contains DB params
+//Config File, contains DB params
+var config;
 var nodeEnv = process.env.NODE_ENV || 'local';
-var configFile = './config/config.' + nodeEnv + '.js';
-var config = require(configFile);
-
-var rsString = process.env.BS_REMOTE || 'false';
-rsString = rsString.toLowerCase();
-var useRemoteSettings = rsString == 'true' ? true : false;
-
-var connectionString =
-	'postgres://' + config.db.user + ':' + config.db.pass + '@' + config.db.host + ':' + config.db.port + '/' + config.db.name;  // DATABASE
-
-console.log('==================================================');
-console.log('INITIALIZATION');
-console.log('==================================================');
-
-var models;
-var endpoints;
-var dataAccess;
-var serviceRegistration;
-var utilities;
-var accessControl;
-var mainController;
+var configFile = `${rootDir}/dbconfig/dbconfig.${nodeEnv}.js`;
+try {
+  config = require(configFile);
+}
+catch(e) {
+  console.error('INITIALIZATION ERROR -- dbconfig');
+  console.error(e);
+  throw {message: 'problem loading database config file', error: e};
+}
 
 var errorLog;
 var sessionLog;
 var accessLog;
 var eventLog;
 
-var settings = new Settings();
-settings.init(config.s3.bucket, 'Settings.json', useRemoteSettings)
-	.then(function (settings_res) {
-		console.log('Settings initialized');
-		utilities = new Utilities(settings);
-		console.log('Utilities initialized');
-		models = new Models(settings);
-		return models.init(config.s3.bucket, 'Models.json', useRemoteSettings);
-	})
-	.then(function (endpoints_res) {
-		console.log('Models initialized');
-		endpoints = new Endpoints(settings);
-		return endpoints.init(config.s3.bucket, 'Endpoints.json', useRemoteSettings);
-	})
-	.then(function (model_res) {
-		console.log('Endpoints initialized');
+console.log('Settings initialized');
+Utilities.init(Settings);
+console.log('Utilities initialized');
+Endpoints.init(Settings);
+console.log('Endpoints initialized');
+DataAccess.init(config, Utilities, Settings);
+console.log('DataAccess initialized');
+//NOW SET THE DATA ACCESS VAR IN UTILITIES
+Utilities.setDataAccess(DataAccess);
+ServiceRegistration.init(Endpoints);
+console.log('ServiceRegistration initialized');
+AccessControl.init(Utilities, Settings, DataAccess, 'Security.json')
+.then((aclRes) => {
+  console.log('AccessControl initialized');
+  return Controller.init(DataAccess, Utilities, AccessControl, ServiceRegistration, Settings, Endpoints);
+})
+.then((cInit) => {
+  console.log('Controller initialized');
+  SchemaControl.init(DataAccess, AccessControl)
+  return SchemaControl.update(config.db.name, config.db.user, config.db.pass, config.db.host, config.db.port)
+})
+.then((schemaUpd) => {
+  // CREATE A LOG DIRECTORY IF NEEDED
+  // DO IT SYNCHRONOUSLY WHICH IS ALRIGHT SINCE THIS IS JUST ONCE
+  // DURING STARTUP
+  if(!fs.existsSync('./logs')) fs.mkdirSync('./logs');
+  
+  changeErrorLogs();
+  Utilities.setLogs(eventLog, errorLog, sessionLog);
+  console.log('Log files opened');
 
-		dataAccess = new DataAccess(config, models.data.models, utilities, settings);
-		console.log('DataAccess initialized');
-		//NOW SET THE DATA ACCESS VAR IN UTILITIES
-		utilities.setDataAccess(dataAccess);
-		serviceRegistration = new ServiceRegistration(dataAccess, endpoints, models, utilities);
-		console.log('ServiceRegistration initialized');
-		accessControl = new AccessControl(utilities, settings, dataAccess);
-		return accessControl.init(config.s3.bucket, 'Security.json', useRemoteSettings);
-	})
-	.then(function (acl_res) {
-		console.log('AccessControl initialized');
-		mainController = new Controller(dataAccess, utilities, accessControl, serviceRegistration, settings, models, endpoints.data);
-		console.log('Controller initialized');
-		// GENERATE ENDPOINTS FROM MODELS
-		return endpoints.generateFromModels(models.data.models, false);
-	})
-	.then(function (ge_res) {
-		console.log('Models generated');
-		// CREATE ANY NEW DB TABLES BASED ON MODELS
-		return schemaControl.updateSchema(models, config.db.name, config.db.user, config.db.pass, config.db.host, config.db.port, utilities)
-	})
-	.then(function (us_Res) {
-    console.log('Schema updated');
-    
-    // CREATE A LOG DIRECTORY IF NEEDED
-    // DO IT SYNCHRONOUSLY WHICH IS ALRIGHT SINCE THIS IS JUST ONCE
-    // DURING STARTUP
-    if(!fs.existsSync('./logs')) fs.mkdirSync('./logs');
-    
-    changeErrorLogs();
-    utilities.setLogs(eventLog, errorLog, sessionLog);
-    console.log('Log files opened');
+  // SERVER PORT
+  app.set('port', process.env.PORT || Settings.port);
 
-		// SERVER PORT
-		app.set('port', process.env.PORT || settings.data.server_port);
+  // STARTUP THE SESSION INVALIDATION -- CHECK EVERY X MINUTES
+  var invalidSessionTimer = setInterval(() => { checkForInvalidSessions(DataAccess, Settings) }, Settings.timeout_check * 60000);
+  
+  // EVERYTHING IS INITIALIZED.  RUN ANY INITIALIZATION CODE
+  try {
+    require(`${rootDir}/onInit`).run(DataAccess, Utilities, AccessControl, ServiceRegistration, Settings);
+  }
+  catch(onInitErr) {
+    if(onInitErr && onInitErr.code === 'MODULE_NOT_FOUND') {
+      console.log('Initialization script skipped -- no file found');
+    }
+    else {
+      console.error(onInitErr);
+    }
+  }
+  
+  // ========================================================
+  // SETUP ROUTE HANDLERS
+  // ========================================================
+  // ---------------------------------------------------------------------------------
+  // GETS
+  // ---------------------------------------------------------------------------------
+  app.get('/:area/:controller/:serviceCall/:version?', function (req, res) {
+    requestPipeline(req, res, 'GET');
+  });
+  app.get('/:area/:controller?', function (req, res) {
+    requestPipeline(req, res, 'GET');
+  });
+  // ---------------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------------
 
-		// STARTUP THE SESSION INVALIDATION -- CHECK EVERY X MINUTES
-		var timeoutInMintues = settings.data.timeout;
-    var invalidSessionTimer = setInterval(function () { checkForInvalidSessions(dataAccess, settings) }, settings.data.timeout_check * 60000);
-    
-    
-		// ========================================================
-		// SETUP ROUTE HANDLERS
-		// ========================================================
-		// ---------------------------------------------------------------------------------
-		// GETS
-		// ---------------------------------------------------------------------------------
-		app.get('/:area/:controller/:serviceCall/:version?', function (req, res) {
-			requestPipeline(req, res, 'GET');
-    });
-    app.get('/:area/:controller?', function (req, res) {
-			requestPipeline(req, res, 'GET');
-		});
-		// ---------------------------------------------------------------------------------
-		// ---------------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------------
+  // POSTS
+  // ---------------------------------------------------------------------------------
+  app.post('/:area/:controller/:serviceCall/:version?', function (req, res) {
+    requestPipeline(req, res, 'POST');
+  });
+  app.post('/:area/:controller?', function (req, res) {
+    requestPipeline(req, res, 'POST');
+  });
+  // ---------------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------------
+  // PUTS
+  // ---------------------------------------------------------------------------------
+  app.put('/:area/:controller/:serviceCall/:version?', function (req, res) {
+    requestPipeline(req, res, 'PUT');
+  });
+  app.put('/:area/:controller?', function (req, res) {
+    requestPipeline(req, res, 'PUT');
+  });
+  // ---------------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------------
+  // PATCH
+  // ---------------------------------------------------------------------------------
+  app.patch('/:area/:controller/:serviceCall/:version?', function (req, res) {
+    requestPipeline(req, res, 'PATCH');
+  });
+  app.patch('/:area/:controller?', function (req, res) {
+    requestPipeline(req, res, 'PATCH');
+  });
+  // ---------------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------------
+  // DELETES
+  // ---------------------------------------------------------------------------------
+  app.delete('/:area/:controller/:serviceCall/:version?', function (req, res) {
+    requestPipeline(req, res, 'DELETE');
+  });
+  app.delete('/:area/:controller?', function (req, res) {
+    requestPipeline(req, res, 'DELETE');
+  });
+  // ---------------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------------
 
-		// ---------------------------------------------------------------------------------
-		// POSTS
-		// ---------------------------------------------------------------------------------
-		app.post('/:area/:controller/:serviceCall/:version?', function (req, res) {
-			requestPipeline(req, res, 'POST');
-    });
-    app.post('/:area/:controller?', function (req, res) {
-			requestPipeline(req, res, 'POST');
-		});
-		// ---------------------------------------------------------------------------------
-		// ---------------------------------------------------------------------------------
-		// ---------------------------------------------------------------------------------
-		// PUTS
-		// ---------------------------------------------------------------------------------
-		app.put('/:area/:controller/:serviceCall/:version?', function (req, res) {
-			requestPipeline(req, res, 'PUT');
-    });
-    app.put('/:area/:controller?', function (req, res) {
-			requestPipeline(req, res, 'PUT');
-		});
-		// ---------------------------------------------------------------------------------
-		// ---------------------------------------------------------------------------------
-		// ---------------------------------------------------------------------------------
-		// PATCH
-		// ---------------------------------------------------------------------------------
-		app.patch('/:area/:controller/:serviceCall/:version?', function (req, res) {
-			requestPipeline(req, res, 'PATCH');
-    });
-    app.patch('/:area/:controller?', function (req, res) {
-			requestPipeline(req, res, 'PATCH');
-		});
-		// ---------------------------------------------------------------------------------
-		// ---------------------------------------------------------------------------------
-		// ---------------------------------------------------------------------------------
-		// DELETES
-		// ---------------------------------------------------------------------------------
-		app.delete('/:area/:controller/:serviceCall/:version?', function (req, res) {
-			requestPipeline(req, res, 'DELETE');
-    });
-    app.delete('/:area/:controller?', function (req, res) {
-			requestPipeline(req, res, 'DELETE');
-		});
-		// ---------------------------------------------------------------------------------
-		// ---------------------------------------------------------------------------------
+  app.get('*', function (req, res) {
+    res.status(404).send({ 'Error': 'Route/File Not Found' });
+  });
 
-		app.get('*', function (req, res) {
-			res.status(404).send({ 'Error': 'Route/File Not Found' });
-		});
+  app.use((err, req, res, next) => {
+    if (req.xhr) {
+      if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+        console.error('Bad JSON');
+        res.status(400).send({ 'message': 'json body malformed' });
+      }
+      else {
+        res.status(500).send({ 'message': 'unknown error' });
+      }
+    }
+    else {
+      next(err);
+    }
+  });
 
-		app.use(function (err, req, res, next) {
-			if (req.xhr) {
-				if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
-					console.error('Bad JSON');
-					res.status(400).send({ 'message': 'json body malformed' });
-				}
-				else {
-					res.status(500).send({ 'message': 'unknown error' });
-				}
-			}
-			else {
-				next(err);
-			}
-		});
-
-		// -----------------------------------
-		// LAUNCH THE SERVER
-		// -----------------------------------
-		const server = http.createServer(app).listen(app.get('port'), function () {
-			console.log('----------------------------------------------');
-			console.log('----------------------------------------------');
-			console.log('Express server listening on port ' + app.get('port'));
-			console.log('');
-
-			if (useRemoteSettings) {
-				settings.registerIp()
-				.then(function (res) {
-					console.log('Running in distributed mode');
-				})
-				.fail(function (err) {
-					console.error('Problem registering ip');
-				});
-			}
-    });
-    
-    if(settings.data.server_timeout != null) server.timeout = parseInt(settings.data.server_timeout);
-    if(settings.data.keep_alive_timeout != null) server.keepAliveTimeout = parseInt(settings.data.keep_alive_timeout);
-    if(settings.data.headers_timeout != null) server.headersTimeout = parseInt(settings.data.headers_timeout);
-	})
-	.fail(function (err) {
-		console.log('Initialization Failure');
-		console.log(err);
-		return 2;
-	});
+  // -----------------------------------
+  // LAUNCH THE SERVER
+  // -----------------------------------
+  const server = http.Server(app).listen(app.get('port'), function () {
+    console.log('\n');
+    console.log('==============================================');
+    console.log('**************** BACKSTRAP 3 *****************')
+    console.log('==============================================');
+    console.log('Express server listening on port ' + app.get('port'));
+    console.log(new Date().toISOString());
+    console.log('');
+  });
+  
+  if(Settings.server_timeout != null) server.timeout = parseInt(Settings.server_timeout);
+  if(Settings.keep_alive_timeout != null) server.keepAliveTimeout = parseInt(Settings.keep_alive_timeout);
+  if(Settings.headers_timeout != null) server.headersTimeout = parseInt(Settings.headers_timeout);
+})
+.catch((err) => {
+  console.log('Initialization Failure');
+  console.log(err);
+  return 2;
+});
 
 
 // ================================================
@@ -253,8 +238,8 @@ function requestPipeline(req, res, verb) {
   var controller = params.controller;
   var serviceCall
   if(!params.serviceCall) {
-    if(settings.data.index_service_call != null) {
-      serviceCall = settings.data.index_service_call;
+    if(Settings.index_service_call != null) {
+      serviceCall = Settings.index_service_call;
     }
     else {
       serviceCall = "index";
@@ -265,14 +250,14 @@ function requestPipeline(req, res, verb) {
   }
   
   var args;
-  if(verb.toLowerCase() === 'get') {
+   if(verb.toLowerCase() === 'get') {
     args = req.query;
   }
   else if(verb.toLowerCase() === 'delete') {
     // CHECK THE BODY FIRST, IF THERE IS NO BODY OR THE BODY IS EMPTY
     // CHECK THE QUERY STRING.
     args = req.body;
-    if (utilities.isNullOrUndefinedOrZeroLength(args)) {
+    if (args == null || args.length === 0) {
       args = {};
     }
     var argKeys = Object.keys(args);
@@ -288,7 +273,7 @@ function requestPipeline(req, res, verb) {
   var version = params.version;
 
   var accessLogEvent;
-  if(settings.data.access_logging === true) {
+  if(Settings.access_logging === true) {
     var endpointString = area+'/'+controller+'/'+serviceCall+'/'+version;
     var ips = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
     accessLogEvent = {
@@ -299,17 +284,17 @@ function requestPipeline(req, res, verb) {
     };
   }
 
-  serviceRegistration.serviceCallExists(serviceCall, area, controller, verb, version)
-  .then(function (sc) {
+  ServiceRegistration.serviceCallExists(serviceCall, area, controller, verb, version)
+  .then((sc) => {
     let continueWhenInvalid = false;
     if (!sc.authRequired) {
       continueWhenInvalid = true;
     }
 
     // IF THERE IS A BACKSTRAP STYLE AUTH HEADER OR NEITHER A BACKSTRAP AUTH HEADER NOR BASIC/BEARER AUTH HEADER 
-    if(req.headers[settings.data.token_header] != null || 
-        (req.headers[settings.data.token_header] == null && req.headers['authorization'] == null)) {
-      return [sc, accessControl.validateToken(req.headers[settings.data.token_header], continueWhenInvalid)];
+    if(req.headers[Settings.token_header] != null || 
+        (req.headers[Settings.token_header] == null && req.headers['authorization'] == null)) {
+      return Promise.all([sc, AccessControl.validateToken(req.headers[Settings.token_header], continueWhenInvalid)]);
     }
     // OTHERWISE THIS IS BASIC OR BEARER AUTH
     // BASIC AUTH IS BACKSTRAP NATIVE API USERS
@@ -317,138 +302,160 @@ function requestPipeline(req, res, verb) {
     else {
       [authType] = req.headers['authorization'].split(' ');
       if(authType.toLowerCase() === 'basic') {
-        return [sc, accessControl.validateBasicAuth(req.headers['authorization'], continueWhenInvalid)];
+        return Promise.all([sc, AccessControl.validateBasicAuth(req.headers['authorization'], continueWhenInvalid)]);
       }
       else if(authType.toLowerCase() === 'bearer') {
-        return [sc, accessControl.validateJwt(req.headers['authorization'], continueWhenInvalid)];
+        return Promise.all([sc, AccessControl.validateJwt(req.headers['authorization'], continueWhenInvalid)]);
       }
       else {
         if(continueWhenInvalid) {
-          return [sc, Q({is_valid: false})];
+          return Promise.all([sc, Promise.resolve({is_valid: false})]);
         }
         else {
-          return [sc, Q.reject(new ErrorObj(403,
+          return Promise.all([sc, Promise.reject(new ErrorObj(403,
                                             'bs0001',
                                             __filename,
                                             'requestPipeline',
                                             'bad auth type',
                                             'Unauthorized',
-                                           null))];
+                                           null))]);
         }
       }
     }
   })
-  .spread(function(sc, validTokenResponse) {
-    var inner_deferred = Q.defer();
-    
-    if(validTokenResponse.is_valid === true) {
+  .then(([sc, validTokenResponse]) => {
+    let inner_promise = new Promise((resolve, reject) => {
+      if(validTokenResponse.is_valid === true) {
 
-      // SEE IF THIS IS BACKSTRAP STYLE AUTH OR BASIC/BEARER AUTH
-      if(validTokenResponse.hasOwnProperty('session')) {
-        if(settings.data.access_logging === true) accessLogEvent.session_id = validTokenResponse.session.id;
-
-        dataAccess.joinOne({object_type:'session', id:validTokenResponse.session.id}, 'bsuser')
-        .then(function(usr) {
-          inner_deferred.resolve(usr);
-        })
-        .fail(function(usr_err) {
-          if(sc.authRequired) {
-            var errorObj = new ErrorObj(403,
-                                        'bs0002',
-                                        __filename,
-                                        'requestPipeline',
-                                        'unauthorized',
-                                        'Unauthorized',
-                                        null);
-            inner_deferred.reject(errorObj);
-          }
-          else {
-            inner_deferred.resolve(null);
-          }
-        });
-      }
-      else if(validTokenResponse.hasOwnProperty('user')) {
-        inner_deferred.resolve(validTokenResponse.user);
+        // SEE IF THIS IS BACKSTRAP STYLE AUTH OR BASIC/BEARER AUTH
+        if(validTokenResponse.hasOwnProperty('session')) {
+          if(Settings.access_logging === true) accessLogEvent.session_id = validTokenResponse.session.id;
+  
+          DataAccess.getUserBySession(validTokenResponse.session.id)
+          .then((usr) => {
+            resolve(usr);
+          })
+          .catch((usr_err) => {
+            if(sc.authRequired) {
+              let errorObj = new ErrorObj(403,
+                                          'bs0002',
+                                          __filename,
+                                          'requestPipeline',
+                                          'unauthorized',
+                                          'Unauthorized',
+                                          null);
+              reject(errorObj);
+            }
+            else {
+              resolve(null);
+            }
+          });
+        }
+        else if(validTokenResponse.hasOwnProperty('user')) {
+          resolve(validTokenResponse.user);
+        }
+        else {
+          if(Settings.access_logging === true) accessLogEvent.client_id = validTokenResponse.client_id;
+  
+          DataAccess.getUserByClientId(validTokenResponse.client_id, false)
+          .then((usr) => {
+            resolve(usr);
+          })
+          .catch((usr_err) => {
+            if(sc.authRequired) {
+              let errorObj = new ErrorObj(403,
+                                          'bs0003',
+                                          __filename,
+                                          'requestPipeline',
+                                          'unauthorized',
+                                          'Unauthorized',
+                                          null);
+              reject(errorObj);
+            }
+            else {
+              resolve(null);
+            }
+          });
+        }
       }
       else {
-        if(settings.data.access_logging === true) accessLogEvent.client_id = validTokenResponse.client_id;
-
-        dataAccess.findOne('bsuser', {client_id: validTokenResponse.client_id})
-        .then(function(usr) {
-          inner_deferred.resolve(usr);
-        })
-        .fail(function(usr_err) {
-          if(sc.authRequired) {
-            var errorObj = new ErrorObj(403,
-                                        'bs0003',
-                                        __filename,
-                                        'requestPipeline',
-                                        'unauthorized',
-                                        'Unauthorized',
-                                        null);
-            inner_deferred.reject(errorObj);
-          }
-          else {
-            inner_deferred.resolve(null);
-          }
-        });
+        resolve(null);
       }
-    }
-    else {
-      inner_deferred.resolve(null);
-    }
+    });
 
-    return [sc, validTokenResponse, inner_deferred.promise];
+    return Promise.all([sc, validTokenResponse, inner_promise]);
   })
-  .spread(function (sc, validTokenResponse, userOrNull) {
+  .then(([sc, validTokenResponse, userOrNull]) => {
     //PUT THE USER OBJECT ON THE REQUEST
     if(userOrNull !== null) {
       req.this_user = userOrNull;
     }
     if (sc.authRequired) {
-      return [sc, validTokenResponse, accessControl.verifyAccess(req, sc)];
+      return Promise.all([sc, validTokenResponse, AccessControl.verifyAccess(req, sc)]);
     }
     else {
       return [sc, validTokenResponse];
     }
   })
-  .spread(function (sc, validTokenResponse) {
-    return [sc, validTokenResponse, serviceRegistration.validateArguments(serviceCall, area, controller, verb, version, args)];
+  .then(([sc, validTokenResponse]) => {
+    return Promise.all([sc, validTokenResponse, ServiceRegistration.validateArguments(serviceCall, area, controller, verb, version, args)]);
   })
-  .spread(function (sc, validTokenResponse) {
-    return [validTokenResponse, mainController.resolveServiceCall(sc, req)];
-  })
-  .spread(function (validTokenResponse, results) {
-    if(validTokenResponse.session != null) {
-      let session = validTokenResponse.session;
-      session.last_touch = new Date().toISOString();
-      dataAccess.saveEntity('session', session);
-    }
-
-    // IF ACCESS LOGGING IS ENABLED.  ADD THE END TIMESTAMP
-    // AND RESPONSE STATUS NUM TO THE ACCESS LOG EVENT AND
-    // WRITE IT TO THE LOG
-    if(settings.data.access_logging === true) {
-      accessLogEvent.end_timestamp = new Date().toISOString();
-      accessLogEvent.http_status = 200;
-      let logEntry = JSON.stringify(accessLogEvent)+'\n';
-      accessLog.write(logEntry);
-    }
-
-    if(results && results.express_download === true){
-      if(results.download_name){
-        res.status(200).download(results.download_path, results.download_name);
+  .then(async ([sc, validTokenResponse]) => {
+    try {
+      let results = await Controller.resolveServiceCall(sc, req);
+      if(validTokenResponse.session != null) {
+        DataAccess.UpdateLastTouch(validTokenResponse.session.id);
+      }
+  
+      // IF ACCESS LOGGING IS ENABLED.  ADD THE END TIMESTAMP
+      // AND RESPONSE STATUS NUM TO THE ACCESS LOG EVENT AND
+      // WRITE IT TO THE LOG
+      if(Settings.access_logging === true) {
+        accessLogEvent.end_timestamp = new Date().toISOString();
+        accessLogEvent.http_status = 200;
+        let logEntry = JSON.stringify(accessLogEvent)+'\n';
+        accessLog.write(logEntry);
+      }
+  
+      if(results && results.express_download === true){
+        if(results.download_name){
+          res.status(200).download(results.download_path, results.download_name);
+        }
+        else {
+          res.status(200).download(results.download_path);
+        }
       }
       else {
-        res.status(200).download(results.download_path);
+        res.status(200).send(results);
       }
     }
-    else {
-      res.status(200).send(results);
+    catch(err) {
+      if (err.http_status == null) {
+        err.http_status = 500;
+      }
+  
+      if (err.message == null || err.message.length === 0) {
+        err['message'] = 'Something went wrong and we are working to fix it. Please try again later.'
+      }
+  
+      // IF ACCESS LOGGING IS ENABLED.  ADD THE END TIMESTAMP
+      // AND RESPONSE STATUS NUM TO THE ACCESS LOG EVENT AND
+      // WRITE IT TO THE LOG
+      if(Settings.access_logging === true) {
+        accessLogEvent.end_timestamp = new Date().toISOString();
+        accessLogEvent.http_status = err.http_status;
+        let logEntry = JSON.stringify(accessLogEvent)+'\n';
+        accessLog.write(logEntry);
+      }
+  
+      let errorLogEntry = JSON.stringify(err) + '\n';
+      errorLog.write(errorLogEntry);
+  
+      res.status(err.http_status).send(err);
     }
-    
+
   })
-  .fail(function (err) {
+  .catch((err) => {
     if (err.http_status == null) {
       err.http_status = 500;
     }
@@ -460,7 +467,7 @@ function requestPipeline(req, res, verb) {
     // IF ACCESS LOGGING IS ENABLED.  ADD THE END TIMESTAMP
     // AND RESPONSE STATUS NUM TO THE ACCESS LOG EVENT AND
     // WRITE IT TO THE LOG
-    if(settings.data.access_logging === true) {
+    if(Settings.access_logging === true) {
       accessLogEvent.end_timestamp = new Date().toISOString();
       accessLogEvent.http_status = err.http_status;
       let logEntry = JSON.stringify(accessLogEvent)+'\n';
@@ -483,6 +490,7 @@ function changeErrorLogs() {
   var monthString = monthNum < 10 ? '0'+monthNum : monthNum;
   var dateString = today.getDate() < 10 ? '0'+today.getDate() : today.getDate();
   let todayString = monthString+'-'+dateString+'-'+today.getFullYear();
+  // THESE PATHS ARE USED WITH fs WHICH USES THE PROJECT ROOT AS PWD
   let errorLogPath = './logs/error-'+todayString;
   let accessLogPath = './logs/access-'+todayString;
   let sessionLogPath = './logs/session-'+todayString;
@@ -492,10 +500,10 @@ function changeErrorLogs() {
   var newErrorLog = fs.createWriteStream(errorLogPath, {flags:'a'});
   var newEventLog = fs.createWriteStream(eventLogPath, {flags:'a'});
   var newAccessLog = null;
-  if(settings.data.access_logging === true)
+  if(Settings.access_logging === true)
     newAccessLog = fs.createWriteStream(accessLogPath, {flags:'a'});
   var newSessionLog = null;
-  if(settings.data.session_logging === true)
+  if(Settings.session_logging === true)
     newSessionLog = fs.createWriteStream(sessionLogPath, {flags:'a'});
 
 
@@ -505,7 +513,7 @@ function changeErrorLogs() {
   if(eventLog != null) eventLog.end();
   eventLog = newEventLog;
 
-  if(settings.data.access_logging === true) {
+  if(Settings.access_logging === true) {
     if(accessLog != null) accessLog.end();
     accessLog = newAccessLog;
   }
@@ -513,7 +521,7 @@ function changeErrorLogs() {
     accessLog = null;
   }
 
-  if(settings.data.session_logging === true) {
+  if(Settings.session_logging === true) {
     if(sessionLog != null) sessionLog.end();
     sessionLog = newSessionLog;
   }
@@ -524,7 +532,7 @@ function changeErrorLogs() {
 
   // DELETE LOGS OLDER THAN today - log_rotation_period
   var evictionDate = new Date();
-  evictionDate.setDate(evictionDate.getDate()-settings.data.log_rotation_period);
+  evictionDate.setDate(evictionDate.getDate()-Settings.log_rotation_period);
   evictionDate.setHours(0,0,0,0);
   fs.readdir('./logs/', (err, files) => {
     if(!err) {
@@ -594,46 +602,48 @@ function printObject(obj) {
 // ----------------------------------------
 // CHECK FOR SESSIONS WHICH HAVE TIMED OUT
 // ----------------------------------------
-function checkForInvalidSessions(dataAccess, settings, callback) {
-	var deferred = Q.defer();
-	//THIS RETURNS STALE SESSIONS
-	dataAccess.GetDeadSessions(settings.data.timeout)
-	.then(function (deadSessions) {
-    var dsIds = [];
-    // IF LOGGING SESSIONS, WRITE OUT THE DEAD SESSIONS TO
-    // THE SESSION LOG
-    for(var sIdx = 0; sIdx < deadSessions.length; sIdx++) {
-      let dsid = "'"+deadSessions[sIdx].rid+"'";
-      dsIds.push(dsid);
-      
-      if(settings.data.session_logging === true) {
-        let dsObj = {
-          session_id: deadSessions[sIdx].data.id,
-          token: deadSessions[sIdx].data.token,
-          user_id: deadSessions[sIdx].data.user_id,
-          started_at: deadSessions[sIdx].data.started_at,
-          ended_at: new Date()
+function checkForInvalidSessions(DataAccess, Settings, callback) {
+  return new Promise((resolve, reject) => {
+    //THIS RETURNS STALE SESSIONS
+    DataAccess.GetDeadSessions(Settings.timeout, true)
+    .then((deadSessions) => {
+      let ids = [];
+      // IF LOGGING SESSIONS, WRITE OUT THE DEAD SESSIONS TO
+      // THE SESSION LOG
+      for(var sIdx = 0; sIdx < deadSessions.length; sIdx++) {
+        ids.push(deadSessions[sIdx].id);
+        
+        if(Settings.session_logging === true) {
+          let dsObj = {
+            session_id: deadSessions[sIdx].id,
+            token: deadSessions[sIdx].token,
+            user_id: deadSessions[sIdx].user_id,
+            started_at: deadSessions[sIdx].created_at,
+            ended_at: deadSessions[sIdx].ended_at
+          }
+          var logEntry = JSON.stringify(dsObj)+'\n';
+          sessionLog.write(logEntry);
         }
-        var logEntry = JSON.stringify(dsObj)+'\n';
-        sessionLog.write(logEntry);
       }
-    }
 
-    if(dsIds.length > 0) {
-      dataAccess.DeleteSessions(dsIds)
-      .then(function(res) {
-        deferred.resolve();
-      })
-      .fail(function(err) {
-        let logEntry = JSON.stringify(err)+'\n';
-        errorLog.write(logEntry);
-        deferred.resolve();
-      })
-    }
-    else {
-      deferred.resolve();
-    }
-	});
-	deferred.promise.nodeify(callback);
-	return deferred.promise;
+      if(ids.length > 0) {
+        DataAccess.DeleteSessions(ids)
+        .then((res) => {
+          resolve();
+        })
+        .catch((err) => {
+          let logEntry = JSON.stringify(err)+'\n';
+          errorLog.write(logEntry);
+          resolve();
+        })
+      }
+      else {
+        resolve();
+      }
+    })
+    .catch((err) => {
+      console.log(err);
+      resolve();
+    })
+  });
 }

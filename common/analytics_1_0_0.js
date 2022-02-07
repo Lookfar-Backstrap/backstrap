@@ -1,58 +1,37 @@
 // ===============================================================================
 // ANALYTICS WEB SERVICE CALLS v1.0.0
 // ===============================================================================
-var dataAccess;
-var utilities;
-var accessControl;
-var serviceRegistration;
-var settings;
-var models;
+class Analytics {
+  constructor(da, utils, ac, sr, st) {
+    this.dataAccess = da;
+    this.utilities = utils;
+    this.accessControl = ac;
+    this.serviceRegistration = sr;
+    this.settings = st;
 
-var Q = require('q');
+    this.get = {};
+    this.post = {
+      event: this.#event.bind(this)
+    };
+    this.patch = {};
+    this.put = {};
+    this.delete = {};
+  }
 
-var Analytics = function(da, utils, ac, sr, st, m) {
-	dataAccess = da;
-	utilities = utils;
-	accessControl = ac;
-	serviceRegistration = sr;
-	settings = st;
-	models = m;
-};
+  #event(req) {
+    return new Promise((resolve, reject) => {
+      var eventDescriptor = req.body.event_descriptor;
+      var tkn = req.headers[this.settings.token_header];
 
-Analytics.prototype.get = {
-
-};
-
-Analytics.prototype.post = {
-	event: function(req, callback) {
-		var deferred = Q.defer();
-
-		var eventDescriptor = req.body.event_descriptor;
-		var tkn = req.headers[settings.data.token_header];
-
-		utilities.logEvent(tkn, eventDescriptor)
-		.then(function(logEvent_res) {
-			deferred.resolve({success: true});
-		})
-		.fail(function(err) {
-			deferred.reject(err);
-		})
-
-		deferred.promise.nodeify(callback);
-		return deferred.promise;
+      this.utilities.logEvent(tkn, eventDescriptor)
+      .then((logEvent_res) => {
+        resolve({success: true});
+      })
+      .catch((err) => {
+        reject(err);
+      })
+    });
 	}
-};
+}
 
-Analytics.prototype.put = {
-
-};
-
-Analytics.prototype.patch = {
-
-};
-
-Analytics.prototype.delete = {
-
-};
-
-exports.analytics = Analytics;
+module.exports = Analytics;

@@ -1,332 +1,121 @@
-var Q = require('q');
-var fs = require('fs');
-var AWS = require('aws-sdk');
-var os = require('os');
-var request = require('request');
-var s3;
-var bucket = null;
-var file = null;
-var remoteSettings = null;
-var port = null;
+const util = require('util');
+const fs = require('fs');
+const path = require('path');
+const rootDir = path.dirname(require.main.filename);
 
-var Settings = function() {
-	s3 = new AWS.S3();
-};
+class Settings {
+  constructor() {
+    this.port = 3000;
+    this.load(`${rootDir}/Settings.json`);
+  }
 
-Settings.prototype.init = function(b, f, rs) {
-	var deferred = Q.defer();
-	var s = this;
-	bucket = b;
-	file = f;
-	remoteSettings = rs;
+  load(file) {
+    try {
+      if(file.indexOf(rootDir) !== 0) file = `${rootDir}/${file}`;
+      let data = require(file);
+      this.port = process.env.PORT || data.server_port;
+      this.api_name = null;
+      this.token_header = data.token_header || 'bs_api_token';
+      this.timeout_check = data.timeout_check || 15;
+      this.timeout = data.timeout || 120;
+      this.index_service_call = data.index_service_call || 'index';
+      this.access_logging = data.access_logging != null ? data.access_logging : false;
+      this.session_logging = data.session_logging != null ? data.session_logging : false;
+      this.log_rotation_period = data.log_rotation_period || 90;
+      this.server_timeout = data.server_timeout || null;
+      this.keep_alive_timeout = data.keep_alive_timeout || null;
+      this.headers_timeout = data.headers_timeout || null,
+      this.data_service_directory = data.data_service_directory || null;
+      this.utilities_directory = data.utilities_directory || null;
+      this.mail_options = {
+        account: data.mail_options.account || null,
+        service: data.mail_options.service || null,
+        user: data.mail_options.user || null,
+        pass: data.mail_options.pass || null,
+        api_key: data.mail_options.api_key || null,
+        template_directory: data.mail_options.template_directory || "./templates/"
+      };
+      this.identity = {
+        provider: data.identity.provider || "native",
+        domain: data.identity.domain || null,
+        client_id: data.identity.client_id || null,
+        client_secret: data.identity.client_secret || null,
+        audience: data.identity.audience || null,
+        key_url: data.identity.key_url || null,
+        kid: data.identity.kid || null,
+        mgmt_client_id: data.identity.mgmt_client_id || null,
+        mgmt_client_secret: data.identity.mgmt_client_secret ||null
+      };
+      this.allow_signup = data.allow_signup != null ? data.allow_signup : true;
+      this.allow_api_signup = data.allow_api_signup != null ? data.allow_api_signup : true;
+      this.allow_external_signup = data.allow_external_signup != null ? data.allow_external_signup : true;
+    }
+    catch(e) {
+      console.error('Initialization Error - settings.js');
+      console.log(e);
+    }
+  }
 
-	if(remoteSettings === undefined || remoteSettings === null || remoteSettings === false) {
-		try {
-			if(file.substring(0,2) !== './') file = './'+file;
-			Settings.prototype.data = require(file);
-			port = process.env.PORT || s.data.server_port;
-			deferred.resolve(true);
-		}
-		catch(e) {
-			deferred.reject(e);
-		}
-	}
-	else {
-		s3.getObject({Bucket: bucket, Key: file}, function(err, res) {
-			if(!err) {
-				var f = JSON.parse(res.Body.toString());
-				Settings.prototype.data = JSON.parse(JSON.stringify(f));
-				deferred.resolve(true);
-			}
-			else {
-				var errorObj = new ErrorObj(500, 
-											'se0001', 
-											__filename, 
-											'init', 
-											'error getting file from s3',
-											'S3 error',
-											err
-											);
-				deferred.reject(errorObj);
-			}
-		});
-	}
-
-	return deferred.promise;
+  save() {
+    return new Promise((resolve, reject) => {
+      let writeObj = {
+        api_name: this.api_name,
+        token_header: this.token_header,
+        timeout_check: this.timeout_check,
+        timeout: this.timeout,
+        server_port: this.port,
+        index_service_call: this.index_service_call,
+        access_logging: this.access_logging,
+        session_logging: this.session_logging,
+        log_rotation_period: this.log_rotation_period,
+        server_timeout: this.server_timeout,
+        keep_alive_timeout: this.keep_alive_timeout,
+        headers_timeout: this.headers_timeout,
+        data_service_directory: this.data_service_directory,
+        utilities_directory: this.utilities_directory,
+        mail_options: {
+          account: this.mail_options.account,
+          service: this.mail_options.service,
+          user: this.mail_options.user,
+          pass: this.mail_options.pass,
+          api_key: this.mail_options.api_key,
+          template_directory: this.mail_options.template_directory
+        },
+        identity: {
+          provider: this.identity.provider,
+          domain: this.identity.domain,
+          client_id: this.identity.client_id,
+          client_secret: this.identity.client_secret,
+          audience: this.identity.audience,
+          key_url: this.identity.key_url,
+          kid: this.identity.kid,
+          mgmt_client_id: this.identity.mgmt_client_id,
+          mgmt_client_secret: this.identity.mgmt_client_secret
+        },
+        allow_signup: this.allow_signup,
+        allow_api_signup: this.allow_api_signup,
+        allow_external_signup: this.allow_external_signup
+      }
+    
+      var fswrite = util.promisify(fs.writeFile);
+      fswrite(file, JSON.stringify(writeObj, null, 4))
+      .then((write_res) => {
+        resolve(true);
+      })
+      .catch((err) => {
+        let errorObj = new ErrorObj(500, 
+                      'se0004', 
+                      __filename, 
+                      'save', 
+                      'external error with fswrite',
+                      'External error',
+                      err
+                      );
+        reject(errorObj);
+      });
+    });
+  }
 }
 
-Settings.prototype.registerIp = function() {
-	var deferred = Q.defer();
-
-	var s = this;
-	port = process.env.PORT || s.data.server_port;
-
-	// MAKE SURE THAT THE IP FOR THIS SERVER IS IN THE LIST
-	var interfaces = os.networkInterfaces();
-	var ips = s.data.servers;
-	var addedIp = false;
-	for (var i in interfaces) {
-	    for (var j in interfaces[i]) {
-	        var address = interfaces[i][j];
-	        if (address.family === 'IPv4' && !address.internal) {
-	        	var addressWithPort = address.address+':'+port;
-	        	if(ips.indexOf(addressWithPort) == -1) {
-	            	ips.push(addressWithPort);
-	            	addedIp = true;
-	        	}
-	        }
-	    }
-	}
-
-	if(addedIp) {
-		s.data.servers = ips;
-		s.save(true)
-		.then(function(save_res) {
-			deferred.resolve(true);
-		})
-		.fail(function(err) {
-			var errorObj = new ErrorObj(500, 
-										'se0002', 
-										__filename, 
-										'registerIp', 
-										'error saving ip of server',
-										'Error',
-										err
-										);
-			deferred.reject(errorObj);
-		});
-	}
-	else {
-		deferred.resolve(true);
-	}
-
-	return deferred.promise;
-}
-
-Settings.prototype.reload = function() {
-	var s = this;
-	var deferred = Q.defer();
-	s.init(bucket, file, remoteSettings)
-	.then(function(res) {
-		deferred.resolve(res);
-	})
-	.fail(function(err) {
-		if(err !== undefined && err !== null && typeof(err.AddToError) === 'function') {
-			deferred.reject(err.AddToError(__filename, 'reload'));
-		}
-		else {
-			var errorObj = new ErrorObj(500, 
-										'se1002', 
-										__filename, 
-										'reload', 
-										'error reloading settings',
-										'Error reloading settings',
-										err
-										);
-			deferred.reject(errorObj);
-		}
-	});
-	return deferred.promise;
-}
-
-// IF REMOTE SETTINGS IS FALSE, THIS GETS BYPASSED
-Settings.prototype.reloadNetwork = function() {
-	var deferred = Q.defer();
-	if(remoteSettings === true) {
-		var settings = this;
-		port = process.env.PORT || s.data.server_port;
-
-		var interfaces = os.networkInterfaces();
-		var myIps = [];
-		for (var i in interfaces) {
-		    for (var j in interfaces[i]) {
-		        var address = interfaces[i][j];
-		        if (address.family === 'IPv4' && !address.internal) {
-		        	var addressWithPort = address.address+':'+port;
-		        	if(myIps.indexOf(addressWithPort) == -1) {
-		            	myIps.push(addressWithPort);
-		        	}
-		        }
-		    }
-		}
-
-		var ips = settings.data.servers;
-
-		var headers = {
-			'Content-Type': 'application/json'
-		};
-
-		var postData = {
-			'username': settings.data.reload_user,
-			'password': settings.data.reload_pass
-		};
-
-		if((myIps.length !== ips.length && myIps.length > 0)) {
-			// LOGIN
-			request.post({
-					url: 'http://'+myIps[0]+'/common/accounts/signin/1.0.0',
-					headers: headers,
-					body: postData,
-					json: true
-				}, 
-				function(err, res, body) {
-				if (!err && res.statusCode == 200) {
-		            headers[settings.data.token_header] = body.data[settings.data.token_header];
-
-		            // CALL EACH SERVER IN THE REGISTRY AND TELL IT TO RELOAD
-					Q.all(ips.map(function(ip) {
-						var inner_deferred = Q.defer();
-						if(myIps.indexOf(ip) == -1) {
-							request.post({
-									headers: headers,
-									url: 'http://'+ip+'/common/internalSystem/reload/1.0.0'
-								},
-								function(err, res, body) {
-								if (!err && res.statusCode == 200) {
-						            inner_deferred.resolve({'ip':ip});
-						        }
-						        else {
-						        	settings.data.servers.splice(settings.data.servers.indexOf(ip),1);
-						        	settings.save(false)
-						        	.then(function(res) {
-						        		inner_deferred.resolve({'ip':ip});
-						        	})
-						        	.fail(function(err) {
-										if(err !== undefined && err !== null && typeof(err.AddToError) === 'function') {
-											inner_deferred.reject(err.AddToError(__filename, 'reloadNetwork'));
-										}
-										else {
-											var errorObj = new ErrorObj(500, 
-																		'sr1003', 
-																		__filename, 
-																		'reloadNetwork', 
-																		'error reloading network',
-																		'Error reloading network',
-																		err
-																		);
-											inner_deferred.reject(errorObj);
-										}
-						        	});
-						        	
-						        }
-							});
-						}
-						else {
-							// DON'T RELOAD SELF, JUST MARK AS COMPLETE
-							inner_deferred.resolve({'ip':ip});
-						}
-						
-						return inner_deferred.promise;
-					}))
-					.then(function(res) {
-						deferred.resolve(true);
-					})
-					.fail(function(err) {
-						if(err !== undefined && err !== null && typeof(err.AddToError) === 'function') {
-							deferred.reject(err.AddToError(__filename, 'reloadNetwork'));
-						}
-						else {
-							var errorObj = new ErrorObj(500, 
-														'sr1004', 
-														__filename, 
-														'reloadNetwork', 
-														'error reloading network',
-														'Error reloading network',
-														err
-														);
-							deferred.reject(errorObj);
-						}
-					});
-		        }
-		        else {
-		        	var errorObj = new ErrorObj(500, 
-												'se0003', 
-												__filename, 
-												'reloadNetwork', 
-												'error signing into backstrap to reload servers',
-												'Network reload error',
-												err
-												);
-					deferred.reject(errorObj);
-		        }
-			});
-		}
-		else {
-			deferred.resolve(true);
-		}
-	}
-	else {
-		deferred.resolve(true);
-	}
-
-	return deferred.promise;
-}
-
-
-Settings.prototype.save = function(doNetworkReload) {
-	var s = this;
-	var deferred = Q.defer();
-	if(remoteSettings === undefined || remoteSettings === null || remoteSettings === false) {
-		var fswrite = Q.denodeify(fs.writeFile);
-		fswrite(file, JSON.stringify(this.constructor.prototype.data, null, 4))
-		.then(function(write_res) {
-			deferred.resolve(true);
-		})
-		.fail(function(err) {
-			var errorObj = new ErrorObj(500, 
-										'se0004', 
-										__filename, 
-										'save', 
-										'external error with fswrite',
-										'External error',
-										err
-										);
-			deferred.reject(errorObj);
-		});
-	}
-	else {
-		s3.putObject({Bucket:bucket, Key:file, Body:JSON.stringify(this.constructor.prototype.data, null, 4)}, function(err, save_res) {
-			if(!err) {
-				if(doNetworkReload === true) {
-					s.reloadNetwork()
-					.then(function(reload_res) {
-						deferred.resolve(true);
-					})
-					.fail(function(err) {
-						if(err !== undefined && err !== null && typeof(err.AddToError) === 'function') {
-							deferred.reject(err.AddToError(__filename, 'save'));
-						}
-						else {
-							var errorObj = new ErrorObj(500, 
-														'sr1005', 
-														__filename, 
-														'save', 
-														'error saving settings remotely',
-														'Error saving settings remotely',
-														err
-														);
-							deferred.reject(errorObj);
-						}
-					});
-				}
-				else {
-					deferred.resolve(true);
-				}
-			}
-			else {
-				var errorObj = new ErrorObj(500, 
-											'se0005', 
-											__filename, 
-											'save', 
-											'error saving file to s3',
-											'S3 error',
-											err
-											);
-				deferred.reject(errorObj);
-			}
-		});
-	}
-	return deferred.promise;
-};
-
-exports.Settings = Settings;
+const instance = new Settings();
+module.exports = instance;
