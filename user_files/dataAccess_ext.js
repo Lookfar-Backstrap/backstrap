@@ -1,22 +1,25 @@
-var Q = require('q');
-const { Pool } = require('pg')
-var pool;
-var dataAccess;
-var models;
-
-var DataAccessExtension = function(da, dbConfig, mdls) {	
-	models = mdls;
-	dataAccess = da;	
-}
+class DataAccessExtension {
+  constructor(da) {
+    this.dataAccess = da;
+  }
 
 //SAMPLE QUERY
-// DataAccessExtension.prototype.SomeQuery = function(){
-// 	var qry = "SELECT * FROM person WHERE person.id = $1";
-// 	var qry_params = [1];
-// 	dataAccess.ExecutePostgresQuery(qry, qry_params, null)
-// 	.then(function(person_res){
-// 		//do something with person
-// 	});
-// };
+// SomeQuery() {
+//  return new Promise(async (resolve, reject) => {
+// 	  var qry = "SELECT * FROM person WHERE person.id = $1";
+// 	  var qry_params = [1];
+//    try {
+// 	    let person_res = await this.dataAccess.ExecutePostgresQuery(qry, qry_params, null);
+// 		  //do something with person
+//      resolve(person_res);
+//    }
+//    catch(err) {
+//      reject(err);
+//    }
+//  })
+// }
+}
+
+
 
 module.exports = DataAccessExtension;

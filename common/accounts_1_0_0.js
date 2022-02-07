@@ -1,1159 +1,155 @@
-/*jshint expr: true, es5: true, unused:false */
-
 // ===============================================================================
 // ACCOUNTS WEB SERVICE CALLS v1.0.0
 // ===============================================================================
-var dataAccess;
-var utilities;
-var accessControl;
-var serviceRegistration;
-var settings;
-var models;
-
-var Q = require('q');
+const util = require('util');
 var crypto = require('crypto');
-var request = require('request');
-var jwt = require('../jwt.js');
 
-var Accounts = function(db, utils, ac, sr, st, m) {
-    dataAccess = db;
-    utilities = utils;
-    accessControl = ac;
-    serviceRegistration = sr;
-    settings = st;
-    models = m;
-};
+class Accounts {
+  constructor(db, utils, ac, sr, st) {
+    this.dataAccess = db;
+    this.utilities = utils;
+    this.accessControl = ac;
+    this.serviceRegistration = sr;
+    this.settings = st;
 
-Accounts.prototype.get = {
-    checkToken: function(req, callback) {
-        // AUTH HAS ALREADY BEEN CHECKED, THIS TOKEN IS VALID
-        var deferred = Q.defer();
-        
-        deferred.resolve({'success': true});
+    this.get = {
+      checkToken: this.#checkToken
+    };
+    this.post = {
+      signIn: this.#signIn.bind(this),
+      signUp: this.#signUp.bind(this),
+      apiUser: this.#apiUser.bind(this),
+      externalUser: this.#externalUser.bind(this),
+      apiCredentials: this.#apiCredentials.bind(this),
+      signOut: this.#signOut.bind(this),
+      forgotUsername: this.#forgotUsername.bind(this),
+      forgotPassword: this.#forgotPassword.bind(this),
+      resetPassword: this.#resetPassword.bind(this),
+      session: this.#startAnonymousSession.bind(this)
+    };
+    this.patch = {
+      password: this.#updatePassword.bind(this)
+    };
+    this.put = {
+      email: this.#updateEmail.bind(this)
+    };
+    this.delete = {
+      account: this.#deleteUser.bind(this),
+      apiCredentials: this.#deleteApiCredentials.bind(this)
+    };
+  }
 
-        deferred.promise.nodeify(callback);
-        return deferred.promise;
-    },
-    profile: function(req, callback) {
-        var deferred = Q.defer();
+  #checkToken(req) {
+     // AUTH HAS ALREADY BEEN CHECKED, THIS TOKEN IS VALID
+     return Promise.resolve({success: true});
+  }
 
-        var token = req.headers[settings.data.token_header];
-        var userObj = req.this_user;
-        delete userObj.id;
-        delete userObj.password;
-        delete userObj.salt;
-        delete userObj.client_secret;
-        delete userObj.object_type;
-        delete userObj.created_at;
-        delete userObj.updated_at;
-        delete userObj.roles;
-        delete userObj.forgot_password_tokens;
-        delete userObj.is_active;
+  #signIn(req) {
+    return new Promise((resolve, reject) => {
+      var body = req.body;
 
-        // ADD EVENT TO SESSION
-        deferred.resolve(userObj);
-        
-        deferred.promise.nodeify(callback);
-        return deferred.promise;
-    },
-    profileImage: function(req, callback) {
-        var deferred = Q.defer();
-
-		deferred.resolve({});
-
-        deferred.promise.nodeify(callback);
-        return deferred.promise;
-    },
-    user: function(req, callback) {
-        var deferred = Q.defer();
-
-        var username = (typeof (req.query.username) == 'undefined' || req.query.username === null) ? req.query.email.toLowerCase() : req.query.username.toLowerCase();
-        var token = req.headers[settings.data.token_header];
-        var userObj = req.this_user;
-        dataAccess.findOne('bsuser', { 'username': username })
-            .then(function(userObj) {
-                delete userObj.password;
-                delete userObj.salt;
-                delete userObj.client_secret;
-                delete userObj.object_type;
-                delete userObj.forgot_password_tokens;
-
-                // ADD EVENT TO SESSION
-                var resolveObj = userObj;
-                deferred.resolve(resolveObj);
-            })
-            .fail(function(err) {
-                if (err !== undefined && err !== null && typeof (err.AddToError) === 'function') {
-                    if (err.message === 'no results found' || err.err_code === 'da0109') {
-                        err.setStatus(400);
-                        err.setMessages('user not found', 'User not found');
-                    }
-                    deferred.reject(err.AddToError(__filename, 'GET user'));
-                }
-                else {
-                    var errorObj = new ErrorObj(500,
-                        'a1002',
-                        __filename,
-                        'GET user',
-                        'error getting user',
-                        'Error getting user',
-                        err
-                    );
-                    deferred.reject(errorObj);
-                }
-            });
-
-        deferred.promise.nodeify(callback);
-        return deferred.promise;
-    },
-    userExists: function(req, callback) {
-        var deferred = Q.defer();
-        req.body = req.query;
-        getUser(req)
-            .then(function() {
-                // ADD EVENT TO SESSION
-                var resolveObj = { 'set_up_pending': false };
-                deferred.resolve(resolveObj);
-            })
-            .fail(function(err) {
-                if (err !== undefined && err !== null && typeof (err.AddToError) === 'function') {
-                    if (err.message === 'no user found' || err.err_code === 'da2000') {
-                        err.setStatus(400);
-                        err.setMessages('user not found', 'User not found');
-                    }
-                    deferred.reject(err.AddToError(__filename, 'GET userExists'));
-                }
-                else {
-                    var errorObj = new ErrorObj(500,
-                        'a1003',
-                        __filename,
-                        'GET userExists',
-                        'error getting user',
-                        'Error getting user',
-                        err
-                    );
-                    deferred.reject(errorObj);
-                }
-            });
-
-        deferred.promise.nodeify(callback);
-        return deferred.promise;
-    },
-    defaultUserCheck: function(req, callback) {
-        var deferred = Q.defer();
-        dataAccess.findAll('bsuser')
-            .then(function(users) {
-                users.forEach(function(user) {
-                    if (user.username === 'bsroot') {
-                        if (user.first === '') {
-                            if (user.forgot_password_tokens.length > 0) {
-                                var token = user['forgot_password_tokens'][0];
-                                deferred.resolve({ 'set_up_pending': true, 'token': token });
-                            }
-                            else {
-                                deferred.resolve({ 'set_up_pending': true, 'token': null });
-                            }
-                        }
-                    }
-                });
-
-                // ADD EVENT TO SESSION
-                var resolveObj = { 'set_up_pending': false };
-                deferred.resolve(resolveObj);
-            })
-            .fail(function(err) {
-                if (err !== undefined && err !== null && typeof (err.AddToError) === 'function') {
-                    deferred.reject(err.AddToError(__filename, 'GET defaultUserCheck'));
-                }
-                else {
-                    var errorObj = new ErrorObj(500,
-                        'a1004',
-                        __filename,
-                        'GET defaultUserCheck',
-                        'error checking if this is default user',
-                        'Error checking if this is default user',
-                        err
-                    );
-                    deferred.reject(errorObj);
-                }
-            });
-
-        deferred.promise.nodeify(callback);
-        return deferred.promise;
-    }
-};
-
-Accounts.prototype.post = {
-    oauth_signIn: function(req, callback) {
-        var deferred = Q.defer();
-
-        var body = req.body;
-        var service = body.service.toLowerCase();
-        var auth = body.auth;
-
-        if (service === 'facebook') {
-            request({
-                url: settings.data.oauth.facebook.get_token_url + settings.data.oauth.facebook.client_id +
-                '&redirect_uri=' + auth.redirect_uri + '&client_secret=' + settings.data.oauth.facebook.client_secret +
-                '&code=' + auth.code,
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            }, function(err, res, bodyString) {
-                var body = JSON.parse(bodyString);
-                if (!err && res.statusCode === 200 && body.error === undefined) {
-                    var access_token = body.access_token;
-                    var token_type = body.token_type;
-                    var expires_in = body.expires_in;
-
-                    // CHECK IF THIS IS A NEW USER
-                    // GET THE USER'S FBID
-                    request({
-                        url: settings.data.oauth.facebook.token_info_url + access_token +
-                        '&fields=id,name,first_name,last_name,picture,email,gender,age_range,birthday',
-                        method: 'GET',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        }
-                    }, function(fbu_err, fbu_res, fbu_body) {
-                        if (!fbu_err && fbu_res.statusCode == 200) {
-                            // DO WE HAVE THIS USER IN OUR SYSTEM?  CHECK BY FBID
-                            var fbuBodyObj = JSON.parse(fbu_body);
-                            dataAccess.findOne('bsuser', { 'account_type': 'facebook', 'fbid': fbuBodyObj.id })
-                                .then(function(find_res) {
-                                    // USER EXISTS IN OUR SYSTEM
-                                    // TODO: UPDATE USER OBJ WITH INFO THAT COMES BACK FROM FB HERE
-                                    var userObj = find_res;
-
-                                    // IF USER IS LOCKED, BAIL OUT
-                                    if (find_res.is_locked) {
-                                        var errorObj = new ErrorObj(403,
-                                            'a2000',
-                                            __filename,
-                                            'oauth_signin',
-                                            'bsuser is locked',
-                                            'Unauthorized',
-                                            null
-                                        );
-                                        deferred.reject(errorObj);
-
-                                        deferred.promise.nodeify(callback);
-                                        return deferred.promise;
-                                    }
-
-                                    // CHECK TOKENS
-                                    // ADD 100 SECOND FUDGE FACTOR
-                                    if (find_res.token_info.granted_at + find_res.token_info.expires_in + 100 >= Math.floor(new Date().getTime() / 1000)) {
-                                        // FB LONG-LIVED TOKEN IS EXPIRED, RENEW
-                                        request({
-                                            url: settings.data.oauth.facebook.endpoint + '?grant_type=fb_exchange_token&client_id=' +
-                                            settings.data.oauth.facebook.client_id + '&client_secret=' + settings.data.oauth.facebook.client_secret +
-                                            '&fb_exchange_token=' + access_token,
-                                            method: 'GET',
-                                            headers: {
-                                                'Content-Type': 'application/json'
-                                            }
-                                        }, function(ll_err, ll_res, ll_body) {
-                                            if (!ll_err && ll_res.statusCode == 200) {
-                                                var llBodyObj = JSON.parse(ll_body);
-                                                userObj.token_info = {
-                                                    'token': llBodyObj.access_token,
-                                                    'token_type': llBodyObj.token_type,
-                                                    'granted_at': Math.floor(new Date().getTime() / 1000),
-                                                    'expires_in': llBodyObj.expires_in
-                                                }
-                                                dataAccess.saveEntity('bsuser', userObj)
-                                                    .then(function(st_res) {
-                                                        // ALL DONE.  CREATE A BS SESSION
-                                                        return createSession(userObj, null);
-                                                    })
-                                                    .then(function(sess_res) {
-                                                        var resolveObj = sess_res;
-                                                        deferred.resolve(resolveObj);
-                                                    })
-                                                    .fail(function(st_err) {
-                                                        if (st_err !== undefined && st_err !== null && typeof (st_err.AddToError) === 'function') {
-                                                            deferred.reject(st_err.AddToError(__filename, 'POST oauth_signIn'));
-                                                        }
-                                                        else {
-                                                            var errorObj = new ErrorObj(500,
-                                                                'a1005',
-                                                                __filename,
-                                                                'POST oauth_signIn',
-                                                                'error saving bsuser',
-                                                                'Error saving bsuser',
-                                                                st_err
-                                                            );
-                                                            deferred.reject(errorObj);
-                                                        }
-                                                    });
-                                            }
-                                            else {
-                                                var errorObj;
-
-                                                if (ll_err) {
-                                                    errorObj = new ErrorObj(500,
-                                                        'a0001',
-                                                        __filename,
-                                                        'oauth_signIn',
-                                                        'error with request to fb',
-                                                        'External error',
-                                                        ll_err
-                                                    );
-                                                }
-                                                else {
-                                                    errorObj = new ErrorObj(500,
-                                                        'a0002',
-                                                        __filename,
-                                                        'oauth_signIn',
-                                                        'error with request to fb',
-                                                        'External error',
-                                                        ll_body
-                                                    );
-                                                }
-
-                                                deferred.reject(errorObj);
-                                            }
-                                        });
-                                    }
-                                    else {
-                                        // CREATE A NEW BS SESSION
-                                        createSession(userObj, null)
-                                        .then(function(sess_res) {
-                                            // ADD EVENT TO SESSION
-                                            var resolveObj = sess_res;
-                                            deferred.resolve(resolveObj);
-                                        })
-                                        .fail(function(sess_err) {
-                                            if (sess_err !== undefined && sess_err !== null && typeof (sess_err.AddToError) === 'function') {
-                                                deferred.reject(sess_err.AddToError(__filename, 'POST oauth_signIn'));
-                                            }
-                                            else {
-                                                var errorObj = new ErrorObj(500,
-                                                    'a1006',
-                                                    __filename,
-                                                    'POST oauth_signIn',
-                                                    'error creating new session',
-                                                    'Error creating new session',
-                                                    sess_err
-                                                );
-                                                deferred.reject(errorObj);
-                                            }
-                                        });
-                                    }
-                                })
-                                .fail(function(find_err) {
-                                    // USER DOES NOT EXIST, CREATE THIS USER
-                                    if (find_err.message === 'no results found') {
-                                        var fbUserObj = JSON.parse(fbu_body);
-                                        var userObj = {
-                                            'object_type': 'bsuser',
-                                            'account_type': 'facebook',
-                                            'fbid': fbUserObj.id,
-                                            'username': fbUserObj.name.toLowerCase(),
-                                            'first': fbUserObj.first_name,
-                                            'last': fbUserObj.last_name,
-                                            'email': fbUserObj.email,
-                                            'gender': fbUserObj.gender,
-                                            'age_range': fbUserObj.age_range,
-                                            'picture': fbUserObj.picture,
-                                            'roles': ['default-user'],
-                                            'is_locked': false
-                                        };
-                                        dataAccess.saveEntity('bsuser', userObj)
-                                            .then(function(save_res) {
-                                                // USER IS SAVED, GET LONG LIVED TOKEN
-                                                userObj = save_res;
-                                                request({
-                                                    url: settings.data.oauth.facebook.endpoint + '?grant_type=fb_exchange_token&client_id=' +
-                                                    settings.data.oauth.facebook.client_id + '&client_secret=' + settings.data.oauth.facebook.client_secret +
-                                                    '&fb_exchange_token=' + access_token,
-                                                    method: 'GET',
-                                                    headers: {
-                                                        'Content-Type': 'application/json'
-                                                    }
-                                                }, function(ll_err, ll_res, ll_body) {
-                                                    if (!ll_err && ll_res.statusCode == 200) {
-                                                        var llBodyObj = JSON.parse(ll_body);
-                                                        userObj.token_info = {
-                                                            'token': llBodyObj.access_token,
-                                                            'token_type': llBodyObj.token_type,
-                                                            'granted_at': Math.floor(new Date().getTime() / 1000),
-                                                            'expires_in': llBodyObj.expires_in
-                                                        };
-                                                        dataAccess.saveEntity('bsuser', userObj)
-                                                            .then(function(st_res) {
-                                                                // ALL DONE.  CREATE A BS SESSION
-                                                                return createSession(userObj);
-                                                            })
-                                                            .then(function(sess_res) {
-                                                                // ADD EVENT TO SESSION
-                                                                var resolveObj = sess_res;
-                                                                deferred.resolve(resolveObj);
-                                                            })
-                                                            .fail(function(st_err) {
-                                                                if (st_err !== undefined && st_err !== null && typeof (st_err.AddToError) === 'function') {
-                                                                    deferred.reject(st_err.AddToError(__filename, 'POST oauth_signIn'));
-                                                                }
-                                                                else {
-                                                                    var errorObj = new ErrorObj(500,
-                                                                        'a1007',
-                                                                        __filename,
-                                                                        'POST oauth_signIn',
-                                                                        'error saving entity',
-                                                                        'Error saving entity',
-                                                                        st_err
-                                                                    );
-                                                                    deferred.reject(errorObj);
-                                                                }
-                                                            });
-                                                    }
-                                                    else {
-                                                        var errorObj;
-
-                                                        if (ll_err) {
-                                                            errorObj = new ErrorObj(500,
-                                                                'a0003',
-                                                                __filename,
-                                                                'oauth_signIn',
-                                                                'error with request to fb',
-                                                                'External error',
-                                                                ll_err
-                                                            );
-                                                        }
-                                                        else {
-                                                            errorObj = new ErrorObj(500,
-                                                                'a0004',
-                                                                __filename,
-                                                                'oauth_signIn',
-                                                                'error with request to fb',
-                                                                'External error',
-                                                                ll_body
-                                                            );
-                                                        }
-                                                    }
-                                                });
-                                            })
-                                            .fail(function(save_err) {
-                                                if (save_err !== undefined && save_err !== null && typeof (save_err.AddToError) === 'function') {
-                                                    deferred.reject(save_err.AddToError(__filename, 'POST oauth_signIn'));
-                                                }
-                                                else {
-                                                    var errorObj = new ErrorObj(500,
-                                                        'a1008',
-                                                        __filename,
-                                                        'POST oauth_signIn',
-                                                        'error saving user object',
-                                                        'Error saving user object',
-                                                        save_err
-                                                    );
-                                                    deferred.reject(errorObj);
-                                                }
-                                            });
-                                    }
-                                    else {
-                                        if (typeof (find_err.AddToError) == 'function') {
-                                            deferred.reject(find_err.AddToError(__filename, 'oauth_signIn'));
-                                        }
-                                        else {
-                                            var errorObj = new ErrorObj(500,
-                                                'a0005',
-                                                __filename,
-                                                'oauth_signIn',
-                                                'error executing oauth with fb',
-                                                'External error',
-                                                find_err
-                                            );
-                                            deferred.reject(errorObj);
-                                        }
-                                    }
-                                });
-                        }
-                        else {
-                            if (fbu_err) {
-                                var errorObj = new ErrorObj(500,
-                                    'a0006',
-                                    __filename,
-                                    'oauth_signIn',
-                                    'error executing oauth with fb',
-                                    'External error',
-                                    fbu_err
-                                );
-                                deferred.reject(errorObj);
-                            }
-                            else {
-                                var errorObj = new ErrorObj(500,
-                                    'a0007',
-                                    __filename,
-                                    'oauth_signIn',
-                                    'error executing oauth with fb',
-                                    'External error',
-                                    fbu_body
-                                );
-                                deferred.reject(errorObj);
-                            }
-                        }
-                    });
-                }
-                else {
-                    if (err) {
-                        var errorObj = new ErrorObj(500,
-                            'a0008',
-                            __filename,
-                            'oauth_signIn',
-                            'error executing oauth with fb',
-                            'External error',
-                            err
-                        );
-                        deferred.reject(errorObj);
-                    }
-                    else if (body.error !== undefined) {
-                        var errorObj = new ErrorObj(500,
-                            'a0009',
-                            __filename,
-                            'oauth_signIn',
-                            'error executing oauth with fb',
-                            'External error',
-                            body
-                        );
-                        deferred.reject(errorObj);
-                    }
-                    else {
-                        var msg = 'Received status code: ' + res.statusCode + ' from fb while exchanging code for token';
-                        var errorObj = new ErrorObj(500,
-                            'a0010',
-                            __filename,
-                            'oauth_signIn',
-                            'error executing oauth with fb',
-                            'External error',
-                            msg
-                        );
-                        deferred.reject(errorObj);
-                    }
-                }
-            });
+      var apiToken = req.headers[this.settings.token_header] || null;
+      this.accessControl.signIn(body, apiToken)
+      .then((res) => {
+        resolve(res);
+      })
+      .catch((err) => {
+        let errorObj;
+        try {
+          errorObj = err.AddToError(__filename, 'signIn');
         }
-        else if (service === 'twitter') {
-            // IS THERE A WAY FOR US TO CHECK IF THIS USER ALREADY HAS AN ACCESS TOKEN??
-            createTwitterAuthHeader('POST', settings.data.oauth.access_token_url, null, auth.oauth_token)
-                .then(function(authHeader) {
-                    request({
-                        url: settings.data.oauth.access_token_url + '?oauth_verifier=' + auth.oauth_verifier,
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': authHeader
-                        }
-                    }, function(err, res, body) {
-                        if (!err && res.statusCode == 200) {
-                            // RESPONSE IS NOT JSON --- WHY TWITTER, WHY??
-                            var bodyObj = splitParams(body);
-
-                            var oauth_token = bodyObj.oauth_token;
-                            var oauth_token_secret = bodyObj.oauth_token_secret;
-                            var user_id = bodyObj.user_id;
-                            var screen_name = bodyObj.screen_name;
-
-                            // SEE IF WE HAVE THIS USER ALREADY
-                            dataAccess.findOne('bsuser', { 'account_type': 'twitter', 'twid': user_id })
-                                .then(function(userObj) {
-                                    // IF USER IS LOCKED, BAIL OUT
-                                    if (userObj.is_locked) {
-                                        var errorObj = new ErrorObj(403,
-                                            'a2001',
-                                            __filename,
-                                            'oauth_signin',
-                                            'bsuser is locked',
-                                            'Unauthorized',
-                                            null
-                                        );
-                                        deferred.reject(errorObj);
-
-                                        deferred.promise.nodeify(callback);
-                                        return deferred.promise;
-                                    }
-                                    // WE HAVE THIS USER, UPDATE TOKEN & SPIN UP BS SESSION
-                                    userObj.token_info = {
-                                        'oauth_token': oauth_token,
-                                        'oauth_token_secret': oauth_token_secret
-                                    };
-                                    dataAccess.saveEntity('bsuser', userObj)
-                                        .then(function(save_res) {
-                                            return createSession(save_res, null);
-                                        })
-                                        .then(function(sess_res) {
-                                            // ADD EVENT TO SESSION
-                                            var resolveObj = sess_res;
-                                            deferred.resolve(resolveObj);
-                                        })
-                                        .fail(function(save_err) {
-                                            deferred.reject(save_err.AddToError(__filename, 'oauth_signIn'));
-                                        });
-                                })
-                                .fail(function(find_err) {
-                                    // WE DON'T HAVE THIS USER, CREATE A NEW ONE
-                                    if (find_err != null && find_err.message === 'no results found') {
-                                        createTwitterAuthHeader('GET', settings.data.oauth.twitter.verify_credentials_json_url, { 'include_email': true }, oauth_token, oauth_token_secret)
-                                            .then(function(authHeader) {
-                                                request({
-                                                    url: settings.data.oauth.twitter.verify_credentials_json_url + '?include_email=true',
-                                                    method: 'GET',
-                                                    headers: {
-                                                        'Content-Type': 'application/json',
-                                                        'Authorization': authHeader
-                                                    }
-                                                }, function(userinfo_err, userinfo_res, userinfo_body) {
-                                                    if (!userinfo_err && userinfo_res.statusCode == 200) {
-                                                        var userInfo = JSON.parse(userinfo_body);
-                                                        var firstName = '';
-                                                        var lastName = '';
-                                                        var spaceIdx = userInfo.name.lastIndexOf(' ');
-                                                        if (spaceIdx === -1) {
-                                                            firstName = userInfo.name;
-                                                        }
-                                                        else {
-                                                            firstName = userInfo.name.substring(0, spaceIdx);
-                                                            lastName = userInfo.name.substring(spaceIdx + 1);
-                                                        }
-
-                                                        var userObj = {
-                                                            'object_type': 'bsuser',
-                                                            'account_type': 'twitter',
-                                                            'twid': user_id,
-                                                            'username': userInfo.screen_name.toLowerCase(),
-                                                            'first': firstName,
-                                                            'last': lastName,
-                                                            'email': userInfo.email,
-                                                            'picture': {
-                                                                'profile_image_url': userInfo.profile_image_url,
-                                                                'profile_image_url_https': userInfo.profile_image_url_https
-                                                            },
-                                                            'token_info': {
-                                                                'oauth_token': oauth_token,
-                                                                'oauth_token_secret': oauth_token_secret
-                                                            },
-                                                            'roles': ['default-user'],
-                                                            'is_locked': false
-                                                        };
-
-                                                        dataAccess.saveEntity('bsuser', userObj)
-                                                            .then(function(save_res) {
-                                                                return createSession(save_res);
-                                                            })
-                                                            .then(function(sess_res) {
-                                                                // ADD EVENT TO SESSION
-                                                                var resolveObj = sess_res;
-                                                                deferred.resolve(resolveObj);
-                                                            })
-                                                            .fail(function(save_err) {
-                                                                if (save_err !== undefined && save_err !== null && typeof (save_err.AddToError) === 'function') {
-                                                                    deferred.reject(save_err.AddToError(__filename, 'POST oauth_signIn'));
-                                                                }
-                                                                else {
-                                                                    var errorObj = new ErrorObj(500,
-                                                                        'a1009',
-                                                                        __filename,
-                                                                        'POST oauth_signIn',
-                                                                        'error saving user obj',
-                                                                        'Error saving user obj',
-                                                                        save_err
-                                                                    );
-                                                                    deferred.reject(errorObj);
-                                                                }
-                                                            });
-                                                    }
-                                                    else {
-                                                        if (userinfo_err) {
-                                                            var errorObj = new ErrorObj(500,
-                                                                'a0011',
-                                                                __filename,
-                                                                'oauth_signIn',
-                                                                'error executing oauth with twitter',
-                                                                'External error',
-                                                                userinfo_err
-                                                            );
-                                                            deferred.reject(errorObj);
-                                                        }
-                                                        else {
-                                                            var errorObj = new ErrorObj(500,
-                                                                'a0012',
-                                                                __filename,
-                                                                'oauth_signIn',
-                                                                'error executing oauth with twitter',
-                                                                'External error',
-                                                                userinfo_body
-                                                            );
-                                                            deferred.reject(errorObj);
-                                                        }
-                                                    }
-                                                });
-                                            })
-                                    }
-                                    else {
-                                        if (find_err != null && typeof(find_err.AddToError) == 'function') {
-                                            deferred.reject(find_err.AddToError(__filename, 'oauth_signIn'));
-                                        }
-                                        else {
-                                            var errorObj = new ErrorObj(500,
-                                                'a0013',
-                                                __filename,
-                                                'oauth_signIn',
-                                                'error executing oauth with twitter',
-                                                'External error',
-                                                find_err
-                                            );
-                                            deferred.reject(errorObj);
-                                        }
-                                    }
-                                });
-                        }
-                        else {
-                            if (err) {
-                                var errorObj = new ErrorObj(500,
-                                    'a0014',
-                                    __filename,
-                                    'oauth_signIn',
-                                    'error executing oauth with twitter',
-                                    'External error',
-                                    err
-                                );
-                                deferred.reject(errorObj);
-                            }
-                            else {
-                                var errorObj = new ErrorObj(500,
-                                    'a0015',
-                                    __filename,
-                                    'oauth_signIn',
-                                    'error executing oauth with twitter',
-                                    'External error',
-                                    body
-                                );
-                                deferred.reject(errorObj);
-                            }
-                        }
-                    });
-                })
-                .fail(function(header_err) {
-                    if (header_err !== undefined && header_err !== null && typeof (header_err.AddToError) === 'function') {
-                        deferred.reject(header_err.AddToError(__filename, 'POST oauth_signIn'));
-                    }
-                    else {
-                        var errorObj = new ErrorObj(500,
-                            'a1010',
-                            __filename,
-                            'POST oauth_signIn',
-                            'error constructing header for twitter',
-                            'Error constructing header for twitter',
-                            header_err
-                        );
-                        deferred.reject(errorObj);
-                    }
-                });
+        catch(e) {
+          errorObj = new ErrorObj(500,
+                                  '',
+                                  __filename,
+                                  'signIn',
+                                  'internal error',
+                                  'There was a problem with your request.',
+                                  err);
+          console.error(e);
         }
-        else if (service === 'google') {
-            // EXCHANGE CODE FOR ACCESS TOKEN & ID TOKEN
-            request({
-                url: settings.data.oauth.google.get_token_url,
-                method: 'POST',
-                form: {
-                    client_id: settings.data.oauth.google.client_id,
-                    client_secret: settings.data.oauth.google.client_secret,
-                    code: auth.code,
-                    grant_type: 'authorization_code',
-                    access_type: 'offline',
-                    redirect_uri: auth.redirect_uri
-                },
-                headers: {
-                    'content-type': 'application/x-www-form-urlencoded'
-                }
-            }, function(err, res, body) {
-                if (!err && res.statusCode == 200) {
-                    var bodyObj = JSON.parse(body);
-                    var access_token = bodyObj.access_token;
-                    var token_type = bodyObj.token_type;
-                    var expires_in = bodyObj.expires_in;
-                    var granted_at = new Date().getTime() / 1000;
-                    var id_token = bodyObj.id_token;
+        reject(errorObj);
+      })
+    });
+  }
 
-                    request({
-                        url: settings.data.oauth.google.token_info_url,
-                        method: 'GET',
-                        qs: { 'id_token': id_token },
-                        headers: { 'content-type': 'x-www-form-urlencoded' }
-                    }, function(id_err, id_res, id_body) {
-                        if (!id_err && id_res.statusCode == 200) {
-                            var idBody = JSON.parse(id_body);
-                            // CHECK THAT THE aud FIELD MATCHES OUR CLIENT ID
-                            if (idBody.aud === settings.data.oauth.google.client_id) {
-                                // WE HAVE THE INFO WE NEED, CHECK IF THIS IS A NEW USER
-                                dataAccess.findOne('bsuser', { 'account_type': 'google', 'ggid': idBody.sub })
-                                    .then(function(userObj) {
-                                        // FOUND THE USER, UPDATE TOKEN & SPIN UP BS SESSION
-                                        userObj.token_info = {
-                                            'access_token': access_token,
-                                            'token_type': token_type,
-                                            'expires_in': expires_in,
-                                            'granted_at': granted_at
-                                        };
-                                        dataAccess.saveEntity('bsuser', userObj)
-                                            .then(function(save_res) {
-                                                // IF USER IS LOCKED, BAIL OUT
-                                                if (userObj.is_locked) {
-                                                    var errorObj = new ErrorObj(403,
-                                                        'a2002',
-                                                        __filename,
-                                                        'oauth_signin',
-                                                        'bsuser is locked',
-                                                        'Unauthorized',
-                                                        null
-                                                    );
-                                                    deferred.reject(errorObj);
-
-                                                    deferred.promise.nodeify(callback);
-                                                    return deferred.promise;
-                                                }
-
-                                                return createSession(save_res, null);
-                                            })
-                                            .then(function(sess_res) {
-                                                // ADD EVENT TO SESSION
-                                                var resolveObj = sess_res;
-                                                deferred.resolve(resolveObj);
-                                            })
-                                            .fail(function(save_err) {
-                                                if (save_err !== undefined && save_err !== null && typeof (save_err.AddToError) == 'function') {
-                                                    deferred.reject(save_err.AddToError(__filename, 'oauth_signIn'));
-                                                }
-                                                else {
-                                                    var errorObj = new ErrorObj(500,
-                                                        'a1011',
-                                                        __filename,
-                                                        'oauth_signIn',
-                                                        'error saving user obj',
-                                                        'Error saving user obj',
-                                                        save_err
-                                                    );
-                                                    deferred.reject(errorObj);
-                                                }
-                                            });
-                                    })
-                                    .fail(function(find_err) {
-                                        // NEW USER, CREATE
-                                        if (find_err != null && find_err.message === 'no results found') {
-                                            var userObj = {
-                                                'object_type': 'bsuser',
-                                                'account_type': 'google',
-                                                'ggid': idBody.sub,
-                                                'username': idBody.name.toLowerCase(),
-                                                'first': idBody.given_name,
-                                                'last': idBody.family_name,
-                                                'email': idBody.email,
-                                                'picture': {
-                                                    'profile_image_url': idBody.picture
-                                                },
-                                                'token_info': {
-                                                    'access_token': access_token,
-                                                    'token_type': token_type,
-                                                    'expires_in': expires_in,
-                                                    'granted_at': granted_at
-                                                },
-                                                'roles': ['default-user'],
-                                                'is_locked': false
-                                            };
-                                            dataAccess.saveEntity('bsuser', userObj)
-                                                .then(function(save_res) {
-                                                    return createSession(save_res, null);
-                                                })
-                                                .then(function(sess_res) {
-                                                    // ADD EVENT TO SESSION
-                                                    var resolveObj = sess_res;
-                                                    deferred.resolve(resolveObj);
-                                                })
-                                                .fail(function(save_err) {
-                                                    if (save_err !== undefined && save_err !== null && typeof (save_err.AddToError) == 'function') {
-                                                        deferred.reject(save_err.AddToError(__filename, 'oauth_signIn'));
-                                                    }
-                                                    else {
-                                                        var errorObj = new ErrorObj(500,
-                                                            'a1012',
-                                                            __filename,
-                                                            'oauth_signIn',
-                                                            'error saving user obj',
-                                                            'Error saving user obj',
-                                                            save_err
-                                                        );
-                                                        deferred.reject(errorObj);
-                                                    }
-                                                });
-                                        }
-                                        else {
-                                            if (find_err != null && typeof (find_err.AddToError) == 'function') {
-                                                deferred.reject(find_err.AddToError(__filename, 'oauth_signIn'));
-                                            }
-                                            else {
-                                                var errorObj = new ErrorObj(500,
-                                                    'a0016',
-                                                    __filename,
-                                                    'oauth_signIn',
-                                                    'error executing oauth with google',
-                                                    'External error',
-                                                    find_err
-                                                );
-                                                deferred.reject(errorObj);
-                                            }
-                                        }
-                                    });
-                            }
-                            else {
-                                var errorObj = new ErrorObj(500,
-                                    'a0017',
-                                    __filename,
-                                    'oauth_signIn',
-                                    'incorrect aud field',
-                                    'External error',
-                                    id_err
-                                );
-                                deferred.reject(errorObj);
-                            }
-                        }
-                        else {
-                            if (id_err) {
-                                var errorObj = new ErrorObj(500,
-                                    'a0018',
-                                    __filename,
-                                    'oauth_signIn',
-                                    'error executing oauth with google',
-                                    'External error',
-                                    id_err
-                                );
-                                deferred.reject(errorObj);
-                            }
-                            else {
-                                var errorObj = new ErrorObj(500,
-                                    'a0019',
-                                    __filename,
-                                    'oauth_signIn',
-                                    'error executing oauth with google',
-                                    'External error',
-                                    id_body
-                                );
-                                deferred.reject(errorObj);
-                            }
-                        }
-                    });
-                }
-                else {
-                    if (err) {
-                        var errorObj = new ErrorObj(500,
-                            'a0020',
-                            __filename,
-                            'oauth_signIn',
-                            'error executing oauth with google',
-                            'External error',
-                            err
-                        );
-                        deferred.reject(errorObj);
-                    }
-                    else {
-                        var errorObj = new ErrorObj(500,
-                            'a0021',
-                            __filename,
-                            'oauth_signIn',
-                            'error executing oauth with google',
-                            'External error',
-                            body
-                        );
-                        deferred.reject(errorObj);
-                    }
-                }
-            });
-        }
-        else {
-            var errorObj = new ErrorObj(400,
-                'a0040',
-                __filename,
-                'oauth_signIn',
-                'this oauth provider is not supported',
-                'OAuth error'
-            );
-            deferred.reject(errorObj);
-        }
-
-        deferred.promise.nodeify(callback);
-        return deferred.promise;
-    },
-    // THIS KICKS OFF TWITTER OAUTH.  THE CLIENT MUST REACH OUT TO GET THIS REQUEST TOKEN
-    twitter_oauth_token: function(req, callback) {
-        var deferred = Q.defer();
-        createTwitterAuthHeader('POST', settings.data.oauth.twitter.get_token_url)
-            .then(function(authHeader) {
-                request({
-                    url: settings.data.oauth.twitter.get_token_url,
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': authHeader
-                    },
-                    body: JSON.stringify({ 'oauth_callback': settings.data.oauth.twitter.callback_url })
-                }, function(err, res, body) {
-                    if (!err && res.statusCode == 200) {
-                        var responseArgs = body.split('&');
-                        var responseObj = {};
-                        for (var aIdx = 0; aIdx < responseArgs.length; aIdx++) {
-                            var pair = responseArgs[aIdx].split('=');
-                            responseObj[pair[0]] = pair[1];
-                        }
-
-                        if (responseObj.oauth_callback_confirmed === 'true') {
-                            // ADD EVENT TO SESSION
-                            var resolveObj = { 'oauth_token': responseObj.oauth_token };
-                            deferred.resolve(resolveObj);
-                        }
-                        else {
-                            var errorObj = new ErrorObj(500,
-                                'a0022',
-                                __filename,
-                                'twitter_oauth_token',
-                                'oauth_callback not confirmed by twitter'
-                            );
-                            deferred.reject(errorObj);
-                        }
-                    }
-                    else {
-                        if (err) {
-                            var errorObj = new ErrorObj(500,
-                                'a0023',
-                                __filename,
-                                'twitter_oauth_token',
-                                'error executing oauth with twitter',
-                                'External error',
-                                err
-                            );
-                            deferred.reject(errorObj);
-                        }
-                        else {
-                            var errorObj = new ErrorObj(500,
-                                'a0024',
-                                __filename,
-                                'twitter_oauth_token',
-                                'error executing oauth with twitter',
-                                'External error',
-                                body
-                            );
-                            deferred.reject(errorObj);
-                        }
-                    }
-                });
-            })
-            .fail(function(header_err) {
-                if (header_err !== undefined && header_err !== null && typeof (header_err.AddToError) == 'function') {
-                    deferred.reject(header_err.AddToError(__filename, 'twitter_oauth_token'));
-                }
-                else {
-                    var errorObj = new ErrorObj(500,
-                        'a1013',
-                        __filename,
-                        'twitter_oauth_token',
-                        'error coonstructing header for twitter',
-                        'Error constructing header for twitter',
-                        header_err
-                    );
-                    deferred.reject(errorObj);
-                }
-            });
-
-        deferred.promise.nodeify(callback);
-        return deferred.promise;
-    },
-    signIn: function(req, callback) {
-        var deferred = Q.defer();
-        var body = req.body;
-
-        var apiToken = req.headers[settings.data.token_header] || null;
-        accessControl.signIn(body, apiToken)
-        .then((res) => {
-          deferred.resolve(res);
-        })
-        .fail((err) => {
-          deferred.reject(err.AddToError(__filename, 'signIn'));
-        })
-        
-        deferred.promise.nodeify(callback);
-        return deferred.promise;
-    },
-    signUp: function(req, callback) {
-        var deferred = Q.defer();
-
-        var apiToken = req.headers[settings.data.token_header] || null;
+  #signUp(req) {
+    return new Promise((resolve, reject) => {
+      if(this.settings.allow_signup === true) {
+        var apiToken = req.headers[this.settings.token_header] || null;
         // ONLY INITIALIZE A USER WITH 'default-user' ROLE
         if(req.body.roles) req.body.roles = null;
 
         // CREATE THE USER
-        accessControl.createUser('standard', req.body, apiToken)
+        this.accessControl.createUser('standard', req.body, apiToken)
         .then((usr) => {
-          delete usr.password;
-          delete usr.salt;
-          delete usr.client_secret;
-          delete usr.forgot_password_tokens;
-          delete usr.object_type;
-          deferred.resolve(usr);
+          resolve(usr);
         })
-        .fail((err) => {
+        .catch((err) => {
           typeof(err.AddToError) === 'function' ?
-            deferred.reject(err.AddToError(__filename, 'signUp'))
+            reject(err.AddToError(__filename, 'signUp'))
           :
-            deferred.reject(new ErrorObj(500,
+            reject(new ErrorObj(500,
                                         'a0100',
                                         __filename,
                                         'signUp',
                                         'create user error',
-                                        'There was a problem creating an account.  Please try again.',
+                                        'There was a problem creating an account.',
                                         err
                                         ));
         });
+      }
+      else {
+        reject(new ErrorObj(401,
+                            'a0101',
+                            __filename,
+                            'signUp',
+                            'no public signup',
+                            'Public signup is not allowed.',
+                            null));
+      }
+    });
+  }
 
-        deferred.promise.nodeify(callback);
-        return deferred.promise;
-    },
-    // CREATE A NEW API USER WITH CLIENT ID & CLIENT SECRET
-    apiUser: function(req, callback) {
-      var deferred = Q.defer();
+  #apiUser(req) {
+    return new Promise((resolve, reject) => {
+      if(this.settings.allow_api_signup === true) {
+        // apiUser CAN ONLY INITIALIZE A USER WITH 'default-user' ROLE
+        if(req.body.roles) req.body.roles = null;
 
-      // apiUser CAN ONLY INITIALIZE A USER WITH 'default-user' ROLE
-      if(req.body.roles) req.body.roles = null;
+        // CREATE THE USER
+        this.accessControl.createUser('api', req.body)
+        .then((usr) => {
+          resolve(usr);
+        })
+        .catch((err) => {
+          typeof(err.AddToError) === 'function' ?
+            reject(err.AddToError(__filename, 'apiUser'))
+          :
+            reject(new ErrorObj(500,
+                                'a0110',
+                                __filename,
+                                'apiUser',
+                                'create user error',
+                                'There was a problem creating an account.',
+                                err
+                                ));
+        });
+      }
+      else {
+        reject(new ErrorObj(401,
+                            'a0111',
+                            __filename,
+                            'apiUser',
+                            'no public api signup',
+                            'Public signup for api users is not allowed.',
+                            null));
+      }
+    });
+  }
 
-      // CREATE THE USER
-      accessControl.createUser('api', req.body)
-      .then((usr) => {
-        delete usr.password;
-        delete usr.salt;
-        delete usr.forgot_password_tokens;
-        delete usr.object_type;
-        deferred.resolve(usr);
-      })
-      .fail((err) => {
-        typeof(err.AddToError) === 'function' ?
-          deferred.reject(err.AddToError(__filename, 'apiUser'))
-        :
-          deferred.reject(new ErrorObj(500,
-                                      'a0102',
-                                      __filename,
-                                      'signUp',
-                                      'create user error',
-                                      'There was a problem creating an account.  Please try again.',
-                                      err
-                                      ));
-      });
-
-      deferred.promise.nodeify(callback);
-      return deferred.promise;
-    },
-    // CREATE API CREDENTIALS (CLIENT ID & CLIENT SECRET) FOR
-    // AN EXISTING USER
-    apiCredentials: function(req, callback) {
-      var deferred = Q.defer();
-
+  #apiCredentials(req) {
+    return new Promise((resolve, reject) => {
       if(req.body.roles) {
         let validRoles = [];
         req.body.roles.forEach((role) => {
@@ -1164,783 +160,449 @@ Accounts.prototype.post = {
         if(validRoles.length === 0) validRoles = ['default-user'];
         req.body.roles = validRoles;
       }
-      accessControl.createUser('api', req.body, null, req.this_user)
+      this.accessControl.createUser('api', req.body, null, req.this_user)
       .then((usr) => {
-        delete usr.password;
-        delete usr.salt;
-        delete usr.forgot_password_tokens;
-        delete usr.object_type;
-        deferred.resolve(usr);
+        resolve(usr);
       })
-      .fail((err) => {
+      .catch((err) => {
         typeof(err.AddToError) === 'function' ?
-          deferred.reject(err.AddToError(__filename, 'apiCredentials'))
+          reject(err.AddToError(__filename, 'apiCredentials'))
         :
-          deferred.reject(new ErrorObj(500,
-                                      'a0102',
-                                      __filename,
-                                      'apiCredentials',
-                                      'create user error',
-                                      'There was a problem creating an account.  Please try again.',
-                                      err
-                                      ));
+          reject(new ErrorObj(500,
+                              'a0120',
+                              __filename,
+                              'apiCredentials',
+                              'create user error',
+                              'There was a problem creating an account.',
+                              err
+                              ));
       });
+    });
+  }
 
-      deferred.promise.nodeify(callback);
-      return deferred.promise;
-    },
-    signOut: function(req, callback) {
-        var deferred = Q.defer();
+  #externalUser(req) {
+    return new Promise((resolve, reject) => {
+      if(this.settings.allow_external_signup === true) {
+        // ONLY INITIALIZE A USER WITH 'default-user' ROLE
+        if(req.body.roles) req.body.roles = null;
 
-        var token = req.headers[settings.data.token_header];
-        dataAccess.find('session', {'token':token})
-        .then(function(sessions) {
-          return Q.all(sessions.map((s) => {
-            var inner_deferred = Q.defer();
-            utilities.invalidateSession(s)
-            .then(() => {
-              inner_deferred.resolve();
-            })
-            .fail((inner_err) => {
-              inner_deferred.reject(inner_err);
-            })
-            return inner_deferred.promise;
-          }))
+        // CREATE THE USER
+        this.accessControl.createUser('external-api', req.body)
+        .then((usr) => {
+          resolve(usr);
         })
-        .then(function(invld_res) {
-          deferred.resolve({success: true});
-        })
-        .fail(function(err) {
-          deferred.reject(err.AddToError(__filename, 'signOut'));
-        })
-
-        deferred.promise.nodeify(callback);
-        return deferred.promise;
-    },
-    forgotUsername: function(req, callback) {
-        var deferred = Q.defer();
-
-        dataAccess.find('bsuser', { email: req.body.email })
-            .then(function(usersFound) {
-                if (usersFound.length === 1) {
-                    if (usersFound[0].is_locked) {
-                        var errorObj = new ErrorObj(403,
-                            'a2005',
+        .catch((err) => {
+          typeof(err.AddToError) === 'function' ?
+            reject(err.AddToError(__filename, 'externalUser'))
+          :
+            reject(new ErrorObj(500,
+                                        'a0130',
+                                        __filename,
+                                        'externalUser',
+                                        'create external user error',
+                                        'There was a problem creating an account.',
+                                        err
+                                        ));
+        });
+      }
+      else {
+        reject(new ErrorObj(401,
+                            'a0101',
                             __filename,
-                            'forgotUsername',
-                            'bsuser is locked',
-                            'Unauthorized',
-                            null
-                        );
-                        deferred.reject(errorObj);
+                            'signUp',
+                            'no public external signup',
+                            'Public signup of external accounts is not allowed.',
+                            null));
+      }
+    });
+  }
 
-                        deferred.promise.nodeify(callback);
-                        return deferred.promise;
-                    }
-                    return utilities.sendMail(usersFound[0].email, 'Forgot Username?', null, '<h2>Your username is, ' + usersFound[0].username + '</h2>');
+  #signOut(req) {
+    return new Promise((resolve, reject) => {
+      var token = req.headers[this.settings.token_header];
+    
+      this.dataAccess.getSession(null, token)
+      .then((session) => {
+        return this.utilities.invalidateSession(session);
+      })
+      .then((invld_res) => {
+        resolve({success: true});
+      })
+      .catch((err) => {
+        reject(err.AddToError(__filename, 'signOut'));
+      });
+    });
+  }
+
+  #forgotUsername(req) {
+    return new Promise((resolve, reject) => {
+      this.dataAccess.getUserByEmail(req.body.email)
+      .then((user) => {
+          if (user != null) {
+              if (user.locked) {
+                  var errorObj = new ErrorObj(403,
+                      'a2005',
+                      __filename,
+                      'forgotUsername',
+                      'bsuser is locked',
+                      'Unauthorized',
+                      null
+                  );
+                  reject(errorObj);
+                  return;
+              }
+              return this.utilities.sendMail(user.email, 'Forgot Username?', null, '<h2>Your username is, ' + user.username + '</h2>');
+          }
+          else {
+              var errorObj = new ErrorObj(500,
+                  'a1058',
+                  __filename,
+                  'forgotUsername',
+                  'More than one userfound with this email adress'
+              );
+              reject(errorObj);
+              return;
+          }
+      })
+      .then((emailRes) => {
+          resolve({success:true});
+      })
+      .catch((err) => {
+          if (err !== undefined && err !== null && typeof (err.AddToError) == 'function') {
+              err.setMessages('Problem generating email and retrieving forgotten username');
+              reject(err.AddToError(__filename, 'forgotUsername'));
+          }
+          else {
+              var errorObj = new ErrorObj(400,
+                  'a1054',
+                  __filename,
+                  'forgotUsername',
+                  'error retrieving forgotten username',
+                  'Problem generating email and retrieving forgotten username',
+                  err
+              );
+              reject(errorObj);
+          }
+      });
+    });
+  }
+
+  #forgotPassword(req) {
+    return new Promise((resolve, reject) => {
+      var args = req.body;
+      var email = args.email;
+      var username = args.username;
+
+      var validArgs = false;
+      if (username != null && username !== '') {
+          validArgs = true;
+      }
+      else if (email != null && email !== '') {
+          validArgs = true;
+      }
+
+      if (validArgs) {
+          let userObj = null;
+          this.dataAccess.findUser(null, username, email)
+          .then((userObjs) => {
+            return new Promise((validResolve, validReject) => {
+              if(userObjs.length === 1) {
+                userObj = userObjs[0];
+                if (userObj.locked) {
+                    let errorObj = new ErrorObj(403,
+                        'a2006',
+                        __filename,
+                        'forgotPassword',
+                        'bsuser is locked',
+                        'Unauthorized',
+                        null
+                    );
+                    validReject(errorObj);
                 }
                 else {
-                    var errorObj = new ErrorObj(500,
-                        'a1058',
-                        __filename,
-                        'forgotUsername',
-                        'More than one userfound with this email adress'
-                    );
-                    deferred.reject(errorObj);
+                  this.utilities.getHash(null,null,48)
+                  .then((hash) => {
+                    validResolve([userObj, hash]);
+                  })
                 }
-
-                deferred.promise.nodeify(callback);
-                return deferred.promise;
-            })
-            .then(function(emailRes) {
-                deferred.resolve();
-            })
-            .fail(function(err) {
-                if (err !== undefined && err !== null && typeof (err.AddToError) == 'function') {
-                    err.setMessages('Problem generating email and retrieving forgotten username');
-                    deferred.reject(err.AddToError(__filename, 'forgotUsername'));
-                }
-                else {
-                    var errorObj = new ErrorObj(400,
-                        'a1054',
-                        __filename,
-                        'forgotUsername',
-                        'error retrieving forgotten username',
-                        'Problem generating email and retrieving forgotten username',
-                        err
-                    );
-                    deferred.reject(errorObj);
-                }
+              }
+              else {
+                let errorObj = new ErrorObj(404,
+                    'a2008',
+                    __filename,
+                    'forgotPassword',
+                    'no user',
+                    'That user could not be found.',
+                    null
+                );
+                validReject(errorObj);
+              }
             });
+          })
+          .then(([userObj, tkn]) => {
+              var reset_link = process.env.reset_password_link || "";
+              reset_link = (reset_link == "" || reset_link == "FILL_IN") ? tkn : reset_link + '?token=' + tkn;
 
-        deferred.promise.nodeify(callback);
-        return deferred.promise;
-    },
-    forgotPassword: function(req, callback) {
-        var deferred = Q.defer();
-        var args = req.body;
-        var email = args.email;
-        var username = args.username;
+              // IF WE HAVE A TEMPLATE SPECIFIED IN THE ENV VARS
+              // USE THAT.  OTHERWISE, JUST SEND OFF THE LINK/TOKEN
+              if(process.env.reset_password_email) {
+                return Promise.all([userObj, tkn, utilities.sendMailTemplate(userObj.email, 'Password Reset', process.env.reset_password_email, {resetLink: reset_link})]);
+              }
+              else {
+                var message = 'Reset password: ' + reset_link;
+                return Promise.all([userObj, tkn, utilities.sendMail(userObj.email, 'Password Reset', message)]);
+              }
 
-        var validArgs = false;
-        if (username != null && username !== '') {
-            validArgs = true;
-        }
-        else if (email != null && email !== '') {
-            validArgs = true;
-        }
+          })
+          .then(([userObj, tkn, mail_res]) => {
+            return this.dataAccess.updateCredentialsForUser(userObj.id, null, null, tkn);
+          })
+          .then((saveRes) => {
+              resolve({success:true});
+          })
+          .catch((err) => {
+              if(err != null && err.err_code == 'da0200'){
+                  var resolveObj = { 
+                      'success': true,
+                      'uExists': false
+                  };
+                  resolve(resolveObj);
+              }
+              else if (err != null && typeof (err.AddToError) == 'function') {
+                  err.setMessages('error generating password reset link', 'Problem generating email and link to reset password');
+                  reject(err.AddToError(__filename, 'forgotPassword'));
+              }
+              else {
+                  let errorObj = new ErrorObj(500,
+                      'a1032',
+                      __filename,
+                      'forgotPassword',
+                      'error generating password reset link',
+                      'Problem generating email and link to reset password',
+                      err
+                  );
+                  reject(errorObj);
+              }
+          });
+      }
+      else {
+          let errorObj = new ErrorObj(400,
+              'a0032',
+              __filename,
+              'forgotPassword',
+              'must supply username or email associated with this bsuser'
+          );
+          reject(errorObj);
+      }
+    });
+  }
 
-        if (validArgs) {
-            dataAccess.findUser(email, username)
-                .then(function(userObj) {
-                    if (userObj.is_locked) {
-                        var errorObj = new ErrorObj(403,
-                            'a2006',
-                            __filename,
-                            'forgotPassword',
-                            'bsuser is locked',
-                            'Unauthorized',
-                            null
-                        );
-                        deferred.reject(errorObj);
+  #resetPassword(req) {
+    return new Promise((resolve, reject) => {
+      var args = req.body;
+      var tkn = args.token;
+      var password = args.password;
 
-                        deferred.promise.nodeify(callback);
-                        return deferred.promise;
-                    }
-                    return [userObj, utilities.getHash(null, null, 48)];
-                })
-                .spread(function(userObj, tkn) {
-                    var reset_link = process.env.reset_password_link || "";
-                    reset_link = (reset_link == "" || reset_link == "FILL_IN") ? tkn : reset_link + '?token=' + tkn;
+      this.dataAccess.getUserByForgotPasswordToken(tkn)
+      .then((userObj) => {
+        if (userObj != null) {
+            // IF USER IS LOCKED, BAIL OUT
+            if (userObj.is_locked) {
+                var errorObj = new ErrorObj(403,
+                    'a2007',
+                    __filename,
+                    'resetPassword',
+                    'bsuser is locked',
+                    'Unauthorized',
+                    null
+                );
+                reject(errorObj);
+                return;
+            }
 
-                    // IF WE HAVE A TEMPLATE SPECIFIED IN THE ENV VARS
-                    // USE THAT.  OTHERWISE, JUST SEND OFF THE LINK/TOKEN
-                    if(process.env.reset_password_email) {
-                      return [userObj, tkn, utilities.sendMailTemplate(userObj.email, 'Password Reset', process.env.reset_password_email, {resetLink: reset_link})];
-                    }
-                    else {
-                      var message = 'Reset password: ' + reset_link;
-                      return [userObj, tkn, utilities.sendMail(userObj.email, 'Password Reset', message)];
-                    }
-                })
-                .spread(function(userObj, tkn, mail_res) {
-                    if (userObj.forgot_password_tokens === undefined || userObj.forgot_password_tokens === null) {
-                        userObj.forgot_password_tokens = [tkn];
-                    }
-                    else {
-                        userObj.forgot_password_tokens.push(tkn);
-                    }
-                    return [tkn, dataAccess.saveEntity('bsuser', userObj)];
-                })
-                .spread(function(tkn, save_res) {
-                    // ADD EVENT TO SESSION
-                    var resolveObj = { 'success': true };
-                    deferred.resolve(resolveObj);
-                })
-                .fail(function(err) {
-                    if(err != null && err.err_code == 'da0200'){
-                        var resolveObj = { 
-                            'success': true,
-                            'uExists': false
-                        };
-                        deferred.resolve(resolveObj);
-                    }
-                    else if (err != null && typeof (err.AddToError) == 'function') {
-                        err.setMessages('error generating password reset link', 'Problem generating email and link to reset password');
-                        deferred.reject(err.AddToError(__filename, 'forgotPassword'));
-                    }
-                    else {
-                        var errorObj = new ErrorObj(500,
-                            'a1032',
-                            __filename,
-                            'forgotPassword',
-                            'error generating password reset link',
-                            'Problem generating email and link to reset password',
-                            err
-                        );
-                        deferred.reject(errorObj);
-                    }
-                });
+            var cryptoCall = util.promisify(crypto.randomBytes);
+            return Promise.all([userObj, cryptoCall(48)]);
         }
         else {
-            var errorObj = new ErrorObj(400,
-                'a0032',
-                __filename,
-                'forgotPassword',
-                'must supply username or email associated with this bsuser'
-            );
-            deferred.reject(errorObj);
-        }
-
-        deferred.promise.nodeify(callback);
-        return deferred.promise;
-    },
-
-    resetPassword: function(req, callback) {
-        var deferred = Q.defer();
-        var args = req.body;
-        var tkn = args.token;
-        var password = args.password;
-
-        dataAccess.getUserByForgotPasswordToken(tkn)
-            .then(function(userObjs) {
-                if (userObjs !== undefined && userObjs !== null && userObjs.length > 0) {
-                    var userObj = userObjs[0];
-                    // IF USER IS LOCKED, BAIL OUT
-                    if (userObj.is_locked) {
-                        var errorObj = new ErrorObj(403,
-                            'a2007',
-                            __filename,
-                            'resetPassword',
-                            'bsuser is locked',
-                            'Unauthorized',
-                            null
-                        );
-                        deferred.reject(errorObj);
-
-                        deferred.promise.nodeify(callback);
-                        return deferred.promise;
-                    }
-
-                    var cryptoCall = Q.denodeify(crypto.randomBytes);
-                    return [userObj, cryptoCall(48)];
-                }
-                else {
-                    var errorObj = new ErrorObj(500,
-                        'a0033',
-                        __filename,
-                        'resetPassword',
-                        'token not found'
-                    );
-                    deferred.reject(errorObj);
-                }
-
-            })
-            .spread(function(userObj, buf) {
-                var salt = buf.toString('hex');
-                var saltedPassword = password + salt;
-                var hashedPassword = crypto.createHash('sha256').update(saltedPassword).digest('hex');
-                userObj.password = hashedPassword;
-                userObj.salt = salt;
-                userObj.forgot_password_tokens = [];
-                return dataAccess.saveEntity('bsuser', userObj);
-            })
-            .then(function() {
-                var resolveObj = { 'success': true };
-                deferred.resolve(resolveObj);
-            })
-            .fail(function(err) {
-                if (err !== undefined && err !== null && typeof (err.AddToError) == 'function') {
-                    err.setMessages('Problem reseting password');
-                    deferred.reject(err.AddToError(__filename, 'resetPassword'));
-                }
-                else {
-                    var errorObj = new ErrorObj(500,
-                        'a1033',
-                        __filename,
-                        'resetPassword',
-                        'error reseting password',
-                        'Problem reseting password',
-                        err
-                    );
-                    deferred.reject(errorObj);
-                }
-            });
-
-        deferred.promise.nodeify(callback);
-        return deferred.promise;
-    },
-
-    profile: function(req, callback) {
-        var deferred = Q.defer();
-
-        var token = req.headers[settings.data.token_header];
-        var appendObj = req.body.userprofile;
-        var userObj = req.this_user;
-        var immutableKeys = ['object_type', 'username', 'salt', 'password', 'created_at', 'updated_at', 'roles', 'forgot_password_tokens', 'id', 'is_active'];
-        var objKeys = Object.keys(appendObj);
-        for (var idx = 0; idx < objKeys.length; idx++) {
-            if (immutableKeys.indexOf(objKeys[idx]) === -1) {
-                var k = objKeys[idx];
-                var v = appendObj[k];
-                userObj[k] = v;
-            }
-        }
-
-        dataAccess.saveEntity('bsuser', userObj)
-            .then(function() {
-                // ADD EVENT TO SESSION
-                var resolveObj = { 'profile': true };
-                deferred.resolve(resolveObj);
-            })
-            .fail(function(err) {
-                if (err !== undefined && err !== null && typeof (err.AddToError) == 'function') {
-                    err.setMessages('error posting user profile', 'Problem setting your profile');
-                    deferred.reject(err.AddToError(__filename, 'profile'));
-                }
-                else {
-                    var errorObj = new ErrorObj(500,
-                        'a1034',
-                        __filename,
-                        'profile',
-                        'error posting user profile',
-                        'Problem setting your profile',
-                        err
-                    );
-                    deferred.reject(errorObj);
-                }
-            });
-
-        deferred.promise.nodeify(callback);
-        return deferred.promise;
-    },
-
-    profileImage: function(req, callback) {
-        var deferred = Q.defer();
-
-		deferred.resolve({});
-
-        deferred.promise.nodeify(callback);
-        return deferred.promise;
-    },
-    startAnonymousSession: function(req, callback) {
-        var deferred = Q.defer();
-
-        createAnonymousSession()
-            .then(function(sess_res) {
-                // ADD EVENT TO SESSION
-                var resolveObj = sess_res;
-                deferred.resolve(resolveObj);
-            })
-            .fail(function(err) {
-                if (err !== undefined && err !== null && typeof (err.AddToError) === 'function') {
-                    deferred.reject(err.AddToError(__filename, 'startAnonymousSession'));
-                }
-                else {
-                    var errorObj = new ErrorObj(500,
-                        'a1050',
-                        __filename,
-                        'startAnonymousSession',
-                        'error starting anonymous session',
-                        'Error starting anonymous session',
-                        err);
-                    deferred.reject(errorObj);
-                }
-            });
-
-        deferred.promise.nodeify(callback);
-        return deferred.promise;
-    }
-};
-
-Accounts.prototype.patch = {
-    password: function(req, callback) {
-        var deferred = Q.defer();
-
-        // TODO: validate password if possible
-
-        var token = req.headers[settings.data.token_header];
-        var existingUser = req.this_user;
-        // GOT A USER, MAKE SURE THERE IS A STORED SALT
-        var salt = existingUser.salt;
-        if (salt === null) {
             var errorObj = new ErrorObj(500,
-                'a0034',
+                'a0033',
                 __filename,
-                'bsuser',
-                'error retrieving salt for this user'
+                'resetPassword',
+                'token not found'
             );
-            deferred.reject(errorObj);
+            reject(errorObj);
+        }
+      })
+      .then(([userObj, buf]) => {
+          var salt = buf.toString('hex');
+          var saltedPassword = password + salt;
+          var hashedPassword = crypto.createHash('sha256').update(saltedPassword).digest('hex');
+          return this.dataAccess.updateCredentialsForUser(userObj.id, salt, hashedPassword, null);
+      })
+      .then(() => {
+          resolve({success:true});
+      })
+      .catch((err) => {
+          if (err !== undefined && err !== null && typeof (err.AddToError) == 'function') {
+              err.setMessages('Problem reseting password');
+              reject(err.AddToError(__filename, 'resetPassword'));
+          }
+          else {
+              var errorObj = new ErrorObj(500,
+                  'a1033',
+                  __filename,
+                  'resetPassword',
+                  'error reseting password',
+                  'Problem reseting password',
+                  err
+              );
+              reject(errorObj);
+          }
+      });
+    });
+  }
+
+  #startAnonymousSession(req) {
+    return new Promise((resolve, reject) => {
+      // ACCESS CONTROL'S startSession() CREATES AN ANONYMOUS SESSION IF
+      // YOU DO NOT PASS IT A USER OBJECT AS THE FIRST ARGUMENT
+      this.accessControl.startSession()
+      .then((sess_res) => {
+          // ADD EVENT TO SESSION
+          var resolveObj = sess_res;
+          resolveObj[this.settings.token_header] = sess_res.token;
+          delete resolveObj.token;
+          resolve(resolveObj);
+      })
+      .catch((err) => {
+          if (err !== undefined && err !== null && typeof (err.AddToError) === 'function') {
+            reject(err.AddToError(__filename, 'startAnonymousSession'));
+          }
+          else {
+            var errorObj = new ErrorObj(500,
+                'a1050',
+                __filename,
+                'startAnonymousSession',
+                'error starting anonymous session',
+                'Error starting anonymous session',
+                err);
+            reject(errorObj);
+          }
+      });
+    });
+  }
+
+  #updatePassword(req) {
+    return new Promise((resolve, reject) => {
+      // TODO: validate password if possible
+
+      // GET SALT
+      var cryptoCall = util.promisify(crypto.randomBytes);
+      cryptoCall(48)
+      .then((saltBuf) => {
+        let salt = saltBuf.toString('hex');
+        // SALT AND HASH PASSWORD
+        var saltedPassword = req.body.password + salt;
+        var hashedPassword = crypto.createHash('sha256').update(saltedPassword).digest('hex');
+
+        return this.dataAccess.updateCredentialsForUser(req.this_user.id, salt, hashedPassword);
+      })
+      .then((updatedUser) => {
+        resolve({success: true});
+      })
+      .catch((err) => {
+        if (err !== undefined && err !== null && typeof (err.AddToError) === 'function') {
+            err.setMessages('error updating bsuser', 'Problem updating password');
+            reject(err.AddToError(__filename, 'PATCH password'));
         }
         else {
-            // SALT AND HASH PASSWORD
-            var saltedPassword = req.body.password + existingUser.salt;
-            var hashedPassword = crypto.createHash('sha256').update(saltedPassword).digest('hex');
-            existingUser.password = hashedPassword;
-
-            dataAccess.updateEntity('bsuser', existingUser)
-            .then(function(updatedUser) {
-                deferred.resolve();
-            })
-            .fail(function(err) {
-                if (err !== undefined && err !== null && typeof (err.AddToError) === 'function') {
-                    err.setMessages('error updating bsuser', 'Problem updating password');
-                    deferred.reject(err.AddToError(__filename, 'PATCH password'));
-                }
-                else {
-                    var errorObj = new ErrorObj(500,
-                        'a0052',
-                        __filename,
-                        'password',
-                        'error updating user password'
-                    );
-                    deferred.reject(errorObj);
-                }
-            });
-        }
-
-        deferred.promise.nodeify(callback);
-        return deferred.promise;
-    }
-};
-
-Accounts.prototype.put = {
-    account: function(req, callback) {
-        var deferred = Q.defer();
-
-        var updateUser = req.body;
-
-        var token = req.headers[settings.data.token_header];
-        var existingUser = req.this_user;
-
-        updateUser.id = existingUser.id;
-        updateUser.object_type = 'bsuser';
-        delete updateUser.is_active;
-        delete updateUser.password;
-
-        utilities.validateEmail(updateUser.email, existingUser.email)
-            .then(function() {
-                return utilities.validateUsername(updateUser.username, existingUser.username);
-            })
-            .then(function() {
-                return dataAccess.updateEntity('bsuser', updateUser);
-            })
-            .then(function(update_res) {
-                // ADD EVENT TO SESSION
-                var resolveObj = update_res;
-                deferred.resolve(resolveObj);
-            })
-            .fail(function(err) {
-                if (err !== undefined && err !== null && typeof (err.AddToError) === 'function') {
-                    deferred.reject(err.AddToError(__filename, 'PUT bsuser'));
-                }
-                else {
-                    var errorObj = new ErrorObj(500,
-                        'a00051',
-                        __filename,
-                        'bsuser',
-                        'error updating bsuser',
-                        'Error updating bsuser',
-                        err
-                    );
-                    deferred.reject(errorObj);
-                }
-            });
-        deferred.promise.nodeify(callback);
-        return deferred.promise;
-    }
-};
-
-Accounts.prototype.delete = {
-    account: function(req, callback) {
-        var deferred = Q.defer();
-
-        var token = req.headers[settings.data.token_header];
-        var existingUser = req.this_user;
-        dataAccess.deleteEntity('bsuser', existingUser)
-            .then(function() {
-                deferred.resolve();
-            })
-            .fail(function(err) {
-                if (err !== undefined && err !== null && typeof (err.AddToError) === 'function') {
-                    err.setMessages('error deleting bsuser');
-                    deferred.reject(err.AddToError(__filename, 'DELETE bsuser'));
-                }
-                else {
-                    var errorObj = new ErrorObj(500,
-                        'a00051',
-                        __filename,
-                        'bsuser',
-                        'error deleting bsuser',
-                        err
-                    );
-                    deferred.reject(errorObj);
-                }
-                deferred.reject();
-            });
-        deferred.promise.nodeify(callback);
-        return deferred.promise;
-    }
-};
-
-
-// =====================================================================================
-// UTILITY FUNCTIONS
-// =====================================================================================
-
-function getUser(req, callback) {
-    var deferred = Q.defer();
-    var username = (typeof(req.body.username) == 'undefined' || req.body.username === null) ? req.body.email.toLowerCase() : req.body.username.toLowerCase();	
-
-    dataAccess.getUserByUserName(username)
-        .then(function(user) {
-            deferred.resolve(user);
-        })
-        .fail(function(err) {
-            if (err !== undefined && err !== null && typeof (err.AddToError) == 'function') {
-                deferred.reject(err.AddToError(__filename, 'getUser'));
-            }
-            else {
-                var errorObj = new ErrorObj(500,
-                    'a2038',
-                    __filename,
-                    'getUser',
-                    'error getting user',
-                    'Error getting user',
-                    err
-                );
-                deferred.reject(errorObj);
-            }
-        })
-
-    deferred.promise.nodeify(callback);
-    return deferred.promise;
-}
-
-
-function userExists(req, callback) {
-    var deferred = Q.defer();
-
-    getUser(req)
-        .then(function() {
-            deferred.resolve({ 'user_exists': true });
-        })
-        .fail(function(err) {
-            if (err !== undefined && err !== null && typeof (err.AddToError) == 'function') {
-                deferred.reject(err.AddToError(__filename, 'userExists'));
-            }
-            else {
-                var errorObj = new ErrorObj(500,
-                    'a1038',
-                    __filename,
-                    'userExists',
-                    'error checking that user exists',
-                    'Error checking that user exists',
-                    err
-                );
-                deferred.reject(errorObj);
-            }
-        });
-
-    deferred.promise.nodeify(callback);
-    return deferred.promise;
-}
-
-function userDoesNotExist(req, callback) {
-    var deferred = Q.defer();
-    getUser(req)
-        .then(function() {
-            var errorObj = new ErrorObj(500,
-                'a0036',
+            let errorObj = new ErrorObj(500,
+                'a0052',
                 __filename,
-                'userDoesNotExist',
-                'a user already exists with the information provided'
+                'password',
+                'error updating user password'
             );
-            deferred.reject(errorObj);
-        })
-        .fail(function(err) {
-            if (err !== undefined && err !== null && typeof (err.AddToError) == 'function') {
-                if (err.message === 'no user found' || err.err_code === 'da2000') {
-                    deferred.resolve({ 'user_not_exist': true });
-                }
-                else {
-                    deferred.reject(err.AddToError(__filename, 'userDoesNotExist'));
-                }
-            }
-            else {
-                var errorObj = new ErrorObj(500,
-                    'a1039',
-                    __filename,
-                    'userExists',
-                    'error checking that user does not exist',
-                    'Error checking that user does not exist',
-                    err
-                );
-                deferred.reject(errorObj);
-            }
-        });
+            reject(errorObj);
+        }
+      });
+    });
+  }
 
-    deferred.promise.nodeify(callback);
-    return deferred.promise;
+  #updateEmail(req) {
+    return new Promise((resolve, reject) => {
+      var updateUser = req.body;
+      var existingUser = req.this_user;
+
+      this.utilities.validateEmail(updateUser.email, existingUser.email)
+      .then(() => {
+          return this.utilities.validateUsername(updateUser.email, existingUser.username);
+      })
+      .then(() => {
+        return this.dataAccess.updateUserInfo(existingUser.id, null, null, updateUser.email);
+      })
+      .then((updateRes) => {
+          if(updateRes) {
+            resolve(updateRes);
+          }
+          else {
+            resolve(null);
+          }
+      })
+      .catch((err) => {
+          if (err !== undefined && err !== null && typeof (err.AddToError) === 'function') {
+              reject(err.AddToError(__filename, 'PUT bsuser'));
+          }
+          else {
+              var errorObj = new ErrorObj(500,
+                  'a00051',
+                  __filename,
+                  'bsuser',
+                  'error updating bsuser',
+                  'Error updating bsuser',
+                  err
+              );
+              reject(errorObj);
+          }
+      });
+    });
+  }
+
+  #deleteUser(req) {
+    return new Promise((resolve, reject) => {
+      this.dataAccess.deleteUser(req.this_user.id)
+      .then(() => {
+          resolve({success:true});
+      })
+      .catch((err) => {
+          if (err !== undefined && err !== null && typeof (err.AddToError) === 'function') {
+              err.setMessages('error deleting bsuser');
+              reject(err.AddToError(__filename, 'DELETE bsuser'));
+          }
+          else {
+              var errorObj = new ErrorObj(500,
+                  'a00051',
+                  __filename,
+                  'bsuser',
+                  'error deleting bsuser',
+                  err
+              );
+              reject(errorObj);
+          }
+      });
+    });
+  }
+
+  #deleteApiCredentials(req) {
+    return new Promise((resolve, reject) => {
+      this.dataAccess.deleteCredentialsByClientId(req.body.client_id)
+      .then((res) => {
+        resolve(res);
+      })
+      .catch((err) => {
+        reject(err.AddToError(__filename, 'deleteApiCredentials'));
+      })
+    });
+  }
 }
 
-function createSession(userObj, clientInfo) {
-	var deferred = Q.defer();
-
-	accessControl.getToken()
-	.then(function(tkn) {
-		return [tkn, dataAccess.startTransaction()]
-	})
-	.spread(function(tkn, client) {
-		var rightNow = new Date();
-		var sessionObj = {
-			'object_type': 'session',
-			'is_anonymous': false,
-      'token': tkn,
-      'username': userObj.username,
-			'user_id': userObj.id,
-			'started_at': rightNow,
-			'client_info': clientInfo,
-			'last_touch': rightNow
-		};
-		return [client, dataAccess.t_saveEntity(client, 'session', sessionObj)];
-	})
-	.spread(function(client, save_res) {
-		return [client, save_res.token, dataAccess.t_addRelationship(client, userObj, save_res, null)];
-	})
-	.spread(function(client, tkn, rel_res) {
-		return [tkn, dataAccess.commitTransaction(client)];
-	})
-	.spread(function(tkn, commit_res) {
-		var returnObj = {};
-		returnObj[settings.data.token_header] = tkn;
-		var uiKeys = Object.keys(userObj);
-		for(var uiIdx = 0; uiIdx < uiKeys.length; uiIdx++) {
-			returnObj[uiKeys[uiIdx]] = userObj[uiKeys[uiIdx]];
-		}
-		delete returnObj.password;
-    delete returnObj.salt;
-    delete returnObj.client_secret;
-		delete returnObj.forgot_password_tokens;
-
-		deferred.resolve(returnObj);
-	})
-	.fail(function(err) {
-		if(err !== undefined && err !== null && typeof(err.AddToError) == 'function') {
-			deferred.reject(err.AddToError(__filename, 'createSession'));
-		}
-		else {
-			var errorObj = new ErrorObj(500,
-									'a1040',
-									__filename,
-									'createSession',
-									'error creating session',
-									'Error creating session',
-									err
-									);
-			deferred.reject(errorObj);
-		}
-	});
-
-	return deferred.promise;
-}
-
-function createAnonymousSession(clientInfo) {
-	var deferred = Q.defer();
-
-	accessControl.getToken()
-	.then(function(tkn) {
-		return [tkn, dataAccess.startTransaction()]
-	})
-	.spread(function(tkn, client) {
-		var rightNow = new Date();
-		var sessionObj = {
-			'object_type': 'session',
-			'is_anonymous': true,
-			'token': tkn,
-			'username': 'anonymous',
-			'started_at': rightNow,
-			'client_info': clientInfo,
-			'last_touch': rightNow
-		};
-		return [client, dataAccess.t_saveEntity(client, 'session', sessionObj)];
-	})
-	.spread(function(client, save_res) {
-		return [save_res, dataAccess.commitTransaction(client)];
-	})
-	.spread(function(save_res, commit_res) {
-		deferred.resolve(save_res);
-	})
-	.fail(function(err) {
-		if(err !== undefined && err !== null && typeof(err.AddToError) == 'function') {
-			deferred.reject(err.AddToError(__filename, 'createAnonymousSession'));
-		}
-		else {
-			var errorObj = new ErrorObj(500,
-										'a1041',
-										__filename,
-										'createAnonymousSession',
-										'error creating anonymous session',
-										'Error creating anonymous session',
-										err
-										);
-			deferred.reject(errorObj);
-		}
-	});
-
-	return deferred.promise;
-}
-
-function createTwitterAuthHeader(verb, url, params, token, token_secret) {
-	var deferred = Q.defer();
-
-	if(token_secret === undefined || token_secret === null) {
-		token_secret = '';
-	}
-
-	// CREATE THE SIGNATURE
-	var nonce = crypto.randomBytes(32).toString('hex');
-	var timestamp = Math.floor(new Date().getTime()/1000);
-	var paramString = '';
-	if(params === undefined || params === null) {
-		params = {};
-	}
-
-	// ADD ALL REQUIRED & OPTIONAL PARAMETERS TO THE PARAMS OBJECT
-	params.oauth_consumer_key = settings.data.oauth.twitter.consumer_key;
-	params.oauth_nonce = nonce;
-	params.oauth_signature_method = 'HMAC-SHA1';
-	params.oauth_timestamp = timestamp;
-	if(token !== null && token !== undefined && token !== '') {
-		params.oauth_token = token;
-	}
-	params.oauth_version = '1.0';
-
-	// SORT THE KEYS LEXIGRAPHICALLY & ADD THEM TO THE PARAMSTRING
-	var paramKeys = Object.keys(params).sort();
-	for(var pIdx = 0; pIdx < paramKeys.length; pIdx++) {
-		paramString += encodeURIComponent(paramKeys[pIdx])+'='+encodeURIComponent(params[paramKeys[pIdx]]);
-		if(pIdx < paramKeys.length-1) {
-			paramString += '&';
-		}
-	}
-
-	verb = verb.toUpperCase();
-	var signatureBase = verb+'&'+
-		encodeURIComponent(url)+'&'+
-		encodeURIComponent(paramString);
-	var signingKey = encodeURIComponent(settings.data.oauth.twitter.consumer_secret)+'&'+encodeURIComponent(token_secret);
-	var hmac = crypto.createHmac('sha1', signingKey);
-	hmac.setEncoding('base64');
-	hmac.write(signatureBase);
-	hmac.end();
-	var signature = hmac.read();
-
-
-	// CREATE THE OAUTH HEADER
-	var authHeader = 'OAuth '+encodeURIComponent('oauth_consumer_key')+'="'+encodeURIComponent(settings.data.oauth.twitter.consumer_key)+'",'+
-		encodeURIComponent('oauth_nonce')+'="'+encodeURIComponent(nonce)+'",'+
-		encodeURIComponent('oauth_signature_method')+'="'+encodeURIComponent('HMAC-SHA1')+'",'+
-		encodeURIComponent('oauth_timestamp')+'="'+encodeURIComponent(timestamp)+'",';
-	if(token !== null && token !== undefined && token !== '') {
-		authHeader += encodeURIComponent('oauth_token')+'="'+encodeURIComponent(token)+'",';
-	}
-	authHeader += encodeURIComponent('oauth_version')+'="'+encodeURIComponent('1.0')+'",'+
-		encodeURIComponent('oauth_signature')+'="'+encodeURIComponent(signature)+'"';
-
-	deferred.resolve(authHeader);
-	return deferred.promise;
-}
-
-function splitParams(paramString) {
-	var kvpairs = paramString.split('&');
-	var params = {};
-	for(var kvIdx = 0; kvIdx < kvpairs.length; kvIdx++) {
-		var pair = kvpairs[kvIdx].split('=');
-		params[pair[0]] = pair[1];
-	}
-
-	return params;
-}
-
-exports.accounts = Accounts;
+module.exports = Accounts;

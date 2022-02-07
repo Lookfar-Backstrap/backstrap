@@ -1,45 +1,34 @@
 {
-	"token_header": "[YOUR API TOKEN NAME]",
+	"api_name": "YOUR API TITLE",
+	"token_header": "bs_api_token",
 	"timeout_check": 15,
 	"timeout": 120,
 	"server_port": 3000,
-  "servers": [],
+  "index_service_call": "index",
   "access_logging": false,
   "session_logging": false,
   "log_rotation_period": 90,
+  "server_timeout": null,
+  "keep_alive_timeout": null,
+  "headers_timeout": null,
+  "data_service_directory": null,
+  "utilities_directory": null,
 	"mail_options": {
-		"account": "[YOUR EMAIL ADDRESS]",
+		"account": "FILL ME IN",
 		"service": "sendgrid",
-		"user": "[YOUR EMAIL USER]",
-		"pass": "[YOUR EMAIL PASSWORD]",
-        "template_directory": "../../templates/"
-	},
-	"oauth": {
-		"facebook": {
-			"client_id": "[YOUR CLIENT ID]",
-			"client_secret": "[YOUR CLIENT SECRET]",
-			"get_token_url": "https://graph.facebook.com/v2.8/oauth/access_token?client_id=",
-			"token_info_url": "https://graph.facebook.com/v2.8/me?access_token",
-			"endpoint": "https://graph.facebook.com/v2.8/oauth/access_token"
-		},
-		"twitter": {
-			"consumer_key": "[YOUR CONSUMER KEY]",
-			"consumer_secret": "[YOUR CONSUMER SECRET]",
-			"get_token_url": "https://api.twitter.com/oauth/request_token",
-			"callback_url": "[YOUR CALLBACK URL]",
-			"verify_credentials_json_url":"https://api.twitter.com/1.1/account/verify_credentials.json",
-			"access_token_url": "https://api.twitter.com/oauth/access_token"
-		},
-		"google": {
-			"client_id": "[YOUR CLIENT ID]",
-			"client_secret": "[YOUR CLIENT SECRET]",
-			"get_token_url": "https://www.googleapis.com/oauth2/v4/token",
-			"token_info_url": "https://www.googleapis.com/oauth2/v3/tokeninfo"
-		},
-		"linkedin": {
-
-		}
-	},
-	"reload_user": "bsuser",
-	"reload_pass": "[PASSWORD FOR bsuser]"
+		"user": "FILL ME IN",
+    "api_key": "FILL ME IN",
+		"template_directory": "./templates/"
+  },
+  "identity": {
+    "provider": "native",
+    "domain": "",
+    "client_id": "",
+    "client_secret": "",
+    "audience": "",
+    "key_url": "",
+    "kid": "",
+    "mgmt_client_id": "",
+    "mgmt_client_secret": ""
+  }
 }

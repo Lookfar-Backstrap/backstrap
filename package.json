@@ -1,49 +1,42 @@
 {
   "name": "backstrap-server",
-  "version": "2.2.7",
+  "version": "3.0.0",
+  "type": "commonjs",
   "license": "SEE LICENSE IN LICENSE.txt",
-  "description": "Backstrap is a framework for rest and rest-like APIs",
+  "description": "Backstrap is a lightweight framework for building APIs",
   "keywords": [
     "api",
-    "rest",
-    "server",
     "framework",
+    "express",
     "postgresql",
-    "postgres",
-    "cms",
-    "admin portal",
-    "backend",
-    "express"
+    "appserver",
+    "endpoint",
+    "users",
+    "roles",
+    "lightweight",
+    "backend"
   ],
   "repository": {
     "type": "git",
     "url": "https://github.com/Lookfar-Backstrap/backstrap.git"
   },
   "dependencies": {
-    "angular-modal-service": "^0.10.1",
-    "async": "^2.6.2",
-    "aws-sdk": "^2.441.0",
-    "body-parser": "^1.18.3",
+    "async": "^3.2.0",
+    "body-parser": "^1.19.0",
     "cors": "^2.8.5",
     "cryptojs": "^2.5.3",
-    "express": "^4.16.4",
-    "fs": "^0.0.2",
+    "express": "^4.17.1",
     "jsonwebtoken": "^8.5.1",
     "jwks-rsa": "^1.8.0",
-    "mkdirp": "^0.5.1",
-    "moment": "^2.17.1",
-    "nodemailer": "^6.4.14",
+    "mkdirp": "^1.0.4",
+    "moment": "^2.29.1",
+    "nodemailer": "^6.6.0",
     "nodemailer-sendgrid": "^1.0.3",
     "nodemailer-smtp-transport": "^2.7.4",
     "os": "^0.1.1",
     "path": "^0.12.7",
-    "pg": "^8.5.1",
-    "pg-query-stream": "^4.0.0",
-    "pluralize": "^3.1.0",
-    "q": "^1.5.1",
-    "request": "^2.88.0",
-    "snowboard": "^3.5.7",
-    "xoauth2": "^1.2.0"
+    "pg": "^8.6.0",
+    "pg-query-stream": "^4.1.0"
   },
   "main": "BackstrapServer.js",
   "scripts": {
@@ -56,9 +49,8 @@
     "server": "npm --env=server test"
   },
   "devDependencies": {
-    "faker": "^4.0.0",
-    "chai": "^3.5.0",
-    "chai-http": "^4.2.0",
-    "mocha": "^6.1.4"
+    "chai": "^4.3.4",
+    "chai-http": "^4.3.0",
+    "mocha": "^8.4.0"
   }
 }
