@@ -57,6 +57,7 @@ ErrorObj = function (_status, _err_code, _class, _func, _message, _display_messa
       this.message = _results.message;
       this.display_message = _results.display_message;
       this.stack_trace = _results.stack_trace;
+      this.results = _results.results || null;
     }
     else {
 		  this.results = _results;
