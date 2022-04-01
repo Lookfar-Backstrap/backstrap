@@ -660,7 +660,7 @@ class DataAccess {
     return new Promise((resolve, reject) => {
       this.findUser(null, username, email)
       .then((userObj) => {
-        if (userObj.is_locked) {
+        if (userObj.locked) {
           reject(new ErrorObj(
             403,
             'a2006',
