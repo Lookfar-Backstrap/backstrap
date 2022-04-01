@@ -327,7 +327,7 @@ class AccessControl {
   async checkCredentials(password, userObj) {
     return new Promise((resolve, reject) => {
       // IF USER IS LOCKED, BAIL OUT
-      if (userObj.is_locked) {
+      if (userObj.locked) {
         var errorObj = new ErrorObj(403,
             'ac0300',
             __filename,
@@ -638,7 +638,7 @@ class AccessControl {
           return this.dataAccess.getUserByExternalIdentityId(externalId, ['external-api']);
         })
         .then((usr) => {
-          if(usr.is_locked !== true) {
+          if(usr.locked !== true) {
             resolve({is_valid: true, user: usr});
           }
           else {
@@ -711,7 +711,7 @@ class AccessControl {
         return;
       }
 
-      if(userObj.is_locked) {
+      if(userObj.locked) {
         let errorObj = new ErrorObj(403, 
                                     'ac0009', 
                                     __filename, 
@@ -811,6 +811,94 @@ class AccessControl {
           'role not found'
         );
         reject(errorObj);
+      }
+    });
+  }
+
+  async grantRoles(userId, roles) {
+    return new Promise(async (resolve, reject) => {
+      try {
+        let didAddRoles = false;
+        let user = await this.dataAccess.getUserById(userId);
+        if(user) {
+          for(let rIdx = 0; rIdx < roles.length; rIdx++) {
+            let cRole = roles[rIdx];
+            if(!user.roles.includes(cRole)) {
+              user.roles.push(cRole);
+              didAddRoles = true;
+            }
+          }
+          if(didAddRoles) {
+            await this.dataAccess.updateUserInfo(userId, null, user.roles, null, null, null);
+          }
+        }
+        resolve();
+      }
+      catch(err) {
+        reject(new ErrorObj(500,
+                            'ac0500',
+                            __filename,
+                            'grantRole',
+                            'general error',
+                            'There was a problem with your request',
+                            err));
+      }
+    });
+  }
+
+  async revokeRoles(userId, roles) {
+    return new Promise(async (resolve, reject) => {
+      try {
+        let didRemoveRoles = false;
+        let user = await this.dataAccess.getUserById(userId);
+        if(user) {
+          for(let rIdx = 0; rIdx < roles.length; rIdx++) {
+            let cRole = roles[rIdx].toLowerCase();
+            if(user.roles.includes(cRole)) {
+              user.roles.splice(user.roles.indexOf(cRole), 1);
+              didRemoveRoles = true;
+            }
+          }
+          if(didRemoveRoles) {
+            await this.dataAccess.updateUserInfo(userId, null, user.roles, null, null, null);
+          }
+        }
+        resolve();
+      }
+      catch(err) {
+        reject(new ErrorObj(500,
+                            'ac0510',
+                            __filename,
+                            'revokeRole',
+                            'general error',
+                            'There was a problem with your request',
+                            err));
+      }
+    });
+  }
+
+  async setUserLocked(userId, isLocked) {
+    return new Promise(async (resolve, reject) => {
+      try {
+        let updRes = await this.dataAccess.updateUserInfo(userId, isLocked);
+        if(updRes.length < 1) {
+          reject(new ErrorObj(500,
+                              'ac0520',
+                              __filename,
+                              'setUserLocked',
+                              'update error',
+                              'There was a problem locking/unlocking user.',
+                              null));
+        }
+      }
+      catch(err) {
+        reject(500,
+              'ac0521',
+              __filename,
+              'setUserLocked',
+              'general error',
+              'There was a problem locking/unlocking user.',
+              err);
       }
     });
   }
@@ -1117,7 +1205,7 @@ class AccessControl {
               'email': email,
               'roles': roles,
               'external_id': exid,
-              'is_locked': false
+              'locked': false
           };
           return this.dataAccess.createUser(userObj);
         }

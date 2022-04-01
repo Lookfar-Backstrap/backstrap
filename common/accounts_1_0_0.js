@@ -407,7 +407,7 @@ class Accounts {
       .then((userObj) => {
         if (userObj != null) {
             // IF USER IS LOCKED, BAIL OUT
-            if (userObj.is_locked) {
+            if (userObj.locked) {
                 var errorObj = new ErrorObj(403,
                     'a2007',
                     __filename,
