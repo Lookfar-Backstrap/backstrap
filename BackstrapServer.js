@@ -430,55 +430,70 @@ function requestPipeline(req, res, verb) {
       }
     }
     catch(err) {
-      if (err.http_status == null) {
-        err.http_status = 500;
-      }
-  
-      if (err.message == null || err.message.length === 0) {
-        err['message'] = 'Something went wrong and we are working to fix it. Please try again later.'
-      }
-  
-      // IF ACCESS LOGGING IS ENABLED.  ADD THE END TIMESTAMP
-      // AND RESPONSE STATUS NUM TO THE ACCESS LOG EVENT AND
-      // WRITE IT TO THE LOG
-      if(Settings.access_logging === true) {
-        accessLogEvent.end_timestamp = new Date().toISOString();
-        accessLogEvent.http_status = err.http_status;
-        let logEntry = JSON.stringify(accessLogEvent)+'\n';
-        accessLog.write(logEntry);
-      }
-  
-      let errorLogEntry = JSON.stringify(err) + '\n';
-      errorLog.write(errorLogEntry);
-  
-      res.status(err.http_status).send(err);
+      let formattedErr = formatError(err);
+      finishLogging(formattedErr, accessLog, accessLogEvent, errorLog);
+      res.status(formattedErr.status).send(formattedErr);
     }
 
   })
   .catch((err) => {
-    if (err.http_status == null) {
-      err.http_status = 500;
-    }
+    let formattedErr = formatError(err);
+    finishLogging(formattedErr, accessLog, accessLogEvent, errorLog);
+    res.status(formattedErr.status).send(formattedErr);
+  });
+}
 
-    if (err.message == null || err.message.length === 0) {
-      err['message'] = 'Something went wrong and we are working to fix it. Please try again later.'
-    }
 
-    // IF ACCESS LOGGING IS ENABLED.  ADD THE END TIMESTAMP
+// ----------------------------------------------
+// DETERMINE IF THIS IS A CUSTOM OR NATIVE ERROR
+// AND FORMAT APPROPRIATELY
+// ----------------------------------------------
+function formatError(err) {
+  let formattedErr;
+  if(err != null) {
+    if(err instanceof ErrorObj) {
+      formattedErr = err;
+      if(err.message == null || err.message == '') formattedErr.message = 'unknown error';
+      formattedErr.status = err.http_status;
+      delete formattedErr.http_status;
+    }
+    else if(err instanceof Error) {
+      formattedErr = { timestamp: new Date().toISOString() };
+      if(err.status == null) {
+        formattedErr.status = 500;
+      }
+      else {
+        formattedErr.status = err.status;
+      }
+      formattedErr.message = err.toString();
+      formattedErr.stack_trace = err.stack.toString();
+    }
+  }
+  else {
+    formattedErr = {
+      status: 500,
+      message: 'unknown error'
+    };
+  }
+  return formattedErr;
+}
+
+// ---------------------------------------------------
+// WRITE TO ACCESS LOG AND ERROR LOG WHERE APPLICABLE
+// ---------------------------------------------------
+function finishLogging(err, accessLog, accessLogEvent, errorLog) {
+  // IF ACCESS LOGGING IS ENABLED.  ADD THE END TIMESTAMP
     // AND RESPONSE STATUS NUM TO THE ACCESS LOG EVENT AND
     // WRITE IT TO THE LOG
     if(Settings.access_logging === true) {
       accessLogEvent.end_timestamp = new Date().toISOString();
-      accessLogEvent.http_status = err.http_status;
+      accessLogEvent.http_status = err.status;
       let logEntry = JSON.stringify(accessLogEvent)+'\n';
       accessLog.write(logEntry);
     }
 
     let errorLogEntry = JSON.stringify(err) + '\n';
     errorLog.write(errorLogEntry);
-
-    res.status(err.http_status).send(err);
-  });
 }
 
 // -----------------------------------

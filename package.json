@@ -1,6 +1,6 @@
 {
   "name": "backstrap-server",
-  "version": "3.0.1",
+  "version": "3.0.2",
   "type": "commonjs",
   "license": "SEE LICENSE IN LICENSE.txt",
   "description": "Backstrap is a lightweight framework for building APIs",
