@@ -451,15 +451,22 @@ function requestPipeline(req, res, verb) {
 function formatError(err) {
   let formattedErr;
   if(err != null) {
-    formattedErr = err;
-    if(err.message == null || err.message == '') formattedErr.message = 'unknown error';
-
     if(err instanceof ErrorObj) {
+      formattedErr = err;
+      if(err.message == null || err.message == '') formattedErr.message = 'unknown error';
       formattedErr.status = err.http_status;
       delete formattedErr.http_status;
     }
     else if(err instanceof Error) {
-      if(err.status == null) formattedErr.status = 500;
+      formattedErr = { timestamp: new Date().toISOString() };
+      if(err.status == null) {
+        formattedErr.status = 500;
+      }
+      else {
+        formattedErr.status = err.status;
+      }
+      formattedErr.message = err.toString();
+      formattedErr.stack_trace = err.stack.toString();
     }
   }
   else {

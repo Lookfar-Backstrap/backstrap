@@ -162,8 +162,11 @@ class Controller {
         }
         catch(err) {
           let errorObj;
-          if(err !== undefined && err !== null && typeof(err.AddToError) === 'function') {
+          if(err != null && err instanceof ErrorObj) {
             errorObj = err.AddToError(__filename, 'resolveServiceCall', 'main function call failed');	
+          }
+          else if(err != null && err instanceof Error) {
+            errorObj = err;
           }
           else {
             errorObj = new ErrorObj(500,
@@ -171,8 +174,7 @@ class Controller {
                         __filename,
                         'resolveServiceCall',
                         'main function call failed',
-                        'Something went wrong',
-                        err
+                        'Something went wrong'
                         );
           }
     
