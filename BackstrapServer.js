@@ -425,6 +425,9 @@ function requestPipeline(req, res, verb) {
           res.status(200).download(results.download_path);
         }
       }
+      else if (results && results.status_code === 308 && results.redirect_url) {
+        res.redirect(results.redirect_url);
+      }
       else {
         res.status(200).send(results);
       }
