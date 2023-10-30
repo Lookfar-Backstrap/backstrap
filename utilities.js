@@ -370,10 +370,10 @@ class Utilities {
       var htmlBody = '';
     
       if (foundTxt && foundHtml) {
-        fs.readFile(txtPath, 'utf8', function (txt_err, txt_data) {
+        fs.readFile(txtPath, 'utf8', (txt_err, txt_data) => {
           if (!txt_err) {
             txtBody = this.#replaceTemplateValues(txt_data, args)
-            fs.readFile(htmlPath, 'utf8', function (html_err, html_data) {
+            fs.readFile(htmlPath, 'utf8', (html_err, html_data) => {
               if (!html_err) {
                 htmlBody = this.#replaceTemplateValues(html_data, args);
     
@@ -449,7 +449,7 @@ class Utilities {
         });
       }
       else if (foundTxt) {
-        fs.readFile(txtPath, 'utf8', function (txt_err, txt_data) {
+        fs.readFile(txtPath, 'utf8', (txt_err, txt_data) => {
           if (!txt_err) {
             txtBody = this.#replaceTemplateValues(txt_data, args);
             var mailOptions = {
@@ -509,7 +509,7 @@ class Utilities {
         });
       }
       else if (foundHtml) {
-        fs.readFile(htmlPath, 'utf8', function (html_err, html_data) {
+        fs.readFile(htmlPath, 'utf8', (html_err, html_data) => {
           if (!html_err) {
             htmlBody = this.#replaceTemplateValues(html_data, args);
             var mailOptions = {
