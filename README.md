@@ -10,6 +10,7 @@
 - [Create a New Endpoint/Controller](#create-a-new-endpoint/controller)
 - [Security](#security)
 - [Custom Injectables](#custom-injectables)
+- [Multi-Part-Form-Data](#multi-part-form-data)
 - [Additional Features](#additional-features)
 ## Changes from BS Classic to BS3:
 BS3 (backstrap-server 3.0.0) represents a major breaking change from versions 1 & 2.  A conversion guide will be available at some point in the future.  The new version was built to be lighter, faster, and easier to maintain.  Here are the primary differences:
@@ -772,6 +773,11 @@ module.exports = myUtility;
 Again, if setup correctly, your method will be accessible with `utilities.myUtility.someFunction()`.
 
 __NOTE__: The constructors for data services & utilities take slightly different arguments.
+
+---
+
+## Multi-Part-Form-Data
+BS3 supports JSON and Multi-Part-Form-Data requests.  To attach a file or files as multi-part-form-data, put the byte stream in a multi-part-form-data field called `mpfd_files`.  On requests that include a file stream, you can access them at req.files from your controller.
 
 ---
 
