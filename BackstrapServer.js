@@ -9,8 +9,9 @@ const express = require('express');	// Import express to handle routing and serv
 const cors = require('cors');		// Setup CORS
 const path = require('path');			// Import path to control our folder structure
 const rootDir = path.dirname(require.main.filename);
-const bodyParser = require('body-parser');
 const fs = require('fs');
+const multer = require('multer');
+const upload = multer();
 
 console.log('==================================================');
 console.log('INITIALIZATION');
@@ -33,8 +34,10 @@ var SchemaControl = require('./schemaControl.js');
 var app = express();
 
 const requestSizeLimit = (process.env.MAX_REQUEST_SIZE && !isNaN(process.env.MAX_REQUEST_SIZE) && Number(process.env.MAX_REQUEST_SIZE > 0)) ? process.env.MAX_REQUEST_SIZE+'mb' : '50mb';
-app.use(bodyParser.json({ limit: requestSizeLimit }));		// THIS IS A HIGH DEFAULT LIMIT SINCE BACKSTRAP ALLOWS BASE64 ENCODED FILE UPLOAD
-app.use(bodyParser.urlencoded({ extended: true }));			// DETERMINE IF THIS IS HTML OR JSON REQUEST
+app.use(express.json({ limit: requestSizeLimit }));		// THIS IS A HIGH DEFAULT LIMIT SINCE BACKSTRAP ALLOWS BASE64 ENCODED FILE UPLOAD
+app.use(express.urlencoded({ extended: true }));			// DETERMINE IF THIS IS HTML OR JSON REQUEST
+// UPLOAD FILES AS form-data IN A FIELD CALLED "files"
+app.use(upload.array("files", 10));
 app.use(cors());
 
 // PASS THE HANDLE TO THE EXPRESS APP INTO
