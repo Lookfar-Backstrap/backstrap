@@ -36,8 +36,8 @@ var app = express();
 const requestSizeLimit = (process.env.MAX_REQUEST_SIZE && !isNaN(process.env.MAX_REQUEST_SIZE) && Number(process.env.MAX_REQUEST_SIZE > 0)) ? process.env.MAX_REQUEST_SIZE+'mb' : '50mb';
 app.use(express.json({ limit: requestSizeLimit }));		// THIS IS A HIGH DEFAULT LIMIT SINCE BACKSTRAP ALLOWS BASE64 ENCODED FILE UPLOAD
 app.use(express.urlencoded({ extended: true }));			// DETERMINE IF THIS IS HTML OR JSON REQUEST
-// UPLOAD FILES AS form-data IN A FIELD CALLED "files"
-app.use(upload.array("files", 10));
+// UPLOAD FILES AS form-data IN A FIELD CALLED "mpfd_files"
+app.use(upload.array("mpfd_files", 10));
 app.use(cors());
 
 // PASS THE HANDLE TO THE EXPRESS APP INTO
