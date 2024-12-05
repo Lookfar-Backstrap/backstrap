@@ -1,6 +1,6 @@
 {
   "name": "backstrap-server",
-  "version": "3.1.0",
+  "version": "3.2.0",
   "type": "commonjs",
   "license": "SEE LICENSE IN LICENSE.txt",
   "description": "Backstrap is a lightweight framework for building APIs",
@@ -9,6 +9,9 @@
     "framework",
     "express",
     "postgresql",
+    "postgres",
+    "psql",
+    "stack",
     "appserver",
     "endpoint",
     "users",

@@ -781,6 +781,17 @@ BS3 supports JSON and Multi-Part-Form-Data requests.  To attach a file or files 
 
 ---
 
+## onInit.js
+BS3 calls onInit.run() once initialization is complete.  Any program-specific initialization can be done in that function.  `DataAccess`, `utilities`, `accessControl`, `serviceRegistration`, and `settings` are all available within the run method, so all data service files and custom utilities are available to use.
+
+---
+
+## expressSettings.js
+BS3 calls the `init(expressApp)` method of this file during initialization.  This means that any middleware you want to apply to Express can be accomplished via `expressApp.use()` and other express-specific calls.
+
+The second method in this file is `routeOverrides(app, dataAccess, utilities)`.  Routes defined in this function will take precedence over the BS3 route-parsing system.  So rather than breaking apart an endpoint as /[area]/[controller]/[method]/[version], you can define a specifc url like `/heres/my/endpoint` and handle the logic just like a raw express app.  And you still have access to `dataAccess` to call your data services or to query the db directly.
+
+---
 ## Additional Features:
 Backstrap Server includes some other features to make development simpler.  For example, you can use the mail settings in Settings.json, the mail methods in utilities.js, and the text and html templates in /templates to generate all sorts of system emails.  These include variable replacement so you can include user-specific information in your system emails.  It relies on the npm package node-mailer and has integrations with a number of popular email services.  It has been tested extensively with SendGrid.
 

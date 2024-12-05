@@ -1,10 +1,17 @@
 module.exports = {
-  //Auto-populated by Elastic Beanstalk from RDS on environment setup
   db: {
-   host: process.env.RDS_HOSTNAME,
-   port: process.env.RDS_PORT,
-   user: process.env.RDS_USERNAME,
-   pass: process.env.RDS_PASSWORD,
-   name: process.env.RDS_DB_NAME 
+    host: process.env.DB_HOST,
+    port: process.env.DB_PORT,
+    user: process.env.DB_USER,
+    pass: process.env.DB_PASS,
+    name: process.env.DB_NAME,
+    ssl: {
+      ca: process.env.DB_SSL_CA || null,
+      key: process.env.DB_SSL_KEY || null,
+      cert: process.env.DB_SSL_CERT || null
+    }
+  },
+  s3: {
+    bucket: '[YOUR BUCKET HERE]'
   }
 }

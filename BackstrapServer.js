@@ -27,6 +27,7 @@ var Controller = require('./controller');		// GETS THE CORRECT WEB SERVICE FILE 
 var Utilities = require('./utilities');
 var AccessControl =  require('./accessControl');
 var SchemaControl = require('./schemaControl.js');
+var expressSettings;
 
 // ---------------------------------
 // SETUP EXPRESS
@@ -43,15 +44,18 @@ app.use(cors());
 // PASS THE HANDLE TO THE EXPRESS APP INTO
 // express_init.js SO THE USER CAN ADD EXPRESS MODULES
 try {
-  require(`${rootDir}/expressSettings`).init(app);
+  expressSettings = require(`${rootDir}/expressSettings`);
+}
+catch(esErr) {
+  console.warn('ExpressSettings could not be created.')
+  console.warn(esErr);
+}
+try {
+  expressSettings.init(app);
 }
 catch(expressInitErr) {
-  if(expressInitErr && expressInitErr.code === 'MODULE_NOT_FOUND') {
-    console.log('Express settings script skipped -- no file found');
-  }
-  else {
-    console.error(expressInitErr);
-  }
+  console.error('ExpressSettings initialization failed');
+  console.error(expressInitErr);
 }
 
 
@@ -132,6 +136,15 @@ AccessControl.init(Utilities, Settings, DataAccess, 'Security.json')
   // ========================================================
   // SETUP ROUTE HANDLERS
   // ========================================================
+  // ---------------------------------------------------------------------------------
+    // OVERRIDES
+    // ---------------------------------------------------------------------------------
+    try {
+      expressSettings.overrideRoutes(app, DataAccess, Utilities);
+    }
+    catch(err) {
+      console.error('Override Routes Failed');
+    }
   // ---------------------------------------------------------------------------------
   // GETS
   // ---------------------------------------------------------------------------------
