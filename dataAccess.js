@@ -26,14 +26,34 @@ class DataAccess {
     this.utilities = u;
     this.settings = s;
 
-    this.#pool = new Pool({
-      user: dbConfig.db.user,
-      host: dbConfig.db.host,
-      database: dbConfig.db.name,
-      password: dbConfig.db.pass,
-      port: dbConfig.db.port,
-      max: dbConfig.db.max_connections || 1000
-    });
+    try {
+      // ARE WE CONFIGURED FOR SSL
+      let sslDesc = false;
+      if(dbConfig.db.ssl === true) sslDesc = true;
+      if(dbConfig.db.ssl != null && (dbConfig.db.ssl.ca || dbConfig.db.ssl.key || dbConfig.db.ssl.cert)) {
+        sslDesc = {
+          rejectUnauthorized: true,
+          ca: dbConfig.db.ssl.ca == null ? null : fs.readFileSync(dbConfig.db.ssl.ca),
+          key: dbConfig.db.ssl.key == null ? null : fs.readFileSync(dbConfig.db.ssl.key),
+          cert: dbConfig.db.ssl.cert == null ? null : fs.readFileSync(dbConfig.db.ssl.cert)
+        };
+      }
+
+      // CONNECT TO THE DB
+      this.#pool = new Pool({
+        user: dbConfig.db.user,
+        host: dbConfig.db.host,
+        database: dbConfig.db.name,
+        password: dbConfig.db.pass,
+        port: dbConfig.db.port,
+        max: dbConfig.db.max_connections || 1000,
+        ssl: sslDesc
+      });
+    }
+    catch(err) {
+      console.error(err);
+      throw('Database Connection Failed');
+    }
 
     this.extension = new DataAccessExtension(this);
   
