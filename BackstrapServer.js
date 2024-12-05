@@ -140,7 +140,7 @@ AccessControl.init(Utilities, Settings, DataAccess, 'Security.json')
     // OVERRIDES
     // ---------------------------------------------------------------------------------
     try {
-      expressSettings.overrideRoutes(app, dataAccess, utilities);
+      expressSettings.overrideRoutes(app, DataAccess, Utilities);
     }
     catch(err) {
       console.error('Override Routes Failed');
