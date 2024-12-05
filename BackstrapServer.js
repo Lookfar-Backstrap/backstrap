@@ -9,8 +9,9 @@ const express = require('express');	// Import express to handle routing and serv
 const cors = require('cors');		// Setup CORS
 const path = require('path');			// Import path to control our folder structure
 const rootDir = path.dirname(require.main.filename);
-const bodyParser = require('body-parser');
 const fs = require('fs');
+const multer = require('multer');
+const upload = multer();
 
 console.log('==================================================');
 console.log('INITIALIZATION');
@@ -33,8 +34,10 @@ var SchemaControl = require('./schemaControl.js');
 var app = express();
 
 const requestSizeLimit = (process.env.MAX_REQUEST_SIZE && !isNaN(process.env.MAX_REQUEST_SIZE) && Number(process.env.MAX_REQUEST_SIZE > 0)) ? process.env.MAX_REQUEST_SIZE+'mb' : '50mb';
-app.use(bodyParser.json({ limit: requestSizeLimit }));		// THIS IS A HIGH DEFAULT LIMIT SINCE BACKSTRAP ALLOWS BASE64 ENCODED FILE UPLOAD
-app.use(bodyParser.urlencoded({ extended: true }));			// DETERMINE IF THIS IS HTML OR JSON REQUEST
+app.use(express.json({ limit: requestSizeLimit }));		// THIS IS A HIGH DEFAULT LIMIT SINCE BACKSTRAP ALLOWS BASE64 ENCODED FILE UPLOAD
+app.use(express.urlencoded({ extended: true }));			// DETERMINE IF THIS IS HTML OR JSON REQUEST
+// UPLOAD FILES AS form-data IN A FIELD CALLED "mpfd_files"
+app.use(upload.array("mpfd_files", 10));
 app.use(cors());
 
 // PASS THE HANDLE TO THE EXPRESS APP INTO
@@ -425,60 +428,78 @@ function requestPipeline(req, res, verb) {
           res.status(200).download(results.download_path);
         }
       }
+      else if (results && results.status_code === 308 && results.redirect_url) {
+        res.redirect(results.redirect_url);
+      }
       else {
         res.status(200).send(results);
       }
     }
     catch(err) {
-      if (err.http_status == null) {
-        err.http_status = 500;
-      }
-  
-      if (err.message == null || err.message.length === 0) {
-        err['message'] = 'Something went wrong and we are working to fix it. Please try again later.'
-      }
-  
-      // IF ACCESS LOGGING IS ENABLED.  ADD THE END TIMESTAMP
-      // AND RESPONSE STATUS NUM TO THE ACCESS LOG EVENT AND
-      // WRITE IT TO THE LOG
-      if(Settings.access_logging === true) {
-        accessLogEvent.end_timestamp = new Date().toISOString();
-        accessLogEvent.http_status = err.http_status;
-        let logEntry = JSON.stringify(accessLogEvent)+'\n';
-        accessLog.write(logEntry);
-      }
-  
-      let errorLogEntry = JSON.stringify(err) + '\n';
-      errorLog.write(errorLogEntry);
-  
-      res.status(err.http_status).send(err);
+      let formattedErr = formatError(err);
+      finishLogging(formattedErr, accessLog, accessLogEvent, errorLog);
+      res.status(formattedErr.status).send(formattedErr);
     }
 
   })
   .catch((err) => {
-    if (err.http_status == null) {
-      err.http_status = 500;
-    }
+    let formattedErr = formatError(err);
+    finishLogging(formattedErr, accessLog, accessLogEvent, errorLog);
+    res.status(formattedErr.status).send(formattedErr);
+  });
+}
 
-    if (err.message == null || err.message.length === 0) {
-      err['message'] = 'Something went wrong and we are working to fix it. Please try again later.'
-    }
 
-    // IF ACCESS LOGGING IS ENABLED.  ADD THE END TIMESTAMP
+// ----------------------------------------------
+// DETERMINE IF THIS IS A CUSTOM OR NATIVE ERROR
+// AND FORMAT APPROPRIATELY
+// ----------------------------------------------
+function formatError(err) {
+  let formattedErr;
+  if(err != null) {
+    if(err instanceof ErrorObj) {
+      formattedErr = err;
+      if(err.message == null || err.message == '') formattedErr.message = 'unknown error';
+      formattedErr.status = err.http_status;
+      delete formattedErr.http_status;
+    }
+    else if(err instanceof Error) {
+      formattedErr = { timestamp: new Date().toISOString() };
+      if(err.status == null) {
+        formattedErr.status = 500;
+      }
+      else {
+        formattedErr.status = err.status;
+      }
+      formattedErr.message = err.toString();
+      formattedErr.stack_trace = err.stack.toString();
+    }
+  }
+  else {
+    formattedErr = {
+      status: 500,
+      message: 'unknown error'
+    };
+  }
+  return formattedErr;
+}
+
+// ---------------------------------------------------
+// WRITE TO ACCESS LOG AND ERROR LOG WHERE APPLICABLE
+// ---------------------------------------------------
+function finishLogging(err, accessLog, accessLogEvent, errorLog) {
+  // IF ACCESS LOGGING IS ENABLED.  ADD THE END TIMESTAMP
     // AND RESPONSE STATUS NUM TO THE ACCESS LOG EVENT AND
     // WRITE IT TO THE LOG
     if(Settings.access_logging === true) {
       accessLogEvent.end_timestamp = new Date().toISOString();
-      accessLogEvent.http_status = err.http_status;
+      accessLogEvent.http_status = err.status;
       let logEntry = JSON.stringify(accessLogEvent)+'\n';
       accessLog.write(logEntry);
     }
 
     let errorLogEntry = JSON.stringify(err) + '\n';
     errorLog.write(errorLogEntry);
-
-    res.status(err.http_status).send(err);
-  });
 }
 
 // -----------------------------------

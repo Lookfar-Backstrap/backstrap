@@ -54,7 +54,8 @@ class DataAccess {
             this[fileNoExt] = new Service(this, this.utilities);
           }
           catch(e) {
-            throw e;
+            let err = new Error(`Error starting services file: ${rootDir}/${serviceDir}/${serviceFile}`);
+            throw err;
           }
         }
       });
