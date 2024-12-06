@@ -33,9 +33,9 @@ class DataAccess {
       if(dbConfig.db.ssl != null && (dbConfig.db.ssl.ca || dbConfig.db.ssl.key || dbConfig.db.ssl.cert)) {
         sslDesc = {
           rejectUnauthorized: true,
-          ca: dbConfig.db.ssl.ca == null ? null : fs.readFileSync(dbConfig.db.ssl.ca),
-          key: dbConfig.db.ssl.key == null ? null : fs.readFileSync(dbConfig.db.ssl.key),
-          cert: dbConfig.db.ssl.cert == null ? null : fs.readFileSync(dbConfig.db.ssl.cert)
+          ca: dbConfig.db.ssl.ca == null ? null : fs.readFileSync(`${['/', '\\'].includes(dbConfig.db.ssl.ca.substring(0,1)) ? '' : rootDir + '/'}${dbConfig.db.ssl.ca}`),
+          key: dbConfig.db.ssl.key == null ? null : fs.readFileSync(`${['/', '\\'].includes(dbConfig.db.ssl.key.substring(0,1)) ? '' : rootDir + '/'}${dbConfig.db.ssl.key}`),
+          cert: dbConfig.db.ssl.cert == null ? null : fs.readFileSync(`${['/', '\\'].includes(dbConfig.db.ssl.cert.substring(0,1)) ? '' : rootDir + '/'}${dbConfig.db.ssl.cert}`)
         };
       }
 
