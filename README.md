@@ -265,7 +265,17 @@ module.exports = {
  }
 };
 ```
-Fill in the required information the database you plan to use.  Don't worry about setting up any tables, as Backstrap will spool up everything it needs automatically to get going (assuming your postgres user permissions permit this).
+Fill in the required information the database you plan to use.  Don't worry about setting up any tables, as Backstrap will spool up everything it needs automatically to get going (assuming your postgres user permissions permit this).  
+
+The development and production config files also have parameters for SSL connections.  You can define paths for
+```
+ssl: {
+  ca: path/to/ca/pem,
+  key: path/to/key,
+  cert: path/to/cert/pem
+}
+```
+The paths defined for SSL can be absolute or relative to your project root.  A common method of handling is to put the .pem in dbconfig and make the path 'dbconfig/yourfilehere'.
 
 Check your package.json file to make sure the npm start script will run `node BackstrapServer.js`.  And finally run `npm start` to launch the server.
 
