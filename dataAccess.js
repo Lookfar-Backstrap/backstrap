@@ -17,9 +17,13 @@ catch(e) {
 
 class DataAccess {
   #pool = null;
+  #multisource = null;
+  dbs = null;
   constructor() {
     this.utilities = null;
     this.#pool = null;
+    this.#multisource = false;
+    this.dbs = {};
   }
 
   init(dbConfig, u, s) {
@@ -27,28 +31,84 @@ class DataAccess {
     this.settings = s;
 
     try {
-      // ARE WE CONFIGURED FOR SSL
-      let sslDesc = false;
-      if(dbConfig.db.ssl === true) sslDesc = true;
-      if(dbConfig.db.ssl != null && (dbConfig.db.ssl.ca || dbConfig.db.ssl.key || dbConfig.db.ssl.cert)) {
-        sslDesc = {
-          rejectUnauthorized: true,
-          ca: dbConfig.db.ssl.ca == null ? null : fs.readFileSync(`${['/', '\\'].includes(dbConfig.db.ssl.ca.substring(0,1)) ? '' : rootDir + '/'}${dbConfig.db.ssl.ca}`),
-          key: dbConfig.db.ssl.key == null ? null : fs.readFileSync(`${['/', '\\'].includes(dbConfig.db.ssl.key.substring(0,1)) ? '' : rootDir + '/'}${dbConfig.db.ssl.key}`),
-          cert: dbConfig.db.ssl.cert == null ? null : fs.readFileSync(`${['/', '\\'].includes(dbConfig.db.ssl.cert.substring(0,1)) ? '' : rootDir + '/'}${dbConfig.db.ssl.cert}`)
-        };
-      }
+      // SINGLE DATABASE
+      if(!Array.isArray(dbConfig.db)) {
+        // ARE WE CONFIGURED FOR SSL
+        let sslDesc = false;
+        if(dbConfig.db.ssl === true) sslDesc = true;
+        if(dbConfig.db.ssl != null && (dbConfig.db.ssl.ca || dbConfig.db.ssl.key || dbConfig.db.ssl.cert)) {
+          sslDesc = {
+            rejectUnauthorized: true,
+            ca: dbConfig.db.ssl.ca == null ? null : fs.readFileSync(`${['/', '\\'].includes(dbConfig.db.ssl.ca.substring(0,1)) ? '' : rootDir + '/'}${dbConfig.db.ssl.ca}`),
+            key: dbConfig.db.ssl.key == null ? null : fs.readFileSync(`${['/', '\\'].includes(dbConfig.db.ssl.key.substring(0,1)) ? '' : rootDir + '/'}${dbConfig.db.ssl.key}`),
+            cert: dbConfig.db.ssl.cert == null ? null : fs.readFileSync(`${['/', '\\'].includes(dbConfig.db.ssl.cert.substring(0,1)) ? '' : rootDir + '/'}${dbConfig.db.ssl.cert}`)
+          };   
+        }
+        // CONNECT TO THE DB
+        this.#pool = new Pool({
+                        user: dbConfig.db.user,
+                        host: dbConfig.db.host,
+                        database: dbConfig.db.name,
+                        password: dbConfig.db.pass,
+                        port: dbConfig.db.port,
+                        max: dbConfig.db.max_connections || 1000,
+                        ssl: sslDesc
+                      });
 
-      // CONNECT TO THE DB
-      this.#pool = new Pool({
-        user: dbConfig.db.user,
-        host: dbConfig.db.host,
-        database: dbConfig.db.name,
-        password: dbConfig.db.pass,
-        port: dbConfig.db.port,
-        max: dbConfig.db.max_connections || 1000,
-        ssl: sslDesc
-      });
+        // SET AN ENTRY IN THE ARRAY OF DATABASE-SPECIFIC FUNCTIONS
+        // THIS ALLOWS dataAccess.dbs['default'].getDbConnection() ETC
+        // TO KEEP THINGS STANDARD BETWEEN SINGLE AND MULTI DATASOURCE
+        // CONFIGURATIONS
+        this.dbs['default'] = {
+          getDbConnection: () => this.getDbConnection(),
+          resolveDbConnection: (conn) => this.resolveDbConnection(conn),
+          startTransaction: () => this.startTransaction(),
+          runSql: (qry, params, conn, isStreaming) => this.runSql(qry, params, conn, isStreaming),
+          ExecutePostgresQuery: (qry, params, conn, isStreaming) => this.runSql(qry, params, conn, isStreaming)
+        }
+      }
+      // MULTIPLE DATABASES
+      else {
+        this.#multisource = true;
+        this.#pool = {}
+        let firstOne = true;
+        for(let db of dbConfig.db) {
+            // ARE WE CONFIGURED FOR SSL
+          let sslDesc = false;
+          if(db.ssl === true) sslDesc = true;
+          if(db.ssl != null && (db.ssl.ca || db.ssl.key || db.ssl.cert)) {
+            sslDesc = {
+              rejectUnauthorized: true,
+              ca: db.ssl.ca == null ? null : fs.readFileSync(`${['/', '\\'].includes(db.ssl.ca.substring(0,1)) ? '' : rootDir + '/'}${db.ssl.ca}`),
+              key: db.ssl.key == null ? null : fs.readFileSync(`${['/', '\\'].includes(db.ssl.key.substring(0,1)) ? '' : rootDir + '/'}${db.ssl.key}`),
+              cert: db.ssl.cert == null ? null : fs.readFileSync(`${['/', '\\'].includes(db.ssl.cert.substring(0,1)) ? '' : rootDir + '/'}${db.ssl.cert}`)
+            };   
+          }
+
+          let dbName = firstOne === true ? 'default' : db.nickname || db.name;
+          firstOne = false;
+
+          // CONNECT TO THE DB
+          this.#pool[dbName] = new Pool({
+                                          user: db.user,
+                                          host: db.host,
+                                          database: db.name,
+                                          password: db.pass,
+                                          port: db.port,
+                                          max: db.max_connections || 1000,
+                                          ssl: sslDesc
+                                        });
+
+          // SET AN ENTRY IN THE ARRAY OF DATABASE-SPECIFIC FUNCTIONS
+          this.dbs[dbName] = {
+            getDbConnection: () => this.getDbConnection(dbName),
+            resolveDbConnection: (conn) => this.resolveDbConnection(conn, dbName),
+            startTransaction: () => this.startTransaction(dbName),
+            runSql: (qry, params, conn, isStreaming) => this.runSql(qry, params, conn, isStreaming, dbName),
+            ExecutePostgresQuery: (qry, params, conn, isStreaming) => this.runSql(qry, params, conn, isStreaming, dbName)
+          }
+        }
+      }
     }
     catch(err) {
       console.error(err);
@@ -66,8 +126,8 @@ class DataAccess {
       serviceDir.replace(/^\//, '');
       let services = fs.readdirSync(serviceDir);
       services.forEach((serviceFile) => {
-        // DON'T OVERWRITE dataAccess.extension
-        if(serviceFile.toLowerCase() !== 'extension') {
+        // DON'T OVERWRITE dataAccess.extension OR dataAccess.dbs
+        if(!['extension', 'dbs'].includes(serviceFile.toLowerCase())) {
           let fileNoExt = serviceFile.replace('.js', '');
           try {
             let Service = require(`${rootDir}/${serviceDir}/${serviceFile}`);
@@ -116,24 +176,46 @@ class DataAccess {
   }
 
   // START A CONNECTION TO THE DATABASE TO USE FUNCTIONS 
-  async getDbConnection() {
+  async getDbConnection(db) {
     return new Promise((resolve, reject) => {
-      this.#pool.connect((err, client, done) => {
-        if (!err) {
-          resolve({ 'client': client, 'release': done, 'transactional': false, 'results': [], isReleased: false });
-        }
-        else {
-          var errorObj = new ErrorObj(500,
-            'da9004',
-            __filename,
-            'getDbConnection',
-            'error creating connection to postgres',
-            'Database error',
-            err
-          );
-          reject(errorObj);
-        }
-      });
+      if(this.#multisource !== true) {
+        this.#pool.connect((err, client, done) => {
+          if (!err) {
+            resolve({ 'client': client, 'release': done, 'transactional': false, 'results': [], isReleased: false });
+          }
+          else {
+            var errorObj = new ErrorObj(500,
+              'da9004',
+              __filename,
+              'getDbConnection',
+              'error creating connection to postgres',
+              'Database error',
+              err
+            );
+            reject(errorObj);
+          }
+        });
+      }
+      else {
+        let thisDB = 'default'
+        if(db != null) thisDB = db;
+        this.#pool[thisDB].connect((err, client, done) => {
+          if (!err) {
+            resolve({ 'client': client, 'release': done, 'transactional': false, 'results': [], isReleased: false });
+          }
+          else {
+            var errorObj = new ErrorObj(500,
+              'da9004',
+              __filename,
+              'getDbConnection',
+              'error creating connection to postgres',
+              'Database error',
+              err
+            );
+            reject(errorObj);
+          }
+        });
+      }
     });
   }
 
@@ -165,9 +247,9 @@ class DataAccess {
   }
 
   // GET A CONNECTION TO THE DATABASE AND START A TRANSACTION
-  async startTransaction() {
+  async startTransaction(db) {
     return new Promise((resolve, reject) => {
-      this.getDbConnection()
+      this.getDbConnection(db)
       .then((connection) => {
         //SET TRANSACTIONAL
         connection['transactional'] = true;
@@ -307,10 +389,11 @@ class DataAccess {
   }
 
   // THIS FUNCTION IS USED SO ONE FUNCTION CAN RESOLVE THE CURRENT CONNECTION STATE AND RETURN A CONNECTION
-  async resolveDbConnection(connection) {
+  async resolveDbConnection(connection, db) {
     return new Promise((resolve, reject) => {
       if(connection == null) {
-        this.getDbConnection()
+
+        this.getDbConnection(db)
         .then((db_connection) => {
           resolve(db_connection);
         })
@@ -379,7 +462,7 @@ class DataAccess {
   // ================================================================================
   //THIS FUNCTION GLOBALIZES ALL QUERIES (SELECT) AND NON QUERIES (INSERT UPDATE DELETE ETC)
   //CONDITIONALLY CREATES AND DESTROYS CONNECTIONS DEPENDING IF THEY ARE TRANSACTIONAL OR NOT
-  async ExecutePostgresQuery(query, params, connection, isStreaming) {
+  async ExecutePostgresQuery(query, params, connection, isStreaming, db) {
     return new Promise((resolve, reject) => {
       var pg_query = query;
       //THE QUERY CONFIG OBJECT DOES NOT WORK IF THERE IS AN EMPTY ARRAY OF PARAMS
@@ -392,7 +475,7 @@ class DataAccess {
 
       var that = this;
 
-      this.resolveDbConnection(connection)
+      this.resolveDbConnection(connection, db)
       .then((db_connection) => {
 
         // PERFORM THE QUERY
@@ -549,9 +632,9 @@ class DataAccess {
   }
 
   // RUN ARBITRARY SQL STATEMENTS
-  async runSql(sqlStatement, params, connection, isStreaming) {
+  async runSql(sqlStatement, params, connection, isStreaming, db) {
     return new Promise((resolve, reject) => {
-      this.ExecutePostgresQuery(sqlStatement, params, connection, isStreaming)
+      this.ExecutePostgresQuery(sqlStatement, params, connection, isStreaming, db)
       .then((connection) => {
         resolve(connection.results);
       })

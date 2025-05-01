@@ -9,7 +9,7 @@ class DataAccessExtension {
 // 	  var qry = "SELECT * FROM person WHERE person.id = $1";
 // 	  var qry_params = [1];
 //    try {
-// 	    let person_res = await this.dataAccess.ExecutePostgresQuery(qry, qry_params, null);
+// 	    let person_res = await this.dataAccess.ExecutePostgresQuery(qry, qry_params, dbCon, streamQuery, whichDb);
 // 		  //do something with person
 //      resolve(person_res);
 //    }
