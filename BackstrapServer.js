@@ -101,7 +101,7 @@ AccessControl.init(Utilities, Settings, DataAccess, 'Security.json')
 })
 .then((cInit) => {
   console.log('Controller initialized');
-  SchemaControl.init(DataAccess, AccessControl)
+  SchemaControl.init(DataAccess, AccessControl);
   let dbInfo = {
     name: config.db.name,
     user: config.db.user,

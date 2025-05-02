@@ -73,7 +73,7 @@ class DataAccess {
         this.#pool = {}
         let firstOne = true;
         for(let db of dbConfig.db) {
-            // ARE WE CONFIGURED FOR SSL
+          // ARE WE CONFIGURED FOR SSL
           let sslDesc = false;
           if(db.ssl === true) sslDesc = true;
           if(db.ssl != null && (db.ssl.ca || db.ssl.key || db.ssl.cert)) {
@@ -86,27 +86,40 @@ class DataAccess {
           }
 
           let dbName = firstOne === true ? 'default' : db.nickname || db.name;
-          firstOne = false;
 
-          // CONNECT TO THE DB
-          this.#pool[dbName] = new Pool({
-                                          user: db.user,
-                                          host: db.host,
-                                          database: db.name,
-                                          password: db.pass,
-                                          port: db.port,
-                                          max: db.max_connections || 1000,
-                                          ssl: sslDesc
-                                        });
+          try {
+            // CONNECT TO THE DB
+            this.#pool[dbName] = new Pool({
+                                            user: db.user,
+                                            host: db.host,
+                                            database: db.name,
+                                            password: db.pass,
+                                            port: db.port,
+                                            max: db.max_connections || 1000,
+                                            ssl: sslDesc
+                                          });
 
-          // SET AN ENTRY IN THE ARRAY OF DATABASE-SPECIFIC FUNCTIONS
-          this.dbs[dbName] = {
-            getDbConnection: () => this.getDbConnection(dbName),
-            resolveDbConnection: (conn) => this.resolveDbConnection(conn, dbName),
-            startTransaction: () => this.startTransaction(dbName),
-            runSql: (qry, params, conn, isStreaming) => this.runSql(qry, params, conn, isStreaming, dbName),
-            ExecutePostgresQuery: (qry, params, conn, isStreaming) => this.runSql(qry, params, conn, isStreaming, dbName)
+            // SET AN ENTRY IN THE ARRAY OF DATABASE-SPECIFIC FUNCTIONS
+            this.dbs[dbName] = {
+              getDbConnection: () => this.getDbConnection(dbName),
+              resolveDbConnection: (conn) => this.resolveDbConnection(conn, dbName),
+              startTransaction: () => this.startTransaction(dbName),
+              runSql: (qry, params, conn, isStreaming) => this.runSql(qry, params, conn, isStreaming, dbName),
+              ExecutePostgresQuery: (qry, params, conn, isStreaming) => this.runSql(qry, params, conn, isStreaming, dbName)
+            }
           }
+          catch(dbConErr) {
+            if(firstOne === true) {
+              console.error(err);
+              throw('Database Connection Failed');
+            }
+            else {
+              console.error(`Connection to non-primary database ${dbName} failed`);
+              console.error(err);
+            }
+          }
+
+          if(firstOne === true) firstOne = false;
         }
       }
     }
