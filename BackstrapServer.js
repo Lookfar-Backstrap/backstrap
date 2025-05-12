@@ -101,8 +101,24 @@ AccessControl.init(Utilities, Settings, DataAccess, 'Security.json')
 })
 .then((cInit) => {
   console.log('Controller initialized');
-  SchemaControl.init(DataAccess, AccessControl)
-  return SchemaControl.update(config.db.name, config.db.user, config.db.pass, config.db.host, config.db.port)
+  SchemaControl.init(DataAccess, AccessControl);
+  let dbInfo = {
+    name: config.db.name,
+    user: config.db.user,
+    pass: config.db.pass,
+    host: config.db.host,
+    port: config.db.port
+  };
+  if(Array.isArray(config.db)) {
+    dbInfo = {
+      name: config.db[0].name,
+      user: config.db[0].user,
+      pass: config.db[0].pass,
+      host: config.db[0].host,
+      port: config.db[0].port
+    }
+  }
+  return SchemaControl.update(dbInfo.name, dbInfo.user, dbInfo.pass, dbInfo.host, dbInfo.port)
 })
 .then((schemaUpd) => {
   // CREATE A LOG DIRECTORY IF NEEDED
