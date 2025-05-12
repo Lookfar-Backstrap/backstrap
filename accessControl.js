@@ -324,6 +324,74 @@ class AccessControl {
     });
   }
 
+  async fogotPassword(email, username) {
+    return new Promise(async (resolve, reject) => {
+      let userObj = null;
+          this.dataAccess.findUser(null, username, email)
+          .then((userObjs) => {
+            return new Promise((validResolve, validReject) => {
+              if(userObjs.length === 1) {
+                userObj = userObjs[0];
+                if (userObj.locked) {
+                    let errorObj = new ErrorObj(403,
+                        'ac2006',
+                        __filename,
+                        'forgotPassword',
+                        'bsuser is locked',
+                        'Unauthorized',
+                        null
+                    );
+                    validReject(errorObj);
+                }
+                else {
+                  this.utilities.getHash(null,null,48)
+                  .then((hash) => {
+                    validResolve([userObj, hash]);
+                  })
+                }
+              }
+              else {
+                let errorObj = new ErrorObj(404,
+                    'ac2008',
+                    __filename,
+                    'forgotPassword',
+                    'no user',
+                    'That user could not be found.',
+                    null
+                );
+                validReject(errorObj);
+              }
+            });
+          })
+          .then(([userObj, tkn]) => {
+            return [userObj, tkn, this.dataAccess.updateCredentialsForUser(userObj.id, null, null, tkn)];
+          })
+          .then(([userObj, tkn, saveRes]) => {
+              resolve({'user': userObj, 'token': tkn});
+          })
+          .catch((err) => {
+              if(err != null && err.err_code == 'da0200'){
+                  resolve(null);
+              }
+              else if (err != null && typeof (err.AddToError) == 'function') {
+                  err.setMessages('error with forgotPassword', 'Problem starting the password reset process');
+                  reject(err.AddToError(__filename, 'forgotPassword'));
+              }
+              else {
+                  let errorObj = new ErrorObj(500,
+                      'ac1032',
+                      __filename,
+                      'forgotPassword',
+                      'error with forgotPassword',
+                      'Problem starting the password reset process',
+                      err
+                  );
+                  reject(errorObj);
+              }
+          });
+    });
+  }
+
   async checkCredentials(password, userObj) {
     return new Promise((resolve, reject) => {
       // IF USER IS LOCKED, BAIL OUT
