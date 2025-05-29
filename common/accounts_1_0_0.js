@@ -302,87 +302,47 @@ class Accounts {
       }
 
       if (validArgs) {
-          let userObj = null;
-          this.dataAccess.findUser(null, username, email)
-          .then((userObjs) => {
-            return new Promise((validResolve, validReject) => {
-              if(userObjs.length === 1) {
-                userObj = userObjs[0];
-                if (userObj.locked) {
-                    let errorObj = new ErrorObj(403,
-                        'a2006',
-                        __filename,
-                        'forgotPassword',
-                        'bsuser is locked',
-                        'Unauthorized',
-                        null
-                    );
-                    validReject(errorObj);
-                }
-                else {
-                  this.utilities.getHash(null,null,48)
-                  .then((hash) => {
-                    validResolve([userObj, hash]);
-                  })
-                }
-              }
-              else {
-                let errorObj = new ErrorObj(404,
-                    'a2008',
-                    __filename,
-                    'forgotPassword',
-                    'no user',
-                    'That user could not be found.',
-                    null
-                );
-                validReject(errorObj);
-              }
-            });
-          })
-          .then(([userObj, tkn]) => {
+          this.accessControl.forgotPassword(email, username)
+          .then((fpwRes) => {
+            if(fpwRes != null) {
+              let userObj = fpwRes.user;
+              let tkn = fpwRes.token;
+
               var reset_link = process.env.reset_password_link || "";
               reset_link = (reset_link == "" || reset_link == "FILL_IN") ? tkn : reset_link + '?token=' + tkn;
 
               // IF WE HAVE A TEMPLATE SPECIFIED IN THE ENV VARS
               // USE THAT.  OTHERWISE, JUST SEND OFF THE LINK/TOKEN
               if(process.env.reset_password_email) {
-                return Promise.all([userObj, tkn, this.utilities.sendMailTemplate(userObj.email, 'Password Reset', process.env.reset_password_email, {resetLink: reset_link})]);
+                return this.utilities.sendMailTemplate(userObj.email, 'Password Reset', process.env.reset_password_email, {resetLink: reset_link});
               }
               else {
                 var message = 'Reset password: ' + reset_link;
-                return Promise.all([userObj, tkn, this.utilities.sendMail(userObj.email, 'Password Reset', message)]);
+                return this.utilities.sendMail(userObj.email, 'Password Reset', message);
               }
-
+            }
+            else {
+              var resolveObj = { 
+                            'success': true,
+                            'uExists': false
+                        };
+              resolve(resolveObj);
+              return;
+            }
           })
-          .then(([userObj, tkn, mail_res]) => {
-            return this.dataAccess.updateCredentialsForUser(userObj.id, null, null, tkn);
-          })
-          .then((saveRes) => {
-              resolve({success:true});
+          .then((mailRes) => {
+            resolve({'success': true});
           })
           .catch((err) => {
-              if(err != null && err.err_code == 'da0200'){
-                  var resolveObj = { 
-                      'success': true,
-                      'uExists': false
-                  };
-                  resolve(resolveObj);
-              }
-              else if (err != null && typeof (err.AddToError) == 'function') {
-                  err.setMessages('error generating password reset link', 'Problem generating email and link to reset password');
-                  reject(err.AddToError(__filename, 'forgotPassword'));
-              }
-              else {
-                  let errorObj = new ErrorObj(500,
-                      'a1032',
-                      __filename,
-                      'forgotPassword',
-                      'error generating password reset link',
-                      'Problem generating email and link to reset password',
-                      err
-                  );
-                  reject(errorObj);
-              }
+            var errorObj = new ErrorObj(500,
+                'a1031',
+                __filename,
+                'forgotPassword',
+                'error generating password reset link',
+                'Problem generating email and link to reset password',
+                err
+            );
+            reject(errorObj);
           });
       }
       else {
@@ -390,7 +350,7 @@ class Accounts {
               'a0032',
               __filename,
               'forgotPassword',
-              'must supply username or email associated with this bsuser'
+              'must supply username or email associated with this bs3 user'
           );
           reject(errorObj);
       }

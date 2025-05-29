@@ -81,7 +81,7 @@ __Install And Run Backstrap Server__
 - Run `npm init`
 - Run `npm install --save backstrap-server`
 - Copy the contents of [Project Root]/node_modules/backstrap-server/user_files/ and paste them to [Project Root]/
-- Open [Project Root]/config/config.local.js 
+- Open [Project Root]/dbconfig/dbconfig.local.js 
     - Enter the name of your db user 
     - Enter the database to use
     - Enter the password for that db/user pair.
@@ -246,7 +246,40 @@ Settings.json — Configuration file with general server settings such as sessio
 utilities_ext.js — Extension file for utilities.js
 utilities.js — Core file with general functions useful across all controllers
 ```
+Check your package.json file to make sure the npm start script will run `node BackstrapServer.js`.  
+Run `npm start` to launch the server.
 
+### Using npm:
+In general, this is the preferred method for using Backstrap Server.  It will keep your project root clean and allows for easy updates to the core system.
+
+From your blank project root, run `npm install -s backstrap-server`.
+Navigate to [PROJECT ROOT]/node_modules/backstrap-server/user_files
+Copy all files from that directory and post them in your project root.
+Your project root should now look like this:
+```
+/.ebextensions — This hold scripts that will be used when deploying to Amazon's Elastic Beanstalk
+/dbconfig — Configuration files with connection information for the Postgresql database and default S3  bucket (if running the server in distributed mode—more on that later).
+/node_modules — Npm controlled directory with dependencies
+
+accessControl_ext.js — Extension file for accessControl.js
+dataAccess_ext.js — Extension file for dataAccess.js
+Endpoints.json — Extension/Configuration file holding info on endpoints you have defined (non-system-generated endpoints)
+expressSettings.js - includes function to configure Express directly (rather than through config files)
+index.js — Core main file.  Just kicks off the BackstrapServer.js code.
+onInit.js - custom startup script
+package.json — NPM configuration file
+Security.json — Configuration file for defining user roles and permissions
+Settings.json — Configuration file with general server settings such as session timeout and default port
+utilities_ext.js — Extension file for utilities.js
+```
+As you can see, the only files in the project root are Configuration and Extension files, so you are only presented with those files which you can edit.
+
+Just as with the git installation, you now need to set up the connection to your Postgresql database.  Using the file in /dbconfig that corresponds to your NODE_ENV environment variable (or using the default dbconfig.local.js file) fill in the required information to connect to the db.  See the section on installing with git for further information on the /dbconfig directory and files.
+Check that the start script in package.json runs `node index.js`
+Run `npm start` to launch the server.
+
+
+## Setup The DB Connections
 Before starting up the server, you'll need to add some connection info for the database you want Backstrap to use.  In the `/dbconfig` directory, you'll see three files:
 
 - dbconfig.development.js
@@ -265,43 +298,59 @@ module.exports = {
  }
 };
 ```
-Fill in the required information the database you plan to use.  Don't worry about setting up any tables, as Backstrap will spool up everything it needs automatically to get going (assuming your postgres user permissions permit this).
+Fill in the required information the database you plan to use.  Don't worry about setting up any tables, as Backstrap will spool up everything it needs automatically to get going (assuming your postgres user permissions permit this).  
 
-Check your package.json file to make sure the npm start script will run `node BackstrapServer.js`.  And finally run `npm start` to launch the server.
-
-
-### Using npm:
-In general, this is the preferred method for using Backstrap Server.  It will keep your project root clean and allows for easy updates to the core system.
-
-From your blank project root, run `npm install -s backstrap-server`.
-Navigate to [PROJECT ROOT]/node_modules/backstrap-server/user_files
-Copy all files from that directory and past them in your project root.
-Your project root should now look like this:
+The development and production config files also have parameters for SSL connections.  You can define paths for
 ```
-/.ebextensions — This hold scripts that will be used when deploying to Amazon's Elastic Beanstalk
-/config — Configuration files with connection information for the Postgresql database and default S3  bucket (if running the server in distributed mode—more on that later).
-/node_modules — Npm controlled directory with dependencies
-
-accessControl_ext.js — Extension file for accessControl.js
-dataAccess_ext.js — Extension file for dataAccess.js
-Endpoints.json — Extension/Configuration file holding info on endpoints you have defined (non-system-generated endpoints)
-expressSettings.js - includes function to configure Express directly (rather than through config files)
-index.js — Core main file.  Just kicks off the BackstrapServer.js code.
-onInit.js - custom startup script
-package.json — NPM configuration file
-Security.json — Configuration file for defining user roles and permissions
-Settings.json — Configuration file with general server settings such as session timeout and default port
-utilities_ext.js — Extension file for utilities.js
+ssl: {
+  ca: path/to/ca/pem,
+  key: path/to/key,
+  cert: path/to/cert/pem
+}
 ```
-As you can see, the only files in the project root are Configuration and Extension files, so you are only presented with those files which you can edit.
+The paths defined for SSL can be absolute or relative to your project root.  A common method of handling is to put the .pem in dbconfig and make the path 'dbconfig/yourfilehere'.
 
-Just as with the git installation, you now need to set up the connection to your Postgresql database.  Using the file in /config that corresponds to your NODE_ENV environment variable (or using the default config.local.js file) fill in the required information to connect to the db.  See the section on installing with git for further information on the /config directory and files.
-Check that the start script in package.json runs `node index.js`
-Run `npm start` to launch the server.
+If you need to access multiple databases, you can setup the configuration like this:
+```
+module.exports = {
+  db: [
+    // FIRST ENTRY IS THE DEFAULT DATABASE THAT HANDLES
+    // USERS, SESSIONS, ETC
+    {
+      user: process.env.DB_USER || '[YOUR DB USER HERE]',
+      name: process.env.DB_NAME || '[YOUR DB NAME HERE]',
+      pass: process.env.DB_PASS || '[YOUR DB PASSWORD HERE]',
+      host: process.env.DB_HOST || '[YOUR DB HOST URL]',
+      port: process.env.DB_PORT || '5432',
+      ssl: {
+        ca: process.env.DB_SSL_CA || null,
+        key: process.env.DB_SSL_KEY || null,
+        cert: process.env.DB_SSL_CERT || null
+      }
+    },
+    // SUBSEQUENT ENTRIES CREATE A NEW CONNECTION POOL
+    // TO OTHER DB'S
+    {
+      nickname: '[A NICKNAME USED TO SPECIFY THIS DB]',
+      user: '[YOUR DB2 USER HERE]',
+      name: '[YOUR DB2 NAME]',
+      pass: '[YOUR DB2 PASSWORD HERE]',
+      host: '[YOUR DB2 HOST HERE]',
+      port: '5432',
+      ssl: {
+        ca: null,
+        key: null,
+        cert: null
+      }
+    }
+  ]
+};
+```
+The first database in the array will function as your 'default' database which includes the internal framework tables.  All others will create a connection pool at startup and will be accessible via DataAccess.
 
 
 ## On First Launch:
-If Backstrap detects no users in the database, it assumes this is the initial launch and will automatically create a single user account with username `bsroot`.  This user has the role of `super-user` and can be used to bootstrap other admin/super-user accounts for you and your support team.  The password for this initial user is `abcd@1234`.
+Run `npm start` to launch the server.  If Backstrap detects no users in the database, it assumes this is the initial launch and will automatically create a single user account with username `bsroot`.  This user has the role of `super-user` and can be used to bootstrap other admin/super-user accounts for you and your support team.  The password for this initial user is `abcd@1234`.
 
 __CHANGE THIS PASSWORD IMMEDIATELY AND DO NOT DELETE THAT USER IN THE FUTURE!__
 
@@ -449,6 +498,67 @@ Upon resolve or reject of the promise in the method, Express will fire off the r
 __NOTE__: For authenticated requests, Backstrap will append to the req input a parameter named `this_user` which contains the basic account information on the user making the request.
 \
 &nbsp;
+
+## DataAccess
+DataAccess is the class used to connect and communicate with your Postgresql database.  It has a number of available functions, but the most useful handle general database controls.
+
+- `dataAccess.getDbConnection()` returns a connection from the pool of the default database.  You can pass the connection into runSql(), ExecutePostgresQuery(), and closeDbConnection() in order to execute queries on the same connection or close that connection when done.
+- `dataAccess.resolveDbConnection(conn)` checks if a connection to the default db is already valid and if not returns a new one using getDbConnection()
+- `dataAccess.startTransaction(dbSpecifier)` returns a connection from the pool associated with 'dbSpecifier' (or default if dbSpecifier is null) with a transaction already started.  Pass the returned connection into your runSql() or ExecutePostgresQuery() arguments in order to execute queries as part of a transaction.  You can also pass the connection into commitTransaction() or rollbackTransaction() 
+- `dataAccess.runSql(sqlStatement, sqlParams, connection, isStreaming, dbSpecifier)` runs arbitrary sql against the default database (or a secondary database if the 'dbSpecifier' is included).  Returns only the results of the query.  If connection is null, a new connection will be created for this single query and then the connection will be closed.  If the query results will be too large for a single payload, you can use 'isStreaming' to have the database stream the results back to the code.  If dbSpecifier is null or equals "default", the default database will be used. To specify another database, use the nickname or db name (if it is unique) to point the query at the correct database.
+- `dataAccess.ExecutePostgresQuery(sqlStatement, sqlParams, connection, isStreaming, dbSpecifier)` operates exactly the same way as dataAccess.runSql(), but this function returns a full db client connection.
+- `dataAccess.releaseConnection(connection)` closes a connection that was previously open.  If the connection was previous released, the function will just return successfully.  If the connection is transactional, the transaction will automatically be rolled back before closing the connection
+- `dataAccess.commitTransaction(connection)` commits the results of all queries that have been run on this connection/transaction
+- `dataAccess.rollbackTransaction(connection)` rolls back all results of queries performed on this connection/transaction.  Both runSql() and ExecutePostgresQuery() will automatically roll back the queries if they fail
+
+There is an alternate syntax for specifying the targetted database for a query.  By appending `dataAccess.dbs[dbSpecifier].` you can point any of the above functions at any of the databases described in your config file.  For example,
+```
+dataAccess.dbs['default'].runSql()
+dataAccess.dbs['db2'].runSql()
+```
+Using this syntax you can leave all 'dbSpecifier' arguments in the functions as null.
+
+Finally, DataAccess is also your entryway to data services which are discussed in other sections.
+
+
+## AccessControl
+AccessControl is injected into all controllers.  It contains general functions relating to users and permissions and can be useful when writing custom signIn(), signUp(), & forgotPassword().  Backstrap comes out of the box with endpoints to handle these functions (see `/common/accounts/accounts_1_0_0.js`), but your project may require specific actions or may not want to use the built-in email system.  The core actions taken in those endpoints (eg. create a new user) are executed via functions in AccessControl.  That means you can extend the functionality of these inherent system actions by calling those functions from within your code.
+
+`accessControl.createUser(userType, userData, apiToken)` in your sign up code in order to create a new user in the system.  When userType is null, it creates a standard user with typical user credentials.  If userType is 'api' it will create a user with a Key and a Secret to allow other systems to interact with authenticated requests in Backstrap.  User type 'external-api' is for authentication from other service providers.  The userData should look like:
+```
+{
+  'username': '[YOUR USERNAME]',
+  'email': '[YOUR EMAIL]',
+  'first': '',
+  'last': '',
+  'password': '',
+  'roles': ['default-user'],
+  'exid': '[IDENTIFIER FROM SERVICE PROVIDER IF NEEDED]'
+}
+```
+The apiToken is used to handle cases where an unauthenticated user takes some actions and then needs to be converted to an authenticated user.  
+If this call is successful, it will return a user object describing the new account.
+
+`accessControl.signIn(credData, apiToken)` is used to check the credentials of a user either by username/password or a JWT if the system is configured for an external auth service provider.  CredData looks like:
+```
+{
+  'username': '[YOUR USERNAME]',
+  'email': '[YOUR EMAIL]',
+  'password': '[YOUR PASSWORD]',
+  'token': '[JWT TOKEN FOR EXTERNAL SERVICE AUTH]'
+}
+```
+and 'apiToken' is an optional session token from an anonymous session as part of the system for converting unauthenticated users into fully authenticated.
+If successful, this function returns the user object.
+
+`accessControl.forgotPassword(email, username)` kicks off the forgot password functions by checking either by email or username to see if that user exists and if so, generates a token which can be used in a link and emailed to the address listed for that user to direct them to reset their password.
+If successful, this function returns:
+```
+{
+  user: {...},
+  token: '[SYSTEM GENERATED TOKEN]'
+}
+```
 
 ### Backstrap Error Object:
 In the method defined above, we are simply responding with the id argument supplied in the request.  But you can also see how we would return an error:
