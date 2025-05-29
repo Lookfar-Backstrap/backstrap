@@ -324,7 +324,7 @@ class AccessControl {
     });
   }
 
-  async fogotPassword(email, username) {
+  async forgotPassword(email, username) {
     return new Promise(async (resolve, reject) => {
       let userObj = null;
           this.dataAccess.findUser(null, username, email)
