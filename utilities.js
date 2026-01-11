@@ -632,7 +632,7 @@ class Utilities {
             ended_at: new Date()
           }
           var logEntry = JSON.stringify(dsObj)+'\n';
-          sessionLog.write(logEntry);
+          this.sessionLog.write(logEntry);
         }
     
         resolve();
