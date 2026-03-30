@@ -462,6 +462,9 @@ function requestPipeline(req, res, verb) {
       else if (results && results.status_code === 308 && results.redirect_url) {
         res.redirect(results.redirect_url);
       }
+      else if (results && results.stream === true && results.buffer) {
+        results.buffer.pipe(res);
+      }
       else {
         res.status(200).send(results);
       }
