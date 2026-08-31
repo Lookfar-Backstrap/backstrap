@@ -536,7 +536,7 @@ class ServiceRegistration {
               else if(arg.type==='array') {
                 if(typeof(inputArgs[arg.name])!=='object') {
                   try {
-                    var parsed = JSON.parse(inputArgs[arg.name]);
+                    let parsed = JSON.parse(inputArgs[arg.name]);
                     if(!Array.isArray(parsed)) {
                       isValid = false;
                       invalidArgs.push(arg.name);
@@ -554,7 +554,7 @@ class ServiceRegistration {
               else if(arg.type==='object') {
                 if(typeof(inputArgs[arg.name])!=='object') {
                   try {
-                    var parsed = JSON.parse(inputArgs[arg.name]);
+                    let parsed = JSON.parse(inputArgs[arg.name]);
                     if(typeof(parsed)!=='object') {
                       isValid = false;
                       invalidArgs.push(arg.name);
