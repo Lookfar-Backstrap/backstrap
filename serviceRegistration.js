@@ -535,16 +535,38 @@ class ServiceRegistration {
               }
               else if(arg.type==='array') {
                 if(typeof(inputArgs[arg.name])!=='object') {
-                  isValid = false;
-                  invalidArgs.push(arg.name);
-                  break;
+                  try {
+                    var parsed = JSON.parse(inputArgs[arg.name]);
+                    if(!Array.isArray(parsed)) {
+                      isValid = false;
+                      invalidArgs.push(arg.name);
+                      break;
+                    }
+                    inputArgs[arg.name] = parsed;
+                  }
+                  catch(err) {
+                    isValid = false;
+                      invalidArgs.push(arg.name);
+                      break;
+                  }
                 }
               }
               else if(arg.type==='object') {
                 if(typeof(inputArgs[arg.name])!=='object') {
-                  isValid = false;
-                  invalidArgs.push(arg.name);
-                  break;
+                  try {
+                    var parsed = JSON.parse(inputArgs[arg.name]);
+                    if(typeof(parsed)!=='object') {
+                      isValid = false;
+                      invalidArgs.push(arg.name);
+                      break;
+                    }
+                    inputArgs[arg.name] = parsed;
+                  }
+                  catch(err) {
+                    isValid = false;
+                      invalidArgs.push(arg.name);
+                      break;
+                  }
                 }
               }
               else if(arg.type==='boolean') {
